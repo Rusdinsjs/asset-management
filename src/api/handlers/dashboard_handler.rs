@@ -3,9 +3,10 @@
 use axum::{extract::State, Json};
 use rust_decimal::Decimal;
 use serde::Serialize;
-use sqlx::PgPool;
+
 use uuid::Uuid;
 
+use crate::api::server::AppState;
 use crate::shared::errors::AppError;
 
 #[derive(Serialize)]
@@ -59,8 +60,9 @@ pub struct RecentActivity {
 }
 
 pub async fn get_dashboard_stats(
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
 ) -> Result<Json<DashboardStats>, AppError> {
+    let pool = state.pool.clone();
     // Asset stats
     let asset_total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM assets")
         .fetch_one(&pool)
@@ -149,8 +151,9 @@ pub async fn get_dashboard_stats(
 }
 
 pub async fn get_recent_activities(
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
 ) -> Result<Json<Vec<RecentActivity>>, AppError> {
+    let pool = state.pool.clone();
     let activities: Vec<RecentActivity> =
         sqlx::query_as::<_, (String, Uuid, String, chrono::DateTime<chrono::Utc>)>(
             r#"
@@ -191,8 +194,9 @@ pub struct DepreciationSummary {
 }
 
 pub async fn get_depreciation_summary(
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
 ) -> Result<Json<DepreciationSummary>, AppError> {
+    let pool = state.pool.clone();
     let totals: (Decimal,) = sqlx::query_as(
         "SELECT COALESCE(SUM(purchase_price), 0) FROM assets WHERE purchase_price IS NOT NULL",
     )

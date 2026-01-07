@@ -29,6 +29,7 @@ pub struct AppState {
     pub sensor_service: SensorService,
     pub data_service: DataService,
     pub scheduler_service: SchedulerService,
+    pub pool: PgPool,
 }
 
 impl AppState {
@@ -72,6 +73,7 @@ impl AppState {
             sensor_service,
             data_service,
             scheduler_service,
+            pool,
         }
     }
 }

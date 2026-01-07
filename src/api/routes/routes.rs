@@ -115,6 +115,9 @@ pub fn create_router(state: AppState) -> Router {
             "/api/sensors/alerts/:id/acknowledge",
             post(acknowledge_alert),
         )
+        .route("/api/dashboard", get(get_dashboard_stats))
+        .route("/api/dashboard/activity", get(get_recent_activities))
+        .route("/api/dashboard/depreciation", get(get_depreciation_summary))
         .merge(crate::api::routes::data_routes::data_routes())
         .nest(
             "/api/mobile",
