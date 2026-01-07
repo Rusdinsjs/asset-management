@@ -1,0 +1,39 @@
+[package]
+name = "management-asset"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web Framework & Async
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors"] }
+
+# Database (SQLx) - using runtime checking mode
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls", 
+    "postgres", 
+    "chrono", 
+    "json",
+    "rust_decimal",
+    "uuid"
+] }
+
+# Data Handling
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Financial
+rust_decimal = { version = "1.35", features = ["serde-float"] }
+rust_decimal_macros = "1.35"
+
+# UUID
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Authentication
+jsonwebtoken = "9.0"
+argon2 = "0.5"
+
+# Environment
+dotenvy = "0.15"
