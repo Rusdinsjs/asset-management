@@ -35,7 +35,7 @@ pub struct CreateAssetRequest {
 }
 
 /// Update asset request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 pub struct UpdateAssetRequest {
     pub asset_code: Option<String>,
     pub name: Option<String>,

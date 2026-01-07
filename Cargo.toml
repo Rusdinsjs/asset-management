@@ -5,6 +5,9 @@ edition = "2021"
 description = "Asset Management Backend with DDD Architecture"
 authors = ["Developer"]
 
+default-run = "backend-ma"
+
+
 [dependencies]
 # Web Framework & Async
 axum = { version = "0.7", features = ["macros"] }
@@ -46,13 +49,20 @@ async-trait = "0.1"
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+deadpool-redis = "0.22.0"
+redis = { version = "0.32", features = ["tokio-comp", "json"] }
+csv = "1.4.0"
+tokio-cron-scheduler = "0.15.1"
 
 # Validation (optional, for future use)
 # validator = { version = "0.18", features = ["derive"] }
 
 [dev-dependencies]
+http-body-util = "0.1.3"
 # Testing
 tokio-test = "0.4"
+tower = { version = "0.5.2", features = ["util"] }
+tower-http = { version = "0.5", features = ["fs"] }
 
 [[bin]]
 name = "backend-ma"

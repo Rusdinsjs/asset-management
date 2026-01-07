@@ -139,6 +139,8 @@ pub struct AssetSummary {
     pub purchase_price: Option<Decimal>,
     pub category_id: Uuid,
     pub location_id: Option<Uuid>,
+    pub model: Option<String>,
+    pub serial_number: Option<String>,
 }
 
 /// Asset with joined data for detail view

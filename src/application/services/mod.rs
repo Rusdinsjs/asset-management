@@ -17,3 +17,7 @@ pub use notification_service::*;
 pub use rbac_service::*;
 pub use sensor_service::*;
 pub use work_order_service::*;
+pub mod data_service;
+pub use data_service::*;
+pub mod scheduler_service;
+pub use scheduler_service::*;

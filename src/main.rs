@@ -12,6 +12,9 @@ use backend_ma::shared::utils::jwt::JwtConfig;
 
 #[tokio::main]
 async fn main() {
+    // Load .env file
+    dotenvy::dotenv().ok();
+
     // Initialize logging
     tracing_subscriber::registry()
         .with(
@@ -44,6 +47,9 @@ async fn main() {
 
     // Create application state
     let state = AppState::new(pool, jwt_config);
+
+    // Start scheduler
+    let _ = state.scheduler_service.start().await;
 
     // Create application
     let app = create_app(state);

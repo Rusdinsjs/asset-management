@@ -61,11 +61,17 @@ impl IntoResponse for AppError {
                 "INVALID_STATE_TRANSITION",
                 format!("Cannot transition from '{}' to '{}'", from, to),
             ),
-            Self::Domain(DomainError::Unauthorized { action }) => (
-                StatusCode::FORBIDDEN,
-                "UNAUTHORIZED",
-                format!("Not authorized to: {}", action),
-            ),
+            Self::Domain(DomainError::Unauthorized { action }) => {
+                if action == "Invalid credentials" || action == "Account is disabled" {
+                    (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", action)
+                } else {
+                    (
+                        StatusCode::FORBIDDEN,
+                        "UNAUTHORIZED",
+                        format!("Not authorized to: {}", action),
+                    )
+                }
+            }
             Self::Domain(DomainError::Conflict { message }) => {
                 (StatusCode::CONFLICT, "CONFLICT", message)
             }

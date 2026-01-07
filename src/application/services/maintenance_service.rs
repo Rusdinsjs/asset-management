@@ -136,4 +136,10 @@ impl MaintenanceService {
                 message: e.to_string(),
             })
     }
+
+    /// Check upcoming maintenance (Background Task)
+    pub async fn check_upcoming_maintenance(&self) -> DomainResult<()> {
+        // Placeholder for background logic
+        Ok(())
+    }
 }

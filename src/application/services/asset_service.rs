@@ -9,15 +9,19 @@ use crate::domain::entities::{Asset, AssetHistory, AssetState, AssetSummary};
 use crate::domain::errors::{DomainError, DomainResult};
 use crate::infrastructure::repositories::AssetRepository;
 
+use crate::infrastructure::cache::{CacheJson, CacheKey, CacheOperations};
+use std::sync::Arc;
+
 /// Asset service for business logic
 #[derive(Clone)]
 pub struct AssetService {
     repository: AssetRepository,
+    cache: Arc<dyn CacheOperations>,
 }
 
 impl AssetService {
-    pub fn new(repository: AssetRepository) -> Self {
-        Self { repository }
+    pub fn new(repository: AssetRepository, cache: Arc<dyn CacheOperations>) -> Self {
+        Self { repository, cache }
     }
 
     /// List assets with pagination
@@ -47,15 +51,41 @@ impl AssetService {
     }
 
     /// Get asset by ID
+    /// Get asset by ID
     pub async fn get_by_id(&self, id: Uuid) -> DomainResult<Asset> {
-        self.repository
+        let cache_key = CacheKey::asset(&id);
+
+        // Try cache
+        if let Ok(Some(cached)) = self.cache.get_json::<Asset>(&cache_key).await {
+            return Ok(cached);
+        }
+
+        let asset = self
+            .repository
             .find_by_id(id)
             .await
             .map_err(|e| DomainError::ExternalServiceError {
                 service: "database".to_string(),
                 message: e.to_string(),
             })?
-            .ok_or_else(|| DomainError::not_found("Asset", id))
+            .ok_or_else(|| DomainError::not_found("Asset", id))?;
+
+        // Set cache
+        let _ = self.cache.set_json(&cache_key, &asset, None).await;
+
+        Ok(asset)
+    }
+
+    /// Get asset by Code
+    pub async fn get_by_code(&self, code: &str) -> DomainResult<Asset> {
+        self.repository
+            .find_by_code(code)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?
+            .ok_or_else(|| DomainError::not_found("Asset", code))
     }
 
     /// Search assets
@@ -221,13 +251,17 @@ impl AssetService {
             asset.notes = Some(n);
         }
 
-        self.repository
-            .update(&asset)
-            .await
-            .map_err(|e| DomainError::ExternalServiceError {
+        let result = self.repository.update(&asset).await.map_err(|e| {
+            DomainError::ExternalServiceError {
                 service: "database".to_string(),
                 message: e.to_string(),
-            })
+            }
+        })?;
+
+        // Invalidate cache
+        let _ = self.cache.delete(&CacheKey::asset(&id)).await;
+
+        Ok(result)
     }
 
     /// Change asset state
@@ -267,13 +301,21 @@ impl AssetService {
 
     /// Delete asset
     pub async fn delete(&self, id: Uuid) -> DomainResult<bool> {
-        self.repository
-            .delete(id)
-            .await
-            .map_err(|e| DomainError::ExternalServiceError {
-                service: "database".to_string(),
-                message: e.to_string(),
-            })
+        let result =
+            self.repository
+                .delete(id)
+                .await
+                .map_err(|e| DomainError::ExternalServiceError {
+                    service: "database".to_string(),
+                    message: e.to_string(),
+                })?;
+
+        if result {
+            // Invalidate cache
+            let _ = self.cache.delete(&CacheKey::asset(&id)).await;
+        }
+
+        Ok(result)
     }
 
     /// Get asset history

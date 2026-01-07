@@ -1,0 +1,81 @@
+import { AppShell, Burger, Group, Title, NavLink, Text } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import {
+    IconDashboard,
+    IconBox,
+    IconTool,
+    IconUsers,
+    IconLogout,
+    IconChartBar
+} from '@tabler/icons-react';
+import { useNavigate, Outlet, useLocation } from 'react-router-dom';
+import { useAuthStore } from '../../store/useAuthStore';
+
+export function MainLayout() {
+    const [opened, { toggle }] = useDisclosure();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const logout = useAuthStore((state) => state.logout);
+    const user = useAuthStore((state) => state.user);
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
+
+    const navItems = [
+        { label: 'Dashboard', icon: IconDashboard, path: '/' },
+        { label: 'Assets', icon: IconBox, path: '/assets' },
+        { label: 'Work Orders', icon: IconTool, path: '/work-orders' },
+        { label: 'Reports', icon: IconChartBar, path: '/reports' },
+        { label: 'Users', icon: IconUsers, path: '/users' },
+    ];
+
+    return (
+        <AppShell
+            header={{ height: 60 }}
+            navbar={{
+                width: 300,
+                breakpoint: 'sm',
+                collapsed: { mobile: !opened },
+            }}
+            padding="md"
+        >
+            <AppShell.Header>
+                <Group h="100%" px="md">
+                    <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+                    <Title order={3}>Asset Manager</Title>
+                    <Text ml="auto" size="sm">{user?.name}</Text>
+                </Group>
+            </AppShell.Header>
+
+            <AppShell.Navbar p="md">
+                {navItems.map((item) => (
+                    <NavLink
+                        key={item.path}
+                        label={item.label}
+                        leftSection={<item.icon size="1rem" stroke={1.5} />}
+                        active={location.pathname === item.path}
+                        onClick={() => {
+                            navigate(item.path);
+                            if (window.innerWidth < 768) toggle();
+                        }}
+                    />
+                ))}
+
+                <NavLink
+                    label="Logout"
+                    leftSection={<IconLogout size="1rem" stroke={1.5} />}
+                    color="red"
+                    variant="subtle"
+                    mt="auto"
+                    onClick={handleLogout}
+                />
+            </AppShell.Navbar>
+
+            <AppShell.Main>
+                <Outlet />
+            </AppShell.Main>
+        </AppShell>
+    );
+}

@@ -94,6 +94,16 @@ impl LoanService {
             })
     }
 
+    /// List loans by user
+    pub async fn list_by_user(&self, user_id: Uuid) -> DomainResult<Vec<Loan>> {
+        self.loan_repo.list_by_borrower(user_id).await.map_err(|e| {
+            DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            }
+        })
+    }
+
     /// Approve loan
     pub async fn approve(&self, id: Uuid, approver_id: Uuid) -> DomainResult<Loan> {
         let loan = self.get_by_id(id).await?;
@@ -177,5 +187,11 @@ impl LoanService {
             .await;
 
         self.get_by_id(id).await
+    }
+
+    /// Check and update overdue loans (Background Task)
+    pub async fn check_overdue_loans(&self) -> DomainResult<()> {
+        // Placeholder for background logic
+        Ok(())
     }
 }

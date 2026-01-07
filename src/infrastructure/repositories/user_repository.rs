@@ -16,17 +16,35 @@ impl UserRepository {
     }
 
     pub async fn find_by_id(&self, id: Uuid) -> Result<Option<User>, sqlx::Error> {
-        sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
+        sqlx::query_as::<_, User>(
+            r#"
+            SELECT 
+                id, email, password_hash, name, role, department_id, organization_id,
+                NULL::text as phone, NULL::text as avatar_url,
+                is_active, false as email_verified, NULL::timestamptz as last_login_at,
+                created_at, updated_at
+            FROM users WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn find_by_email(&self, email: &str) -> Result<Option<User>, sqlx::Error> {
-        sqlx::query_as::<_, User>("SELECT * FROM users WHERE email = $1")
-            .bind(email)
-            .fetch_optional(&self.pool)
-            .await
+        sqlx::query_as::<_, User>(
+            r#"
+            SELECT 
+                id, email, password_hash, name, role, department_id, organization_id,
+                NULL::text as phone, NULL::text as avatar_url,
+                is_active, false as email_verified, NULL::timestamptz as last_login_at,
+                created_at, updated_at
+            FROM users WHERE email = $1
+            "#,
+        )
+        .bind(email)
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn list(&self, limit: i64, offset: i64) -> Result<Vec<UserSummary>, sqlx::Error> {
@@ -47,9 +65,13 @@ impl UserRepository {
     pub async fn create(&self, user: &User) -> Result<User, sqlx::Error> {
         sqlx::query_as::<_, User>(
             r#"
-            INSERT INTO users (id, email, password_hash, name, role, department_id, is_active)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING *
+            INSERT INTO users (id, email, password_hash, name, role, department_id, organization_id, is_active)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING 
+                id, email, password_hash, name, role, department_id, organization_id,
+                NULL::text as phone, NULL::text as avatar_url,
+                is_active, false as email_verified, NULL::timestamptz as last_login_at,
+                created_at, updated_at
             "#,
         )
         .bind(user.id)
@@ -58,13 +80,14 @@ impl UserRepository {
         .bind(&user.name)
         .bind(&user.role)
         .bind(user.department_id)
+        .bind(user.organization_id)
         .bind(user.is_active)
         .fetch_one(&self.pool)
         .await
     }
 
     pub async fn update_last_login(&self, id: Uuid) -> Result<(), sqlx::Error> {
-        sqlx::query("UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1")
+        sqlx::query("UPDATE users SET updated_at = NOW() WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
             .await?;

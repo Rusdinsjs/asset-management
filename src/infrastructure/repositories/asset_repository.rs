@@ -66,7 +66,7 @@ impl AssetRepository {
     pub async fn list(&self, limit: i64, offset: i64) -> Result<Vec<AssetSummary>, sqlx::Error> {
         sqlx::query_as::<_, AssetSummary>(
             r#"
-            SELECT id, asset_code, name, status, asset_class, brand, purchase_price, category_id, location_id
+            SELECT id, asset_code, name, status, asset_class, brand, purchase_price, category_id, location_id, model, serial_number
             FROM assets
             ORDER BY created_at DESC
             LIMIT $1 OFFSET $2
@@ -98,7 +98,7 @@ impl AssetRepository {
     ) -> Result<Vec<AssetSummary>, sqlx::Error> {
         sqlx::query_as::<_, AssetSummary>(
             r#"
-            SELECT id, asset_code, name, status, asset_class, brand, purchase_price, category_id, location_id
+            SELECT id, asset_code, name, status, asset_class, brand, purchase_price, category_id, location_id, model, serial_number
             FROM assets
             WHERE 
                 ($1 = '' OR name ILIKE '%' || $1 || '%' OR asset_code ILIKE '%' || $1 || '%' OR serial_number ILIKE '%' || $1 || '%')

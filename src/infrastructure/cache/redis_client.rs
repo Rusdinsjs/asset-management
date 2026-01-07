@@ -2,6 +2,8 @@
 //!
 //! Redis cache client for session management, caching, and rate limiting.
 
+use deadpool_redis::{Config, Runtime};
+use redis::AsyncCommands;
 use serde::{de::DeserializeOwned, Serialize};
 use std::time::Duration;
 
@@ -43,36 +45,6 @@ impl RedisConfig {
     }
 }
 
-/// Redis cache operations trait
-///
-/// Note: This is a trait definition. Implementation requires adding `redis` crate to Cargo.toml
-/// For now, we provide a mock implementation for development.
-#[async_trait::async_trait]
-pub trait CacheOperations: Send + Sync {
-    /// Get a value from cache
-    async fn get<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>, CacheError>;
-
-    /// Set a value in cache with TTL
-    async fn set<T: Serialize + Send + Sync>(
-        &self,
-        key: &str,
-        value: &T,
-        ttl: Option<Duration>,
-    ) -> Result<(), CacheError>;
-
-    /// Delete a value from cache
-    async fn delete(&self, key: &str) -> Result<(), CacheError>;
-
-    /// Check if key exists
-    async fn exists(&self, key: &str) -> Result<bool, CacheError>;
-
-    /// Increment a counter (for rate limiting)
-    async fn incr(&self, key: &str, ttl: Duration) -> Result<i64, CacheError>;
-
-    /// Set with expiry if not exists (for distributed locks)
-    async fn set_nx(&self, key: &str, value: &str, ttl: Duration) -> Result<bool, CacheError>;
-}
-
 /// Cache error types
 #[derive(Debug)]
 pub enum CacheError {
@@ -97,47 +69,53 @@ impl std::fmt::Display for CacheError {
 
 impl std::error::Error for CacheError {}
 
-/// In-memory cache for development/testing (no Redis dependency)
-pub struct InMemoryCache {
-    store: std::sync::RwLock<
-        std::collections::HashMap<String, (String, std::time::Instant, Duration)>,
-    >,
-    default_ttl: Duration,
+/// Redis cache operations trait (Object-Safe)
+#[async_trait::async_trait]
+pub trait CacheOperations: Send + Sync {
+    async fn get_raw(&self, key: &str) -> Result<Option<String>, CacheError>;
+    async fn set_raw(
+        &self,
+        key: &str,
+        value: &str,
+        ttl: Option<Duration>,
+    ) -> Result<(), CacheError>;
+    async fn delete(&self, key: &str) -> Result<(), CacheError>;
+    async fn exists(&self, key: &str) -> Result<bool, CacheError>;
+    async fn incr(&self, key: &str, ttl: Duration) -> Result<i64, CacheError>;
+    async fn set_nx(
+        &self,
+        key: &str,
+        value: &str,
+        ttl: Option<Duration>,
+    ) -> Result<bool, CacheError>;
 }
 
-impl InMemoryCache {
-    pub fn new(default_ttl: Duration) -> Self {
-        Self {
-            store: std::sync::RwLock::new(std::collections::HashMap::new()),
-            default_ttl,
-        }
-    }
-
-    pub fn default() -> Self {
-        Self::new(Duration::from_secs(3600))
-    }
+/// Helper trait for typed access
+#[async_trait::async_trait]
+pub trait CacheJson {
+    async fn get_json<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>, CacheError>;
+    async fn set_json<T: Serialize + Send + Sync>(
+        &self,
+        key: &str,
+        value: &T,
+        ttl: Option<Duration>,
+    ) -> Result<(), CacheError>;
 }
 
 #[async_trait::async_trait]
-impl CacheOperations for InMemoryCache {
-    async fn get<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>, CacheError> {
-        let store = self
-            .store
-            .read()
-            .map_err(|e| CacheError::OperationError(e.to_string()))?;
-
-        if let Some((value, created, ttl)) = store.get(key) {
-            if created.elapsed() < *ttl {
-                let parsed: T = serde_json::from_str(value)
+impl<C: CacheOperations + ?Sized> CacheJson for C {
+    async fn get_json<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>, CacheError> {
+        match self.get_raw(key).await? {
+            Some(v) => {
+                let parsed: T = serde_json::from_str(&v)
                     .map_err(|e| CacheError::DeserializationError(e.to_string()))?;
-                return Ok(Some(parsed));
+                Ok(Some(parsed))
             }
+            None => Ok(None),
         }
-
-        Ok(None)
     }
 
-    async fn set<T: Serialize + Send + Sync>(
+    async fn set_json<T: Serialize + Send + Sync>(
         &self,
         key: &str,
         value: &T,
@@ -145,87 +123,150 @@ impl CacheOperations for InMemoryCache {
     ) -> Result<(), CacheError> {
         let json = serde_json::to_string(value)
             .map_err(|e| CacheError::SerializationError(e.to_string()))?;
+        self.set_raw(key, &json, ttl).await
+    }
+}
 
-        let mut store = self
-            .store
-            .write()
+/// Real Redis cache implementation
+#[derive(Clone)]
+pub struct RedisCache {
+    pool: deadpool_redis::Pool,
+    default_ttl: Duration,
+}
+
+impl RedisCache {
+    pub fn new(config: &RedisConfig) -> Self {
+        let mut cfg = Config::from_url(&config.url);
+        cfg.pool = Some(deadpool_redis::PoolConfig::new(config.pool_size as usize));
+
+        let pool = cfg
+            .create_pool(Some(Runtime::Tokio1))
+            .expect("Failed to create Redis pool");
+
+        Self {
+            pool,
+            default_ttl: config.default_ttl,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl CacheOperations for RedisCache {
+    async fn get_raw(&self, key: &str) -> Result<Option<String>, CacheError> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| CacheError::ConnectionError(e.to_string()))?;
+        let value: Option<String> = conn
+            .get(key)
+            .await
             .map_err(|e| CacheError::OperationError(e.to_string()))?;
-        store.insert(
-            key.to_string(),
-            (
-                json,
-                std::time::Instant::now(),
-                ttl.unwrap_or(self.default_ttl),
-            ),
-        );
+        Ok(value)
+    }
 
+    async fn set_raw(
+        &self,
+        key: &str,
+        value: &str,
+        ttl: Option<Duration>,
+    ) -> Result<(), CacheError> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| CacheError::ConnectionError(e.to_string()))?;
+        let ttl_secs = ttl.unwrap_or(self.default_ttl).as_secs();
+
+        // Use set_ex for atomic set with expiry
+        let _: () = conn
+            .set_ex(key, value, ttl_secs)
+            .await
+            .map_err(|e| CacheError::OperationError(e.to_string()))?;
         Ok(())
     }
 
     async fn delete(&self, key: &str) -> Result<(), CacheError> {
-        let mut store = self
-            .store
-            .write()
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| CacheError::ConnectionError(e.to_string()))?;
+        let _: () = conn
+            .del(key)
+            .await
             .map_err(|e| CacheError::OperationError(e.to_string()))?;
-        store.remove(key);
         Ok(())
     }
 
     async fn exists(&self, key: &str) -> Result<bool, CacheError> {
-        let store = self
-            .store
-            .read()
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| CacheError::ConnectionError(e.to_string()))?;
+        let result: bool = conn
+            .exists(key)
+            .await
             .map_err(|e| CacheError::OperationError(e.to_string()))?;
-
-        if let Some((_, created, ttl)) = store.get(key) {
-            return Ok(created.elapsed() < *ttl);
-        }
-
-        Ok(false)
+        Ok(result)
     }
 
     async fn incr(&self, key: &str, ttl: Duration) -> Result<i64, CacheError> {
-        let mut store = self
-            .store
-            .write()
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| CacheError::ConnectionError(e.to_string()))?;
+
+        // Atomic increment
+        let count: i64 = conn
+            .incr(key, 1)
+            .await
             .map_err(|e| CacheError::OperationError(e.to_string()))?;
 
-        let count = if let Some((value, created, _)) = store.get(key) {
-            if created.elapsed() < ttl {
-                value.parse::<i64>().unwrap_or(0) + 1
-            } else {
-                1
-            }
-        } else {
-            1
-        };
-
-        store.insert(
-            key.to_string(),
-            (count.to_string(), std::time::Instant::now(), ttl),
-        );
+        // If first increment, set expiry
+        if count == 1 {
+            let _: () = conn
+                .expire(key, ttl.as_secs() as i64)
+                .await
+                .map_err(|e| CacheError::OperationError(e.to_string()))?;
+        }
 
         Ok(count)
     }
 
-    async fn set_nx(&self, key: &str, value: &str, ttl: Duration) -> Result<bool, CacheError> {
-        let mut store = self
-            .store
-            .write()
+    async fn set_nx(
+        &self,
+        key: &str,
+        value: &str,
+        ttl: Option<Duration>,
+    ) -> Result<bool, CacheError> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| CacheError::ConnectionError(e.to_string()))?;
+
+        // Use low-level command for SET NX EX (Set if Not Exists with Expiry)
+        // Command: SET key value NX EX seconds
+        let ttl_secs = ttl.unwrap_or(self.default_ttl).as_secs();
+
+        // Note: redis crate `set_nx` returns a bool (0 or 1).
+        // But for atomic NX + EX we need `cmd("SET")`.
+
+        let result: Option<String> = redis::cmd("SET")
+            .arg(key)
+            .arg(value)
+            .arg("NX")
+            .arg("EX")
+            .arg(ttl_secs)
+            .query_async(&mut conn)
+            .await
             .map_err(|e| CacheError::OperationError(e.to_string()))?;
 
-        // Check if key exists and is not expired
-        if let Some((_, created, existing_ttl)) = store.get(key) {
-            if created.elapsed() < *existing_ttl {
-                return Ok(false); // Key exists, don't set
-            }
-        }
-
-        store.insert(
-            key.to_string(),
-            (value.to_string(), std::time::Instant::now(), ttl),
-        );
-        Ok(true)
+        // If result is OK (Some("OK")), it was set. If None/Null, it wasn't.
+        Ok(result.is_some())
     }
 }
 
@@ -246,15 +287,5 @@ impl CacheKey {
     /// User session cache key
     pub fn user_session(user_id: &uuid::Uuid) -> String {
         format!("session:{}", user_id)
-    }
-
-    /// Rate limit cache key
-    pub fn rate_limit(user_id: &uuid::Uuid, endpoint: &str) -> String {
-        format!("ratelimit:{}:{}", user_id, endpoint)
-    }
-
-    /// JWT token blacklist
-    pub fn token_blacklist(jti: &str) -> String {
-        format!("token:blacklist:{}", jti)
     }
 }

@@ -115,6 +115,11 @@ pub fn create_router(state: AppState) -> Router {
             "/api/sensors/alerts/:id/acknowledge",
             post(acknowledge_alert),
         )
+        .merge(crate::api::routes::data_routes::data_routes())
+        .nest(
+            "/api/mobile",
+            crate::api::routes::mobile_routes::mobile_routes(state.clone()),
+        )
         .layer(axum_middleware::from_fn(auth_middleware));
 
     Router::new()
