@@ -1,15 +1,17 @@
 [package]
-name = "management-asset"
+name = "backend-ma"
 version = "0.1.0"
 edition = "2021"
+description = "Asset Management Backend with DDD Architecture"
+authors = ["Developer"]
 
 [dependencies]
 # Web Framework & Async
-axum = "0.7"
+axum = { version = "0.7", features = ["macros"] }
 tokio = { version = "1.0", features = ["full"] }
-tower-http = { version = "0.5", features = ["cors"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
 
-# Database (SQLx) - using runtime checking mode
+# Database (SQLx)
 sqlx = { version = "0.7", features = [
     "runtime-tokio-rustls", 
     "postgres", 
@@ -37,3 +39,21 @@ argon2 = "0.5"
 
 # Environment
 dotenvy = "0.15"
+
+# Async traits
+async-trait = "0.1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Validation (optional, for future use)
+# validator = { version = "0.18", features = ["derive"] }
+
+[dev-dependencies]
+# Testing
+tokio-test = "0.4"
+
+[[bin]]
+name = "backend-ma"
+path = "src/main.rs"

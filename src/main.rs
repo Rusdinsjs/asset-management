@@ -1,25 +1,34 @@
-mod config;
-mod handlers;
-mod middleware;
-mod models;
-mod utils;
+//! Asset Management Backend Server
+//!
+//! Entry point for the asset management backend application.
 
-use axum::{
-    middleware as axum_middleware,
-    routing::{get, post},
-    Router,
-};
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
-use tower_http::cors::CorsLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::config::AppConfig;
-use crate::handlers::*;
-use crate::middleware::auth_middleware;
+use backend_ma::api::{create_app, AppState};
+use backend_ma::shared::config::AppConfig;
+use backend_ma::shared::utils::jwt::JwtConfig;
 
 #[tokio::main]
 async fn main() {
+    // Initialize logging
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "backend_ma=debug,tower_http=debug".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    // Load configuration
     let config = AppConfig::from_env();
+
+    tracing::info!(
+        "Starting Asset Management Backend v{}",
+        env!("CARGO_PKG_VERSION")
+    );
+    tracing::info!("Environment: {}", config.environment);
 
     // Database connection pool
     let pool = PgPoolOptions::new()
@@ -28,90 +37,27 @@ async fn main() {
         .await
         .expect("Failed to connect to database");
 
-    // Public routes (no auth required)
-    let public_routes = Router::new()
-        .route("/health", get(health_check))
-        .route("/api/auth/login", post(login));
+    tracing::info!("Database connected successfully");
 
-    // Lookup routes (no auth for simplicity, can be protected later)
-    let lookup_routes = Router::new()
-        .route("/api/lookups/currencies", get(list_currencies))
-        .route("/api/lookups/units", get(list_units))
-        .route("/api/lookups/conditions", get(list_asset_conditions))
-        .route(
-            "/api/lookups/maintenance-types",
-            get(list_maintenance_types),
-        );
+    // JWT configuration
+    let jwt_config = JwtConfig::new(config.jwt_secret.clone(), config.jwt_expiry_hours);
 
-    // Protected routes (require auth)
-    let protected_routes = Router::new()
-        // Categories
-        .route(
-            "/api/categories",
-            get(list_categories).post(create_category),
-        )
-        .route(
-            "/api/categories/:id",
-            get(get_category)
-                .put(update_category)
-                .delete(delete_category),
-        )
-        // Locations
-        .route("/api/locations", get(list_locations).post(create_location))
-        .route(
-            "/api/locations/:id",
-            get(get_location)
-                .put(update_location)
-                .delete(delete_location),
-        )
-        // Vendors
-        .route("/api/vendors", get(list_vendors).post(create_vendor))
-        .route(
-            "/api/vendors/:id",
-            get(get_vendor).put(update_vendor).delete(delete_vendor),
-        )
-        // Assets
-        .route("/api/assets", get(list_assets).post(create_asset))
-        .route(
-            "/api/assets/:id",
-            get(get_asset).put(update_asset).delete(delete_asset),
-        )
-        // Maintenance
-        .route(
-            "/api/maintenance",
-            get(list_maintenance).post(create_maintenance),
-        )
-        .route(
-            "/api/maintenance/:id",
-            get(get_maintenance)
-                .put(update_maintenance)
-                .delete(delete_maintenance),
-        )
-        .layer(axum_middleware::from_fn(auth_middleware));
+    // Create application state
+    let state = AppState::new(pool, jwt_config);
 
-    // Combine all routes
-    let app = Router::new()
-        .merge(public_routes)
-        .merge(lookup_routes)
-        .merge(protected_routes)
-        .layer(CorsLayer::permissive())
-        .with_state(pool);
+    // Create application
+    let app = create_app(state);
 
+    // Start server
     let addr: SocketAddr = format!("{}:{}", config.server_host, config.server_port)
         .parse()
         .expect("Invalid server address");
 
-    println!("🚀 Asset Management API running on http://{}", addr);
-    println!("📖 API Endpoints:");
-    println!("   - GET  /health");
-    println!("   - POST /api/auth/login");
-    println!("   - GET  /api/lookups/*");
-    println!("   - CRUD /api/categories");
-    println!("   - CRUD /api/locations");
-    println!("   - CRUD /api/vendors");
-    println!("   - CRUD /api/assets");
-    println!("   - CRUD /api/maintenance");
+    tracing::info!("Server listening on http://{}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .expect("Failed to bind to address");
+
+    axum::serve(listener, app).await.expect("Server error");
 }
