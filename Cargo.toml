@@ -1,11 +1,11 @@
 [package]
-name = "backend-ma"
+name = "asset-management"
 version = "0.1.0"
 edition = "2021"
 description = "Asset Management Backend with DDD Architecture"
 authors = ["Developer"]
 
-default-run = "backend-ma"
+default-run = "asset-management"
 
 
 [dependencies]
@@ -65,5 +65,5 @@ tower = { version = "0.5.2", features = ["util"] }
 tower-http = { version = "0.5", features = ["fs"] }
 
 [[bin]]
-name = "backend-ma"
+name = "asset-management"
 path = "src/main.rs"

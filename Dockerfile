@@ -30,7 +30,7 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates libgcc
 
 # Copy the binary
-COPY --from=builder /app/target/release/backend-ma /app/backend-ma
+COPY --from=builder /app/target/release/asset-management /app/asset-management
 COPY --from=builder /app/migrations /app/migrations
 
 # Create non-root user
@@ -46,4 +46,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Run the binary
-CMD ["./backend-ma"]
+CMD ["./asset-management"]
