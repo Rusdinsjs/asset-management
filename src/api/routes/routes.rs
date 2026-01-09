@@ -174,6 +174,53 @@ pub fn create_router(state: AppState) -> Router {
             "/api/audit/sessions/:id/progress",
             get(audit_handler::get_audit_progress),
         )
+        // Lifecycle routes
+        .route(
+            "/api/assets/:id/lifecycle/transition",
+            post(lifecycle_handler::transition_asset),
+        )
+        .route(
+            "/api/assets/:id/lifecycle/history",
+            get(lifecycle_handler::get_lifecycle_history),
+        )
+        .route(
+            "/api/assets/:id/lifecycle/valid-transitions",
+            get(lifecycle_handler::get_valid_transitions),
+        )
+        .route(
+            "/api/lifecycle/states",
+            get(lifecycle_handler::get_all_states),
+        )
+        // Conversion routes
+        .route(
+            "/api/assets/:id/conversion-requests",
+            post(conversion_handler::create_conversion_request)
+                .get(conversion_handler::get_asset_conversions),
+        )
+        .route(
+            "/api/conversion-requests/pending",
+            get(conversion_handler::get_pending_conversions),
+        )
+        .route(
+            "/api/conversion-requests/:id",
+            get(conversion_handler::get_conversion),
+        )
+        .route(
+            "/api/conversion-requests/:id/approve",
+            put(conversion_handler::approve_conversion),
+        )
+        .route(
+            "/api/conversion-requests/:id/reject",
+            put(conversion_handler::reject_conversion),
+        )
+        .route(
+            "/api/conversion-requests/:id/execute",
+            post(conversion_handler::execute_conversion),
+        )
+        .route(
+            "/api/conversion-requests/:id/complete",
+            post(conversion_handler::complete_conversion),
+        )
         .merge(crate::api::routes::data_routes::data_routes())
         .merge(crate::api::routes::maintenance_routes::routes())
         .merge(crate::api::routes::approval_routes::approval_routes(

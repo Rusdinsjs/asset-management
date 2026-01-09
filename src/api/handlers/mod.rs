@@ -5,9 +5,11 @@ pub mod asset_handler;
 pub mod audit_handler; // Added
 pub mod auth_handler;
 pub mod category_handler;
+pub mod conversion_handler;
 pub mod dashboard_handler;
 pub mod data_handler;
 pub mod health_handler;
+pub mod lifecycle_handler;
 pub mod loan_handler;
 pub mod lookup_handler;
 pub mod maintenance_handler;

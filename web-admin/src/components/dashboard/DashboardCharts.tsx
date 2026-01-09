@@ -33,13 +33,13 @@ export function DashboardCharts({ categoryDistribution, statusDistribution }: Da
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg" mb="lg">
             <Paper withBorder p="md" radius="md">
                 <Text size="lg" fw={600} mb="xl">Assets by Category (Value)</Text>
-                <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', width: '100%', minHeight: 300 }}>
                     <DonutChart
                         data={categoryData}
                         withLabelsLine
                         withLabels
                         tooltipDataSource="segment"
-                        w="100%"
+                        h={280}
                     />
                 </div>
             </Paper>

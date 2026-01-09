@@ -16,12 +16,13 @@ import {
     Text,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconSearch, IconPlus, IconEdit, IconTrash } from '@tabler/icons-react';
+import { IconSearch, IconPlus, IconEdit, IconTrash, IconRefresh } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { assetApi } from '../api/assets';
 import type { Asset, CreateAssetRequest } from '../api/assets';
 import { api } from '../api/client';
 import { AssetForm } from './AssetForm';
+import { useNavigate } from 'react-router-dom';
 
 // Helper to flatten category tree
 const flattenCategories = (nodes: any[], prefix = ''): any[] => {
@@ -38,6 +39,7 @@ const flattenCategories = (nodes: any[], prefix = ''): any[] => {
 
 export function Assets() {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [debouncedSearch] = useDebouncedValue(search, 500);
@@ -206,6 +208,14 @@ export function Assets() {
                                     </Table.Td>
                                     <Table.Td>
                                         <Group gap={4}>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                color="violet"
+                                                onClick={() => navigate(`/assets/${asset.id}/lifecycle`)}
+                                                title="Manage Lifecycle"
+                                            >
+                                                <IconRefresh size={16} />
+                                            </ActionIcon>
                                             <ActionIcon variant="subtle" color="blue" onClick={() => handleEdit(asset)}>
                                                 <IconEdit size={16} />
                                             </ActionIcon>

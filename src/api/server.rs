@@ -6,15 +6,15 @@ use tower_http::services::ServeDir;
 
 use crate::api::routes::create_router;
 use crate::application::services::{
-    ApprovalService, AssetService, AuditService, AuthService, CategoryService, DataService,
-    LoanService, MaintenanceService, NotificationService, RbacService, ReportService,
-    SchedulerService, SensorService, UserService, WorkOrderService,
+    ApprovalService, AssetService, AuditService, AuthService, CategoryService, ConversionService,
+    DataService, LifecycleService, LoanService, MaintenanceService, NotificationService,
+    RbacService, ReportService, SchedulerService, SensorService, UserService, WorkOrderService,
 };
 use crate::infrastructure::cache::{CacheOperations, RedisCache, RedisConfig};
 use crate::infrastructure::repositories::{
-    ApprovalRepository, AssetRepository, AuditRepository, CategoryRepository, LoanRepository,
-    MaintenanceRepository, NotificationRepository, RbacRepository, SensorRepository,
-    UserRepository, WorkOrderRepository,
+    ApprovalRepository, AssetRepository, AuditRepository, CategoryRepository, ConversionRepository,
+    LifecycleRepository, LoanRepository, MaintenanceRepository, NotificationRepository,
+    RbacRepository, SensorRepository, UserRepository, WorkOrderRepository,
 };
 use crate::shared::utils::jwt::JwtConfig;
 use std::sync::Arc;
@@ -25,8 +25,10 @@ pub struct AppState {
     pub asset_service: AssetService,
     pub auth_service: AuthService,
     pub approval_service: ApprovalService,
-    pub audit_service: AuditService, // Added
+    pub audit_service: AuditService,
     pub category_service: CategoryService,
+    pub conversion_service: ConversionService,
+    pub lifecycle_service: LifecycleService,
     pub loan_service: LoanService,
     pub maintenance_service: MaintenanceService,
     pub work_order_service: WorkOrderService,
@@ -35,8 +37,8 @@ pub struct AppState {
     pub sensor_service: SensorService,
     pub data_service: DataService,
     pub scheduler_service: SchedulerService,
-    pub user_service: UserService,     // Added
-    pub report_service: ReportService, // Added
+    pub user_service: UserService,
+    pub report_service: ReportService,
     pub pool: PgPool,
 }
 
@@ -52,7 +54,9 @@ impl AppState {
         let notification_repo = NotificationRepository::new(pool.clone());
         let rbac_repo = RbacRepository::new(pool.clone());
         let approval_repo = ApprovalRepository::new(pool.clone());
-        let audit_repo = AuditRepository::new(pool.clone()); // Added
+        let audit_repo = AuditRepository::new(pool.clone());
+        let lifecycle_repo = LifecycleRepository::new(pool.clone());
+        let conversion_repo = ConversionRepository::new(pool.clone());
         let sensor_repo = SensorRepository::new(pool.clone());
 
         // Create cache
@@ -83,12 +87,16 @@ impl AppState {
             SchedulerService::new(loan_service.clone(), maintenance_service.clone());
         let user_service = UserService::new(user_repo, rbac_repo);
         let report_service = ReportService::new(asset_repo.clone(), maintenance_repo.clone());
+        let lifecycle_service = LifecycleService::new(lifecycle_repo.clone());
+        let conversion_service = ConversionService::new(conversion_repo, lifecycle_repo);
 
         Self {
             asset_service,
-            audit_service, // Added
+            audit_service,
             auth_service,
             category_service,
+            conversion_service,
+            lifecycle_service,
             loan_service,
             maintenance_service,
             work_order_service,

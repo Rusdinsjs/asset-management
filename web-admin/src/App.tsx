@@ -11,7 +11,8 @@ import { PermissionGate } from './components/PermissionGate';
 import { Users } from './pages/Users';
 import { Profile } from './pages/Profile';
 import Reports from './pages/Reports';
-import { AuditMode } from './pages/AuditMode'; // Added
+import { AuditMode } from './pages/AuditMode';
+import { AssetLifecycle } from './pages/AssetLifecycle';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/assets" element={<Assets />} />
+            <Route path="/assets/:id/lifecycle" element={<AssetLifecycle />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/work-orders" element={<WorkOrders />} />
             <Route path="/approvals" element={<ApprovalCenter />} />
@@ -33,7 +35,7 @@ function App() {
               </PermissionGate>
             } />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/audit" element={<AuditMode />} /> // Added
+            <Route path="/audit" element={<AuditMode />} />
           </Route>
         </Route>
 

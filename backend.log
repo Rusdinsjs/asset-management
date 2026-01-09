@@ -1,10 +1,10 @@
    Compiling asset-management v0.1.0 (/home/rus/.gemini/antigravity/scratch/asset-management)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.63s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 19.42s
 warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 8`
      Running `target/debug/asset-management`
-[2m2026-01-09T14:18:22.336431Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
-[2m2026-01-09T14:18:22.336504Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
-[2m2026-01-09T14:18:22.402178Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
-[2m2026-01-09T14:18:22.404215Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
-[2m2026-01-09T14:18:22.407589Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080
+[2m2026-01-09T22:42:57.373591Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
+[2m2026-01-09T22:42:57.373647Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
+[2m2026-01-09T22:42:57.439326Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
+[2m2026-01-09T22:42:57.441266Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
+[2m2026-01-09T22:42:57.445028Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080
