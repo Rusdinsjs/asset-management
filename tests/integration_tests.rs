@@ -25,13 +25,13 @@ async fn setup_test_app() -> Router {
         .and_then(|s| s.parse().ok())
         .unwrap_or(24);
 
-    let jwt_config = backend_ma::shared::utils::jwt::JwtConfig {
+    let jwt_config = asset_management::shared::utils::jwt::JwtConfig {
         secret: jwt_secret,
         expiry_hours: jwt_expiry,
     };
 
-    let state = backend_ma::api::server::AppState::new(pool, jwt_config);
-    backend_ma::api::server::create_app(state)
+    let state = asset_management::api::server::AppState::new(pool, jwt_config);
+    asset_management::api::server::create_app(state)
 }
 
 /// Helper to login and get token

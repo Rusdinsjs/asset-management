@@ -6,9 +6,9 @@ use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use backend_ma::api::{create_app, AppState};
-use backend_ma::shared::config::AppConfig;
-use backend_ma::shared::utils::jwt::JwtConfig;
+use asset_management::api::{create_app, AppState};
+use asset_management::shared::config::AppConfig;
+use asset_management::shared::utils::jwt::JwtConfig;
 
 #[tokio::main]
 async fn main() {
@@ -19,7 +19,7 @@ async fn main() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "backend_ma=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "asset_management=debug,tower_http=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
