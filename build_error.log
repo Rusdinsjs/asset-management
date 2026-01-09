@@ -1,17 +1,124 @@
-   Compiling backend-ma v0.1.0 (/home/rus/.gemini/antigravity/scratch/backend-ma)
+    Checking backend-ma v0.1.0 (/home/rus/.gemini/antigravity/scratch/backend-ma)
+warning: unused import: `Query`
+ --> src/api/handlers/approval_handler.rs:2:21
+  |
+2 |     extract::{Path, Query, State},
+  |                     ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
 warning: unused import: `services::MaintenanceService`
   --> src/api/handlers/maintenance_handler.rs:13:9
    |
 13 |         services::MaintenanceService,
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
 warning: unused import: `Serialize`
  --> src/application/dto/maintenance_dto.rs:2:26
   |
 2 | use serde::{Deserialize, Serialize};
   |                          ^^^^^^^^^
+
+error[E0599]: no variant or associated item named `bad_request` found for enum `DomainError` in the current scope
+   --> src/application/services/approval_service.rs:144:30
+    |
+144 |             Err(DomainError::bad_request("Invalid approval level state"))
+    |                              ^^^^^^^^^^^ variant or associated item not found in `DomainError`
+    |
+   ::: src/domain/errors.rs:9:1
+    |
+  9 | pub enum DomainError {
+    | -------------------- variant or associated item `bad_request` not found for this enum
+    |
+note: if you're trying to build a new `DomainError` consider using one of the following associated functions:
+      DomainError::not_found
+      DomainError::validation
+      DomainError::business_rule
+      DomainError::invalid_transition
+      and 2 others
+   --> src/domain/errors.rs:33:5
+    |
+ 33 |     pub fn not_found(entity: &str, id: impl ToString) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 40 |     pub fn validation(field: &str, message: &str) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 47 |     pub fn business_rule(rule: &str, message: &str) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 54 |     pub fn invalid_transition(from: &str, to: &str) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> src/application/services/rbac_service.rs:123:9
+    |
+120 |       ) -> DomainResult<UserRoleAssignment> {
+    |            -------------------------------- expected `Result<entities::rbac::UserRoleAssignment, DomainError>` because of return type
+...
+123 | /         self.repository
+124 | |             .assign_role_to_user(user_id, role.id, granted_by, organization_id)
+125 | |             .await
+126 | |             .map_err(|e| DomainError::ExternalServiceError {
+127 | |                 service: "database".to_string(),
+128 | |                 message: e.to_string(),
+129 | |             })
+    | |______________^ expected `Result<UserRoleAssignment, DomainError>`, found `Result<UserRole, DomainError>`
+    |
+    = note: expected enum `Result<entities::rbac::UserRoleAssignment, _>`
+               found enum `Result<user::UserRole, _>`
+
+error[E0277]: the trait bound `for<'r> user::UserRole: FromRow<'r, _>` is not satisfied
+   --> src/infrastructure/repositories/rbac_repository.rs:150:29
+    |
+150 |         sqlx::query_as::<_, UserRole>(
+    |                             ^^^^^^^^ unsatisfied trait bound
+    |
+help: the trait `for<'r> FromRow<'r, _>` is not implemented for `user::UserRole`
+   --> src/domain/entities/user.rs:13:1
+    |
+ 13 | pub enum UserRole {
+    | ^^^^^^^^^^^^^^^^^
+    = help: the following other types implement trait `FromRow<'r, R>`:
+              `()` implements `FromRow<'r, R>`
+              `(T1, T2)` implements `FromRow<'r, R>`
+              `(T1, T2, T3)` implements `FromRow<'r, R>`
+              `(T1, T2, T3, T4)` implements `FromRow<'r, R>`
+              `(T1, T2, T3, T4, T5)` implements `FromRow<'r, R>`
+              `(T1, T2, T3, T4, T5, T6)` implements `FromRow<'r, R>`
+              `(T1, T2, T3, T4, T5, T6, T7)` implements `FromRow<'r, R>`
+              `(T1, T2, T3, T4, T5, T6, T7, T8)` implements `FromRow<'r, R>`
+            and 38 others
+note: required by a bound in `sqlx::query_as`
+   --> /home/rus/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sqlx-core-0.7.4/src/query_as.rs:345:8
+    |
+342 | pub fn query_as<'q, DB, O>(sql: &'q str) -> QueryAs<'q, DB, O, <DB as HasArguments<'q>>::Arguments>
+    |        -------- required by a bound in this function
+...
+345 |     O: for<'r> FromRow<'r, DB::Row>,
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `query_as`
+
+error[E0599]: the method `fetch_one` exists for struct `QueryAs<'_, Postgres, user::UserRole, PgArguments>`, but its trait bounds were not satisfied
+   --> src/infrastructure/repositories/rbac_repository.rs:161:10
+    |
+150 | /         sqlx::query_as::<_, UserRole>(
+151 | |             r#"
+152 | |             INSERT INTO user_roles (user_id, role_id, granted_by, organization_id)
+153 | |             VALUES ($1, $2, $3, $4)
+...   |
+160 | |         .bind(organization_id)
+161 | |         .fetch_one(&self.pool)
+    | |         -^^^^^^^^^ method cannot be called on `QueryAs<'_, Postgres, user::UserRole, PgArguments>` due to unsatisfied trait bounds
+    | |_________|
+    |
+    |
+   ::: src/domain/entities/user.rs:13:1
+    |
+ 13 |   pub enum UserRole {
+    |   ----------------- doesn't satisfy `user::UserRole: FromRow<'r, PgRow>`
+    |
+    = note: the following trait bounds were not satisfied:
+            `user::UserRole: FromRow<'r, PgRow>`
 
 error[E0277]: the trait bound `fn(State<AppState>, ...) -> ... {create_maintenance}: Handler<_, _>` is not satisfied
    --> src/api/routes/maintenance_routes.rs:12:18
@@ -24,11 +131,16 @@ error[E0277]: the trait bound `fn(State<AppState>, ...) -> ... {create_maintenan
     = note: Consider using `#[axum::debug_handler]` to improve the error message
     = help: the following other types implement trait `Handler<T, S>`:
               `Layered<L, H, T, S>` implements `Handler<T, S>`
-              `[2m2026-01-09T01:00:00.007750Z[0m [32m INFO[0m [2mbackend_ma::application::services::scheduler_service[0m[2m:[0m Running scheduled job: Check Maintenance Due
-[2m2026-01-09T01:00:00.007921Z[0m [32m INFO[0m [2mbackend_ma::application::services::scheduler_service[0m[2m:[0m Maintenance check completed
+              `MethodRouter<S>` implements `Handler<(), S>`
+note: required by a bound in `post`
+   --> /home/rus/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/axum-0.7.9/src/routing/method_routing.rs:443:1
+    |
+443 | top_level_handler_fn!(post, POST);
+    | ^^^^^^^^^^^^^^^^^^^^^^----^^^^^^^
+    | |                     |
     | |                     required by a bound in this function
     | required by this bound in `post`
-    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-8feeda8c2f23387e.long-type-1322560120655113294.txt'
+    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-805a5951be88d59e.long-type-6755072071141602982.txt'
     = note: consider using `--verbose` to print the full type name to the console
     = note: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -52,7 +164,7 @@ note: required by a bound in `axum::routing::get`
     | |                     |
     | |                     required by a bound in this function
     | required by this bound in `get`
-    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-8feeda8c2f23387e.long-type-4097274014434962049.txt'
+    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-805a5951be88d59e.long-type-11251790342142993611.txt'
     = note: consider using `--verbose` to print the full type name to the console
     = note: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -76,7 +188,7 @@ note: required by a bound in `axum::routing::get`
     | |                     |
     | |                     required by a bound in this function
     | required by this bound in `get`
-    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-8feeda8c2f23387e.long-type-10956270773035471830.txt'
+    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-805a5951be88d59e.long-type-14609742446889682808.txt'
     = note: consider using `--verbose` to print the full type name to the console
     = note: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -100,7 +212,7 @@ note: required by a bound in `axum::routing::get`
     | |                     |
     | |                     required by a bound in this function
     | required by this bound in `get`
-    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-8feeda8c2f23387e.long-type-14390730224038627770.txt'
+    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-805a5951be88d59e.long-type-13460878411428629815.txt'
     = note: consider using `--verbose` to print the full type name to the console
     = note: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -124,7 +236,7 @@ note: required by a bound in `put`
     | |                     |
     | |                     required by a bound in this function
     | required by this bound in `put`
-    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-8feeda8c2f23387e.long-type-11751889350687242948.txt'
+    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-805a5951be88d59e.long-type-3832227907076511531.txt'
     = note: consider using `--verbose` to print the full type name to the console
     = note: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -148,10 +260,11 @@ note: required by a bound in `axum::routing::delete`
     | |                     |
     | |                     required by a bound in this function
     | required by this bound in `delete`
-    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-8feeda8c2f23387e.long-type-6883355530075377623.txt'
+    = note: the full name for the type has been written to '/home/rus/.gemini/antigravity/scratch/backend-ma/target/debug/deps/backend_ma-805a5951be88d59e.long-type-10431756637833244754.txt'
     = note: consider using `--verbose` to print the full type name to the console
     = note: this error originates in the macro `top_level_handler_fn` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-For more information about this error, try `rustc --explain E0277`.
-warning: `backend-ma` (lib) generated 2 warnings
-error: could not compile `backend-ma` (lib) due to 6 previous errors; 2 warnings emitted
+Some errors have detailed explanations: E0277, E0308, E0599.
+For more information about an error, try `rustc --explain E0277`.
+warning: `backend-ma` (lib) generated 3 warnings
+error: could not compile `backend-ma` (lib) due to 10 previous errors; 3 warnings emitted

@@ -7,6 +7,8 @@ interface User {
     email: string;
     name: string;
     role: string;
+    role_level?: number;
+    // permissions?: string[]; // permissions usually in token, but maybe helpful here
 }
 
 interface AuthState {

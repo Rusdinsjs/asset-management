@@ -2,6 +2,7 @@
 //!
 //! Data access layer implementations.
 
+pub mod approval_repository; // Added
 pub mod asset_repository;
 pub mod category_repository;
 pub mod loan_repository;
@@ -14,6 +15,7 @@ pub mod user_repository;
 pub mod vendor_repository;
 pub mod work_order_repository;
 
+pub use approval_repository::*; // Added
 pub use asset_repository::*;
 pub use category_repository::*;
 pub use loan_repository::*;

@@ -19,11 +19,21 @@ pub struct Category {
 
     // Depreciation settings per category
     pub depreciation_method: Option<String>,
+    #[sqlx(rename = "depreciation_period_months")]
     pub depreciation_period: Option<i32>, // in months
     pub residual_rate: Option<rust_decimal::Decimal>,
 
     // Custom attributes schema for this category
+    #[sqlx(rename = "attributes")]
     pub attributes_schema: Option<JsonValue>,
+
+    // Classification fields
+    pub main_category: Option<String>,
+    pub sub_category_letter: Option<String>,
+    pub example_assets: Option<JsonValue>,
+    pub function_description: Option<String>,
+    #[sqlx(default)]
+    pub display_order: i32,
 
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -42,6 +52,11 @@ impl Category {
             depreciation_period: None,
             residual_rate: None,
             attributes_schema: None,
+            main_category: None,
+            sub_category_letter: None,
+            example_assets: None,
+            function_description: None,
+            display_order: 0,
             created_at: now,
             updated_at: now,
         }

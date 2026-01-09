@@ -4,10 +4,12 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Assets } from './pages/Assets';
+import { Categories } from './pages/Categories';
+import { WorkOrders } from './pages/WorkOrders';
+import { ApprovalCenter } from './pages/ApprovalCenter';
 import { Text } from '@mantine/core';
 
 // Placeholder components
-const WorkOrders = () => <Text>Work Orders Page (Coming Soon)</Text>;
 const Reports = () => <Text>Reports Page (Coming Soon)</Text>;
 const Users = () => <Text>Users Page (Coming Soon)</Text>;
 
@@ -21,7 +23,9 @@ function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/assets" element={<Assets />} />
+            <Route path="/categories" element={<Categories />} />
             <Route path="/work-orders" element={<WorkOrders />} />
+            <Route path="/approvals" element={<ApprovalCenter />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/users" element={<Users />} />
           </Route>
@@ -34,3 +38,4 @@ function App() {
 }
 
 export default App;
+

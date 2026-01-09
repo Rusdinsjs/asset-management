@@ -2,12 +2,30 @@
 
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct VehicleDetailsDto {
+    pub license_plate: Option<String>,
+    pub brand: Option<String>,
+    pub model: Option<String>,
+    pub color: Option<String>,
+    pub vin: Option<String>,
+    pub engine_number: Option<String>,
+    pub bpkb_number: Option<String>,
+    pub stnk_expiry: Option<NaiveDate>,
+    pub kir_expiry: Option<NaiveDate>,
+    pub tax_expiry: Option<NaiveDate>,
+    pub fuel_type: Option<String>,
+    pub transmission: Option<String>,
+    pub capacity: Option<String>,
+    pub odometer_last: Option<i64>,
+}
+
 /// Create asset request
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CreateAssetRequest {
     pub asset_code: String,
     pub name: String,
@@ -32,6 +50,7 @@ pub struct CreateAssetRequest {
     pub residual_value: Option<Decimal>,
     pub useful_life_months: Option<i32>,
     pub notes: Option<String>,
+    pub vehicle_details: Option<VehicleDetailsDto>,
 }
 
 /// Update asset request
@@ -61,6 +80,7 @@ pub struct UpdateAssetRequest {
     pub residual_value: Option<Decimal>,
     pub useful_life_months: Option<i32>,
     pub notes: Option<String>,
+    pub vehicle_details: Option<VehicleDetailsDto>,
 }
 
 /// Asset search parameters

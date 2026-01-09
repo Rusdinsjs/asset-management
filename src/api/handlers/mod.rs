@@ -1,7 +1,9 @@
 //! API Handlers
 
+pub mod approval_handler; // Added
 pub mod asset_handler;
 pub mod auth_handler;
+pub mod category_handler;
 pub mod dashboard_handler;
 pub mod health_handler;
 pub mod loan_handler;
@@ -14,6 +16,7 @@ pub mod work_order_handler;
 
 pub use asset_handler::*;
 pub use auth_handler::*;
+pub use category_handler::*;
 pub use dashboard_handler::*;
 pub use health_handler::*;
 pub use loan_handler::*;

@@ -5,6 +5,7 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::domain::entities::asset_details::VehicleDetails;
 use crate::domain::entities::{Asset, AssetHistory, AssetSummary};
 
 /// Asset repository
@@ -272,5 +273,79 @@ impl AssetRepository {
         .bind(history.performed_by)
         .fetch_one(&self.pool)
         .await
+    }
+
+    /// Upsert vehicle details
+    pub async fn upsert_vehicle_details(
+        &self,
+        details: &VehicleDetails,
+    ) -> Result<VehicleDetails, sqlx::Error> {
+        sqlx::query_as::<_, VehicleDetails>(
+            r#"
+            INSERT INTO vehicle_details (
+                asset_id, license_plate, brand, model, color, vin, engine_number,
+                bpkb_number, stnk_expiry, kir_expiry, tax_expiry,
+                fuel_type, transmission, capacity, odometer_last
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            ON CONFLICT (asset_id) DO UPDATE SET
+                license_plate = EXCLUDED.license_plate,
+                brand = EXCLUDED.brand,
+                model = EXCLUDED.model,
+                color = EXCLUDED.color,
+                vin = EXCLUDED.vin,
+                engine_number = EXCLUDED.engine_number,
+                bpkb_number = EXCLUDED.bpkb_number,
+                stnk_expiry = EXCLUDED.stnk_expiry,
+                kir_expiry = EXCLUDED.kir_expiry,
+                tax_expiry = EXCLUDED.tax_expiry,
+                fuel_type = EXCLUDED.fuel_type,
+                transmission = EXCLUDED.transmission,
+                capacity = EXCLUDED.capacity,
+                odometer_last = EXCLUDED.odometer_last,
+                updated_at = NOW()
+            RETURNING *
+            "#,
+        )
+        .bind(details.asset_id)
+        .bind(&details.license_plate)
+        .bind(&details.brand)
+        .bind(&details.model)
+        .bind(&details.color)
+        .bind(&details.vin)
+        .bind(&details.engine_number)
+        .bind(&details.bpkb_number)
+        .bind(details.stnk_expiry)
+        .bind(details.kir_expiry)
+        .bind(details.tax_expiry)
+        .bind(&details.fuel_type)
+        .bind(&details.transmission)
+        .bind(&details.capacity)
+        .bind(details.odometer_last)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    /// Get vehicle details
+    pub async fn get_vehicle_details(
+        &self,
+        asset_id: Uuid,
+    ) -> Result<Option<VehicleDetails>, sqlx::Error> {
+        sqlx::query_as::<_, VehicleDetails>("SELECT * FROM vehicle_details WHERE asset_id = $1")
+            .bind(asset_id)
+            .fetch_optional(&self.pool)
+            .await
+    }
+
+    /// Update odometer
+    pub async fn update_odometer(&self, asset_id: Uuid, reading: i32) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE vehicle_details SET odometer_last = $2, updated_at = NOW() WHERE asset_id = $1",
+        )
+        .bind(asset_id)
+        .bind(reading)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
     }
 }

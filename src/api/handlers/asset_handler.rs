@@ -12,8 +12,11 @@ use crate::application::dto::{
     ApiResponse, AssetSearchParams, CreateAssetRequest, PaginatedResponse, PaginationParams,
     UpdateAssetRequest,
 };
+use crate::application::services::asset_service::AssetOperationResult;
+use crate::domain::entities::user::UserClaims;
 use crate::domain::entities::{Asset, AssetSummary};
 use crate::shared::errors::AppError;
+use axum::{extract::Extension, response::IntoResponse};
 
 pub async fn list_assets(
     State(state): State<AppState>,
@@ -44,13 +47,33 @@ pub async fn get_asset(
 
 pub async fn create_asset(
     State(state): State<AppState>,
+    Extension(claims): Extension<UserClaims>,
     Json(payload): Json<CreateAssetRequest>,
-) -> Result<(StatusCode, Json<ApiResponse<Asset>>), AppError> {
-    let asset = state.asset_service.create(payload).await?;
-    Ok((
-        StatusCode::CREATED,
-        Json(ApiResponse::success_with_message(asset, "Asset created")),
-    ))
+) -> Result<impl IntoResponse, AppError> {
+    // Parse user_id from subject
+    let user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| AppError::BadRequest("Invalid user ID in token".to_string()))?;
+
+    let result = state
+        .asset_service
+        .create(payload, user_id, claims.role_level)
+        .await?;
+
+    match result {
+        AssetOperationResult::Success(asset) => Ok((
+            StatusCode::CREATED,
+            Json(ApiResponse::success_with_message(asset, "Asset created")),
+        )
+            .into_response()),
+        AssetOperationResult::PendingApproval(request) => Ok((
+            StatusCode::ACCEPTED,
+            Json(ApiResponse::success_with_message(
+                request,
+                "Approval request submitted",
+            )),
+        )
+            .into_response()),
+    }
 }
 
 pub async fn update_asset(

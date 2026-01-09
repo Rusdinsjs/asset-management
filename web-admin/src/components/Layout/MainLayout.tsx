@@ -6,7 +6,8 @@ import {
     IconTool,
     IconUsers,
     IconLogout,
-    IconChartBar
+    IconChartBar,
+    IconCategory2,
 } from '@tabler/icons-react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -26,6 +27,7 @@ export function MainLayout() {
     const navItems = [
         { label: 'Dashboard', icon: IconDashboard, path: '/' },
         { label: 'Assets', icon: IconBox, path: '/assets' },
+        { label: 'Categories', icon: IconCategory2, path: '/categories' },
         { label: 'Work Orders', icon: IconTool, path: '/work-orders' },
         { label: 'Reports', icon: IconChartBar, path: '/reports' },
         { label: 'Users', icon: IconUsers, path: '/users' },

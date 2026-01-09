@@ -154,6 +154,7 @@ pub struct AssetDetail {
     pub assigned_to_name: Option<String>,
     pub vendor_name: Option<String>,
     pub condition_name: Option<String>,
+    pub vehicle_details: Option<super::asset_details::VehicleDetails>,
 }
 
 /// Asset history entry for tracking changes

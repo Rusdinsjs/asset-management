@@ -53,8 +53,8 @@ impl CategoryRepository {
     pub async fn create(&self, category: &Category) -> Result<Category, sqlx::Error> {
         sqlx::query_as::<_, Category>(
             r#"
-            INSERT INTO categories (id, parent_id, code, name, description, attributes)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO categories (id, parent_id, code, name, description, attributes, main_category, sub_category_letter, example_assets, function_description, display_order)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
             "#,
         )
@@ -64,6 +64,11 @@ impl CategoryRepository {
         .bind(&category.name)
         .bind(&category.description)
         .bind(&category.attributes_schema)
+        .bind(&category.main_category)
+        .bind(&category.sub_category_letter)
+        .bind(&category.example_assets)
+        .bind(&category.function_description)
+        .bind(category.display_order)
         .fetch_one(&self.pool)
         .await
     }
@@ -73,7 +78,8 @@ impl CategoryRepository {
             r#"
             UPDATE categories SET
                 parent_id = $2, code = $3, name = $4, description = $5, attributes = $6,
-                updated_at = NOW()
+                main_category = $7, sub_category_letter = $8, example_assets = $9, 
+                function_description = $10, display_order = $11, updated_at = NOW()
             WHERE id = $1
             RETURNING *
             "#,
@@ -84,6 +90,11 @@ impl CategoryRepository {
         .bind(&category.name)
         .bind(&category.description)
         .bind(&category.attributes_schema)
+        .bind(&category.main_category)
+        .bind(&category.sub_category_letter)
+        .bind(&category.example_assets)
+        .bind(&category.function_description)
+        .bind(category.display_order)
         .fetch_one(&self.pool)
         .await
     }

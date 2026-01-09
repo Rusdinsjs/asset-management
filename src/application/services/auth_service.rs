@@ -5,20 +5,26 @@ use uuid::Uuid;
 
 use crate::domain::entities::{User, UserClaims, UserRole};
 use crate::domain::errors::{DomainError, DomainResult};
-use crate::infrastructure::repositories::UserRepository;
+use crate::infrastructure::repositories::{RbacRepository, UserRepository};
 use crate::shared::utils::jwt::{create_token, JwtConfig};
 
 /// Auth service
 #[derive(Clone)]
 pub struct AuthService {
     repository: UserRepository,
+    rbac_repository: RbacRepository,
     jwt_config: JwtConfig,
 }
 
 impl AuthService {
-    pub fn new(repository: UserRepository, jwt_config: JwtConfig) -> Self {
+    pub fn new(
+        repository: UserRepository,
+        rbac_repository: RbacRepository,
+        jwt_config: JwtConfig,
+    ) -> Self {
         Self {
             repository,
+            rbac_repository,
             jwt_config,
         }
     }
@@ -47,19 +53,31 @@ impl AuthService {
         // Update last login
         let _ = self.repository.update_last_login(user.id).await;
 
+        // Fetch permissions from DB
+        let permissions = if let Some(role_id) = user.role_id {
+            self.rbac_repository
+                .get_permissions_for_role(role_id)
+                .await
+                .unwrap_or_default()
+        } else {
+            // Fallback for legacy users (should ideally be migrated)
+            UserRole::from_str(&user.role)
+                .unwrap_or(UserRole::User)
+                .default_permissions()
+                .iter()
+                .map(|s| s.to_string())
+                .collect()
+        };
+
         // Generate JWT token
-        let role = UserRole::from_str(&user.role).unwrap_or(UserRole::User);
         let claims = UserClaims {
             sub: user.id.to_string(),
             email: user.email.clone(),
             name: user.name.clone(),
             role: user.role.clone(),
+            role_level: user.role_level, // Added
             org: user.organization_id.map(|id| id.to_string()),
-            permissions: role
-                .default_permissions()
-                .iter()
-                .map(|s| s.to_string())
-                .collect(),
+            permissions,
             exp: (Utc::now() + Duration::hours(24)).timestamp(),
             iat: Utc::now().timestamp(),
             jti: Uuid::new_v4().to_string(),

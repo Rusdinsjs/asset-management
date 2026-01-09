@@ -2,8 +2,9 @@
 
 use uuid::Uuid;
 
+use crate::domain::entities::{Permission, Role, UserRoleAssignment};
 use crate::domain::errors::{DomainError, DomainResult};
-use crate::infrastructure::repositories::{Permission, RbacRepository, Role, UserRole};
+use crate::infrastructure::repositories::RbacRepository;
 
 #[derive(Clone)]
 pub struct RbacService {
@@ -116,7 +117,7 @@ impl RbacService {
         role_code: &str,
         granted_by: Option<Uuid>,
         organization_id: Option<Uuid>,
-    ) -> DomainResult<UserRole> {
+    ) -> DomainResult<UserRoleAssignment> {
         let role = self.get_role_by_code(role_code).await?;
 
         self.repository

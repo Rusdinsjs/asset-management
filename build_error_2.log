@@ -1,0 +1,69 @@
+    Checking backend-ma v0.1.0 (/home/rus/.gemini/antigravity/scratch/backend-ma)
+error[E0412]: cannot find type `UserRoleAssignment` in this scope
+   --> src/infrastructure/repositories/rbac_repository.rs:149:17
+    |
+149 |     ) -> Result<UserRoleAssignment, sqlx::Error> {
+    |                 ^^^^^^^^^^^^^^^^^^ not found in this scope
+    |
+help: consider importing this struct through its public re-export
+    |
+  1 + use crate::domain::UserRoleAssignment;
+    |
+
+error[E0412]: cannot find type `UserRoleAssignment` in this scope
+   --> src/infrastructure/repositories/rbac_repository.rs:150:29
+    |
+150 |         sqlx::query_as::<_, UserRoleAssignment>(
+    |                             ^^^^^^^^^^^^^^^^^^ not found in this scope
+    |
+help: consider importing this struct through its public re-export
+    |
+  1 + use crate::domain::UserRoleAssignment;
+    |
+
+warning: unused import: `Query`
+ --> src/api/handlers/approval_handler.rs:2:21
+  |
+2 |     extract::{Path, Query, State},
+  |                     ^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `domain::errors::DomainResult` and `services::MaintenanceService`
+  --> src/api/handlers/maintenance_handler.rs:13:9
+   |
+13 |         services::MaintenanceService,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+14 |     },
+15 |     domain::errors::DomainResult,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Serialize`
+ --> src/application/dto/maintenance_dto.rs:2:26
+  |
+2 | use serde::{Deserialize, Serialize};
+  |                          ^^^^^^^^^
+
+warning: unused import: `UserRole`
+ --> src/infrastructure/repositories/rbac_repository.rs:1:49
+  |
+1 | use crate::domain::entities::{Permission, Role, UserRole};
+  |                                                 ^^^^^^^^
+
+warning: unused variable: `role_level`
+  --> src/application/services/approval_service.rs:82:9
+   |
+82 |         role_level: i32,
+   |         ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_role_level`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `state`
+ --> src/api/routes/approval_routes.rs:9:24
+  |
+9 | pub fn approval_routes(state: AppState) -> Router<AppState> {
+  |                        ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+For more information about this error, try `rustc --explain E0412`.
+warning: `backend-ma` (lib) generated 6 warnings
+error: could not compile `backend-ma` (lib) due to 2 previous errors; 6 warnings emitted

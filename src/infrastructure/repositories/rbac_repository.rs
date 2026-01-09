@@ -1,43 +1,6 @@
-//! RBAC Repository
-
+use crate::domain::entities::{Permission, Role, UserRoleAssignment};
 use sqlx::PgPool;
 use uuid::Uuid;
-
-/// Role model
-#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
-pub struct Role {
-    pub id: Uuid,
-    pub code: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub is_system: bool,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-/// Permission model
-#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
-pub struct Permission {
-    pub id: Uuid,
-    pub code: String,
-    pub name: String,
-    pub description: Option<String>,
-    pub resource: String,
-    pub action: String,
-    pub created_at: chrono::DateTime<chrono::Utc>,
-}
-
-/// User role assignment
-#[derive(Debug, Clone, sqlx::FromRow, serde::Serialize)]
-pub struct UserRole {
-    pub id: Uuid,
-    pub user_id: Uuid,
-    pub role_id: Uuid,
-    pub organization_id: Option<Uuid>,
-    pub granted_by: Option<Uuid>,
-    pub granted_at: chrono::DateTime<chrono::Utc>,
-    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-}
 
 #[derive(Clone)]
 pub struct RbacRepository {
@@ -49,11 +12,11 @@ impl RbacRepository {
         Self { pool }
     }
 
-    // Role methods
-    pub async fn find_role_by_id(&self, id: Uuid) -> Result<Option<Role>, sqlx::Error> {
-        sqlx::query_as::<_, Role>("SELECT * FROM roles WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
+    // --- Role Methods ---
+
+    pub async fn list_roles(&self) -> Result<Vec<Role>, sqlx::Error> {
+        sqlx::query_as::<_, Role>("SELECT * FROM roles ORDER BY role_level ASC, name ASC")
+            .fetch_all(&self.pool)
             .await
     }
 
@@ -64,13 +27,8 @@ impl RbacRepository {
             .await
     }
 
-    pub async fn list_roles(&self) -> Result<Vec<Role>, sqlx::Error> {
-        sqlx::query_as::<_, Role>("SELECT * FROM roles ORDER BY name")
-            .fetch_all(&self.pool)
-            .await
-    }
+    // --- Permission Methods ---
 
-    // Permission methods
     pub async fn list_permissions(&self) -> Result<Vec<Permission>, sqlx::Error> {
         sqlx::query_as::<_, Permission>("SELECT * FROM permissions ORDER BY resource, action")
             .fetch_all(&self.pool)
@@ -83,10 +41,10 @@ impl RbacRepository {
     ) -> Result<Vec<Permission>, sqlx::Error> {
         sqlx::query_as::<_, Permission>(
             r#"
-            SELECT p.* FROM permissions p
-            INNER JOIN role_permissions rp ON p.id = rp.permission_id
+            SELECT p.* 
+            FROM permissions p
+            JOIN role_permissions rp ON p.id = rp.permission_id
             WHERE rp.role_id = $1
-            ORDER BY p.resource, p.action
             "#,
         )
         .bind(role_id)
@@ -94,30 +52,40 @@ impl RbacRepository {
         .await
     }
 
-    pub async fn add_permission_to_role(
+    // Used by AuthService for simple code list
+    pub async fn get_permissions_for_role(
         &self,
         role_id: Uuid,
-        permission_id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            "INSERT INTO role_permissions (id, role_id, permission_id) VALUES (gen_random_uuid(), $1, $2) ON CONFLICT DO NOTHING"
+    ) -> Result<Vec<String>, sqlx::Error> {
+        let permissions = sqlx::query_scalar::<_, String>(
+            r#"
+            SELECT p.code
+            FROM permissions p
+            JOIN role_permissions rp ON p.id = rp.permission_id
+            WHERE rp.role_id = $1
+            "#,
         )
         .bind(role_id)
-        .bind(permission_id)
-        .execute(&self.pool)
+        .fetch_all(&self.pool)
         .await?;
-        Ok(result.rows_affected() > 0)
+        Ok(permissions)
     }
 
-    // User role methods
+    // --- User Role Methods ---
+
+    // Get roles assigned to user via user_roles table (Many-to-Many)
+    // Note: Primary role is in users table, but we might support secondary roles
     pub async fn get_user_roles(&self, user_id: Uuid) -> Result<Vec<Role>, sqlx::Error> {
+        // This query fetches roles from the user_roles mapping table AND the primary role from users table
         sqlx::query_as::<_, Role>(
             r#"
             SELECT r.* FROM roles r
-            INNER JOIN user_roles ur ON r.id = ur.role_id
-            WHERE ur.user_id = $1 
-              AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
-            ORDER BY r.name
+            JOIN user_roles ur ON r.id = ur.role_id
+            WHERE ur.user_id = $1
+            UNION
+            SELECT r.* FROM roles r
+            JOIN users u ON u.role_id = r.id
+            WHERE u.id = $1
             "#,
         )
         .bind(user_id)
@@ -129,14 +97,16 @@ impl RbacRepository {
         &self,
         user_id: Uuid,
     ) -> Result<Vec<Permission>, sqlx::Error> {
+        // Combine permissions from Primary Role and Secondary Roles
         sqlx::query_as::<_, Permission>(
             r#"
-            SELECT DISTINCT p.* FROM permissions p
-            INNER JOIN role_permissions rp ON p.id = rp.permission_id
-            INNER JOIN user_roles ur ON rp.role_id = ur.role_id
-            WHERE ur.user_id = $1 
-              AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
-            ORDER BY p.resource, p.action
+            SELECT DISTINCT p.* 
+            FROM permissions p
+            JOIN role_permissions rp ON p.id = rp.permission_id
+            JOIN roles r ON rp.role_id = r.id
+            LEFT JOIN users u ON u.role_id = r.id
+            LEFT JOIN user_roles ur ON ur.role_id = r.id
+            WHERE u.id = $1 OR ur.user_id = $1
             "#,
         )
         .bind(user_id)
@@ -149,42 +119,45 @@ impl RbacRepository {
         user_id: Uuid,
         permission_code: &str,
     ) -> Result<bool, sqlx::Error> {
-        let result: (i64,) = sqlx::query_as(
+        let count: i64 = sqlx::query_scalar(
             r#"
-            SELECT COUNT(*) FROM permissions p
-            INNER JOIN role_permissions rp ON p.id = rp.permission_id
-            INNER JOIN user_roles ur ON rp.role_id = ur.role_id
-            WHERE ur.user_id = $1 
-              AND p.code = $2
-              AND (ur.expires_at IS NULL OR ur.expires_at > NOW())
+            SELECT COUNT(*)
+            FROM permissions p
+            JOIN role_permissions rp ON p.id = rp.permission_id
+            JOIN roles r ON rp.role_id = r.id
+            LEFT JOIN users u ON u.role_id = r.id
+            LEFT JOIN user_roles ur ON ur.role_id = r.id
+            WHERE (u.id = $1 OR ur.user_id = $1)
+            AND (p.code = $2 OR p.code = '*')
             "#,
         )
         .bind(user_id)
         .bind(permission_code)
         .fetch_one(&self.pool)
         .await?;
-        Ok(result.0 > 0)
+
+        Ok(count > 0)
     }
 
+    // Assign secondary role
     pub async fn assign_role_to_user(
         &self,
         user_id: Uuid,
         role_id: Uuid,
         granted_by: Option<Uuid>,
         organization_id: Option<Uuid>,
-    ) -> Result<UserRole, sqlx::Error> {
-        sqlx::query_as::<_, UserRole>(
+    ) -> Result<UserRoleAssignment, sqlx::Error> {
+        sqlx::query_as::<_, UserRoleAssignment>(
             r#"
-            INSERT INTO user_roles (id, user_id, role_id, organization_id, granted_by)
-            VALUES (gen_random_uuid(), $1, $2, $3, $4)
-            ON CONFLICT (user_id, role_id, organization_id) DO NOTHING
+            INSERT INTO user_roles (user_id, role_id, granted_by, organization_id)
+            VALUES ($1, $2, $3, $4)
             RETURNING *
             "#,
         )
         .bind(user_id)
         .bind(role_id)
-        .bind(organization_id)
         .bind(granted_by)
+        .bind(organization_id)
         .fetch_one(&self.pool)
         .await
     }

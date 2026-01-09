@@ -1,5 +1,8 @@
 //! Asset Service
 
+use crate::domain::entities::asset_details::VehicleDetails;
+use chrono::Utc;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::application::dto::{
@@ -12,16 +15,36 @@ use crate::infrastructure::repositories::AssetRepository;
 use crate::infrastructure::cache::{CacheJson, CacheKey, CacheOperations};
 use std::sync::Arc;
 
+use crate::application::services::ApprovalService;
+use crate::infrastructure::repositories::approval_repository::ApprovalRequest;
+
+/// Result of an asset creation/update attempt
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum AssetOperationResult {
+    Success(Asset),
+    PendingApproval(ApprovalRequest),
+}
+
 /// Asset service for business logic
 #[derive(Clone)]
 pub struct AssetService {
     repository: AssetRepository,
     cache: Arc<dyn CacheOperations>,
+    approval_service: ApprovalService,
 }
 
 impl AssetService {
-    pub fn new(repository: AssetRepository, cache: Arc<dyn CacheOperations>) -> Self {
-        Self { repository, cache }
+    pub fn new(
+        repository: AssetRepository,
+        cache: Arc<dyn CacheOperations>,
+        approval_service: ApprovalService,
+    ) -> Self {
+        Self {
+            repository,
+            cache,
+            approval_service,
+        }
     }
 
     /// List assets with pagination
@@ -126,7 +149,37 @@ impl AssetService {
     }
 
     /// Create new asset
-    pub async fn create(&self, request: CreateAssetRequest) -> DomainResult<Asset> {
+    pub async fn create(
+        &self,
+        request: CreateAssetRequest,
+        user_id: Uuid,
+        role_level: i32,
+    ) -> DomainResult<AssetOperationResult> {
+        // Intercept for Approval if role_level > 2 (Manager is 2, SuperAdmin 1)
+        if role_level > 2 {
+            let data_json = serde_json::to_value(&request).map_err(|e| {
+                DomainError::validation(
+                    "request_data",
+                    &format!("Failed to serialize request: {}", e),
+                )
+            })?;
+
+            let approval_request = self
+                .approval_service
+                .create_request(
+                    "Asset",
+                    Uuid::nil(), // No ID yet
+                    "CREATE",
+                    user_id,
+                    Some(data_json),
+                )
+                .await?;
+
+            return Ok(AssetOperationResult::PendingApproval(approval_request));
+        }
+
+        // --- Normal Creation Logic ---
+
         // Check if code already exists
         if let Some(_) = self
             .repository
@@ -164,13 +217,44 @@ impl AssetService {
         asset.useful_life_months = request.useful_life_months;
         asset.notes = request.notes;
 
-        self.repository
-            .create(&asset)
-            .await
-            .map_err(|e| DomainError::ExternalServiceError {
+        let created_asset = self.repository.create(&asset).await.map_err(|e| {
+            DomainError::ExternalServiceError {
                 service: "database".to_string(),
                 message: e.to_string(),
-            })
+            }
+        })?;
+
+        // Handle Vehicle Details
+        if let Some(vd) = request.vehicle_details {
+            let details = VehicleDetails {
+                asset_id: created_asset.id,
+                license_plate: vd.license_plate,
+                brand: vd.brand,
+                model: vd.model,
+                color: vd.color,
+                vin: vd.vin,
+                engine_number: vd.engine_number,
+                bpkb_number: vd.bpkb_number,
+                stnk_expiry: vd.stnk_expiry,
+                kir_expiry: vd.kir_expiry,
+                tax_expiry: vd.tax_expiry,
+                fuel_type: vd.fuel_type,
+                transmission: vd.transmission,
+                capacity: vd.capacity,
+                odometer_last: vd.odometer_last,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            };
+            self.repository
+                .upsert_vehicle_details(&details)
+                .await
+                .map_err(|e| DomainError::ExternalServiceError {
+                    service: "database".to_string(),
+                    message: format!("Failed to save vehicle details: {}", e),
+                })?;
+        }
+
+        Ok(AssetOperationResult::Success(created_asset))
     }
 
     /// Update asset
@@ -257,6 +341,36 @@ impl AssetService {
                 message: e.to_string(),
             }
         })?;
+
+        // Handle Vehicle Details
+        if let Some(vd) = request.vehicle_details {
+            let details = VehicleDetails {
+                asset_id: asset.id,
+                license_plate: vd.license_plate,
+                brand: vd.brand,
+                model: vd.model,
+                color: vd.color,
+                vin: vd.vin,
+                engine_number: vd.engine_number,
+                bpkb_number: vd.bpkb_number,
+                stnk_expiry: vd.stnk_expiry,
+                kir_expiry: vd.kir_expiry,
+                tax_expiry: vd.tax_expiry,
+                fuel_type: vd.fuel_type,
+                transmission: vd.transmission,
+                capacity: vd.capacity,
+                odometer_last: vd.odometer_last,
+                created_at: asset.created_at, // Preserve original creation? No, this struct is new or updated.
+                updated_at: Utc::now(),
+            };
+            self.repository
+                .upsert_vehicle_details(&details)
+                .await
+                .map_err(|e| DomainError::ExternalServiceError {
+                    service: "database".to_string(),
+                    message: format!("Failed to update vehicle details: {}", e),
+                })?;
+        }
 
         // Invalidate cache
         let _ = self.cache.delete(&CacheKey::asset(&id)).await;

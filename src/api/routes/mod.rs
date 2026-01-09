@@ -1,5 +1,8 @@
 //! API Routes
 
+pub mod approval_routes; // Added
+pub mod category_routes;
+pub mod maintenance_routes;
 pub mod routes;
 
 pub use routes::*;

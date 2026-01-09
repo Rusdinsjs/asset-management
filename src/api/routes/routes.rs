@@ -35,18 +35,8 @@ pub fn create_router(state: AppState) -> Router {
             "/api/assets/:id",
             get(get_asset).put(update_asset).delete(delete_asset),
         )
-        // Maintenance
-        .route(
-            "/api/maintenance",
-            get(list_maintenance).post(create_maintenance),
-        )
-        .route("/api/maintenance/overdue", get(list_overdue_maintenance))
-        .route(
-            "/api/maintenance/:id",
-            get(get_maintenance)
-                .put(update_maintenance)
-                .delete(delete_maintenance),
-        )
+        // Maintenance - Merged below
+        // Work Orders
         // Work Orders
         .route(
             "/api/work-orders",
@@ -119,6 +109,14 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/dashboard/activity", get(get_recent_activities))
         .route("/api/dashboard/depreciation", get(get_depreciation_summary))
         .merge(crate::api::routes::data_routes::data_routes())
+        .merge(crate::api::routes::maintenance_routes::routes())
+        .merge(crate::api::routes::approval_routes::approval_routes(
+            state.clone(),
+        )) // Added
+        .nest(
+            "/api/categories",
+            crate::api::routes::category_routes::category_routes(),
+        )
         .nest(
             "/api/mobile",
             crate::api::routes::mobile_routes::mobile_routes(state.clone()),

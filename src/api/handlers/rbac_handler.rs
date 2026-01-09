@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::api::server::AppState;
 use crate::application::dto::ApiResponse;
-use crate::infrastructure::repositories::{Permission, Role};
+use crate::domain::entities::{Permission, Role};
 use crate::shared::errors::AppError;
 
 pub async fn list_roles(State(state): State<AppState>) -> Result<Json<Vec<Role>>, AppError> {

@@ -69,7 +69,14 @@ pub struct User {
     #[serde(skip_serializing)]
     pub password_hash: String,
     pub name: String,
+
+    // RBAC
+    pub role_id: Option<Uuid>,
+    #[sqlx(rename = "role_code")] // Mapped from join
     pub role: String,
+    #[sqlx(default)]
+    pub role_level: i32, // Mapped from join
+
     pub department_id: Option<Uuid>,
     pub organization_id: Option<Uuid>,
 
@@ -94,7 +101,9 @@ impl User {
             email,
             password_hash,
             name,
-            role: UserRole::User.as_str().to_string(),
+            role_id: None,            // Needs to be set by service/repo default logic
+            role: "user".to_string(), // Default (will be updated via DB default)
+            role_level: 5,
             department_id: None,
             organization_id: None,
             phone: None,
@@ -140,7 +149,10 @@ pub struct UserSummary {
     pub id: Uuid,
     pub email: String,
     pub name: String,
+    #[sqlx(rename = "role_code")]
     pub role: String,
+    #[sqlx(default)]
+    pub role_level: i32,
     pub department_id: Option<Uuid>,
     pub is_active: bool,
 }
@@ -152,6 +164,7 @@ pub struct UserClaims {
     pub email: String,
     pub name: String,
     pub role: String,
+    pub role_level: i32,     // Added
     pub org: Option<String>, // Organization ID
     pub permissions: Vec<String>,
     pub exp: i64,

@@ -5,16 +5,20 @@ use uuid::Uuid;
 use crate::application::dto::{CreateMaintenanceRequest, UpdateMaintenanceRequest};
 use crate::domain::entities::{MaintenanceRecord, MaintenanceSummary};
 use crate::domain::errors::{DomainError, DomainResult};
-use crate::infrastructure::repositories::MaintenanceRepository;
+use crate::infrastructure::repositories::{AssetRepository, MaintenanceRepository};
 
 #[derive(Clone)]
 pub struct MaintenanceService {
     repository: MaintenanceRepository,
+    asset_repository: AssetRepository,
 }
 
 impl MaintenanceService {
-    pub fn new(repository: MaintenanceRepository) -> Self {
-        Self { repository }
+    pub fn new(repository: MaintenanceRepository, asset_repository: AssetRepository) -> Self {
+        Self {
+            repository,
+            asset_repository,
+        }
     }
 
     pub async fn list(&self, page: i64, per_page: i64) -> DomainResult<Vec<MaintenanceSummary>> {
@@ -67,14 +71,16 @@ impl MaintenanceService {
         record.description = request.description;
         record.cost = request.cost;
         record.vendor_id = request.vendor_id;
+        record.assigned_to = request.assigned_to;
 
-        self.repository
-            .create(&record)
-            .await
-            .map_err(|e| DomainError::ExternalServiceError {
+        let created = self.repository.create(&record).await.map_err(|e| {
+            DomainError::ExternalServiceError {
                 service: "database".to_string(),
                 message: e.to_string(),
-            })
+            }
+        })?;
+
+        Ok(created)
     }
 
     pub async fn update(
@@ -83,6 +89,7 @@ impl MaintenanceService {
         request: UpdateMaintenanceRequest,
     ) -> DomainResult<MaintenanceRecord> {
         let mut record = self.get_by_id(id).await?;
+        let old_status = record.status.clone();
 
         if let Some(t) = request.maintenance_type_id {
             record.maintenance_type_id = Some(t);
@@ -111,20 +118,54 @@ impl MaintenanceService {
         if let Some(v) = request.vendor_id {
             record.vendor_id = Some(v);
         }
-        if let Some(s) = request.status {
+        if let Some(a) = request.assigned_to {
+            record.assigned_to = Some(a);
+        }
+
+        // Status & Next Service
+        if let Some(s) = request.status.clone() {
             record.status = s;
         }
         if let Some(n) = request.next_service_date {
             record.next_service_date = Some(n);
         }
 
-        self.repository
-            .update(&record)
-            .await
-            .map_err(|e| DomainError::ExternalServiceError {
+        // Odometer
+        if let Some(odometer) = request.odometer_reading {
+            record.odometer_reading = Some(odometer);
+        }
+
+        let updated = self.repository.update(&record).await.map_err(|e| {
+            DomainError::ExternalServiceError {
                 service: "database".to_string(),
                 message: e.to_string(),
-            })
+            }
+        })?;
+
+        // Business Logic: Asset Status Sync
+        if let Some(new_status) = request.status {
+            if new_status == "in_progress" && old_status != "in_progress" {
+                let _ = self
+                    .asset_repository
+                    .update_status(record.asset_id, "maintenance")
+                    .await;
+            } else if new_status == "completed" && old_status != "completed" {
+                let _ = self
+                    .asset_repository
+                    .update_status(record.asset_id, "active")
+                    .await;
+
+                // Update Odometer if provided
+                if let Some(odometer) = request.odometer_reading {
+                    let _ = self
+                        .asset_repository
+                        .update_odometer(record.asset_id, odometer)
+                        .await;
+                }
+            }
+        }
+
+        Ok(updated)
     }
 
     pub async fn delete(&self, id: Uuid) -> DomainResult<bool> {
@@ -140,6 +181,9 @@ impl MaintenanceService {
     /// Check upcoming maintenance (Background Task)
     pub async fn check_upcoming_maintenance(&self) -> DomainResult<()> {
         // Placeholder for background logic
+        // Logic: Find maintenance with scheduled_date = tomorrow/today and send notification
+        // For now just querying overdue to "touch" the repo
+        let _ = self.repository.list_overdue().await;
         Ok(())
     }
 }

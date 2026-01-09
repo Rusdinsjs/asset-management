@@ -19,11 +19,15 @@ impl UserRepository {
         sqlx::query_as::<_, User>(
             r#"
             SELECT 
-                id, email, password_hash, name, role, department_id, organization_id,
+                u.id, u.email, u.password_hash, u.name, 
+                u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
+                u.department_id, u.organization_id,
                 NULL::text as phone, NULL::text as avatar_url,
-                is_active, false as email_verified, NULL::timestamptz as last_login_at,
-                created_at, updated_at
-            FROM users WHERE id = $1
+                u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
+                u.created_at, u.updated_at
+            FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+            WHERE u.id = $1
             "#,
         )
         .bind(id)
@@ -35,11 +39,15 @@ impl UserRepository {
         sqlx::query_as::<_, User>(
             r#"
             SELECT 
-                id, email, password_hash, name, role, department_id, organization_id,
+                u.id, u.email, u.password_hash, u.name, 
+                u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
+                u.department_id, u.organization_id,
                 NULL::text as phone, NULL::text as avatar_url,
-                is_active, false as email_verified, NULL::timestamptz as last_login_at,
-                created_at, updated_at
-            FROM users WHERE email = $1
+                u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
+                u.created_at, u.updated_at
+            FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+            WHERE u.email = $1
             "#,
         )
         .bind(email)
@@ -50,9 +58,13 @@ impl UserRepository {
     pub async fn list(&self, limit: i64, offset: i64) -> Result<Vec<UserSummary>, sqlx::Error> {
         sqlx::query_as::<_, UserSummary>(
             r#"
-            SELECT id, email, name, role, department_id, is_active
-            FROM users
-            ORDER BY name
+            SELECT 
+                u.id, u.email, u.name, 
+                COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
+                u.department_id, u.is_active
+            FROM users u
+            LEFT JOIN roles r ON u.role_id = r.id
+            ORDER BY u.name
             LIMIT $1 OFFSET $2
             "#,
         )
@@ -63,22 +75,37 @@ impl UserRepository {
     }
 
     pub async fn create(&self, user: &User) -> Result<User, sqlx::Error> {
+        // First get default role from DB if role_id is None?
+        // Or assume caller sets it?
+        // For now, simpler: Insert user, role_id might be null or set.
+        // Logic: if role_id is None, try to find role by string 'role'?
+
+        // Actually, let's keep it simple: Insert into users.
+        // We need to return joined data.
         sqlx::query_as::<_, User>(
             r#"
-            INSERT INTO users (id, email, password_hash, name, role, department_id, organization_id, is_active)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING 
-                id, email, password_hash, name, role, department_id, organization_id,
+            WITH inserted_user AS (
+                INSERT INTO users (id, email, password_hash, name, role, role_id, department_id, organization_id, is_active)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                RETURNING *
+            )
+            SELECT 
+                u.id, u.email, u.password_hash, u.name, 
+                u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
+                u.department_id, u.organization_id,
                 NULL::text as phone, NULL::text as avatar_url,
-                is_active, false as email_verified, NULL::timestamptz as last_login_at,
-                created_at, updated_at
+                u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
+                u.created_at, u.updated_at
+            FROM inserted_user u
+            LEFT JOIN roles r ON u.role_id = r.id
             "#,
         )
         .bind(user.id)
         .bind(&user.email)
         .bind(&user.password_hash)
         .bind(&user.name)
-        .bind(&user.role)
+        .bind(&user.role) // Legacy string
+        .bind(user.role_id)
         .bind(user.department_id)
         .bind(user.organization_id)
         .bind(user.is_active)
