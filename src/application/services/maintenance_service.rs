@@ -1,23 +1,43 @@
 //! Maintenance Service
 
+use rust_decimal::Decimal;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::application::dto::{CreateMaintenanceRequest, UpdateMaintenanceRequest};
+use crate::application::services::ApprovalService;
 use crate::domain::entities::{MaintenanceRecord, MaintenanceSummary};
 use crate::domain::errors::{DomainError, DomainResult};
 use crate::infrastructure::repositories::{AssetRepository, MaintenanceRepository};
+
+/// Cost threshold for approval (Rp 5.000.000)
+const COST_APPROVAL_THRESHOLD: Decimal = Decimal::from_parts(5000000, 0, 0, false, 0);
+
+/// Result of a maintenance operation
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum MaintenanceOperationResult {
+    Success(MaintenanceRecord),
+    PendingApproval(crate::infrastructure::repositories::approval_repository::ApprovalRequest),
+}
 
 #[derive(Clone)]
 pub struct MaintenanceService {
     repository: MaintenanceRepository,
     asset_repository: AssetRepository,
+    approval_service: ApprovalService,
 }
 
 impl MaintenanceService {
-    pub fn new(repository: MaintenanceRepository, asset_repository: AssetRepository) -> Self {
+    pub fn new(
+        repository: MaintenanceRepository,
+        asset_repository: AssetRepository,
+        approval_service: ApprovalService,
+    ) -> Self {
         Self {
             repository,
             asset_repository,
+            approval_service,
         }
     }
 
@@ -64,14 +84,57 @@ impl MaintenanceService {
     pub async fn create(
         &self,
         request: CreateMaintenanceRequest,
-    ) -> DomainResult<MaintenanceRecord> {
+        user_id: Uuid,
+        role_level: i32,
+    ) -> DomainResult<MaintenanceOperationResult> {
         let mut record = MaintenanceRecord::new(request.asset_id);
         record.maintenance_type_id = request.maintenance_type_id;
         record.scheduled_date = request.scheduled_date;
-        record.description = request.description;
+        record.description = request.description.clone();
         record.cost = request.cost;
         record.vendor_id = request.vendor_id;
         record.assigned_to = request.assigned_to;
+        record.created_by = Some(user_id);
+
+        // Check if cost exceeds threshold and user is not Manager/SuperAdmin
+        let needs_approval = if let Some(cost) = request.cost {
+            cost > COST_APPROVAL_THRESHOLD && role_level > 2
+        } else {
+            false
+        };
+
+        if needs_approval {
+            record.approval_status = "pending_approval".to_string();
+            record.cost_threshold_exceeded = true;
+
+            // Create the record first (in pending state)
+            let created = self.repository.create(&record).await.map_err(|e| {
+                DomainError::ExternalServiceError {
+                    service: "database".to_string(),
+                    message: e.to_string(),
+                }
+            })?;
+
+            // Create approval request
+            let data_json = serde_json::to_value(&request).map_err(|e| {
+                DomainError::validation("request_data", &format!("Failed to serialize: {}", e))
+            })?;
+
+            let approval_request = self
+                .approval_service
+                .create_request(
+                    "WorkOrder",
+                    created.id,
+                    "HIGH_COST",
+                    user_id,
+                    Some(data_json),
+                )
+                .await?;
+
+            return Ok(MaintenanceOperationResult::PendingApproval(
+                approval_request,
+            ));
+        }
 
         let created = self.repository.create(&record).await.map_err(|e| {
             DomainError::ExternalServiceError {
@@ -80,7 +143,7 @@ impl MaintenanceService {
             }
         })?;
 
-        Ok(created)
+        Ok(MaintenanceOperationResult::Success(created))
     }
 
     pub async fn update(

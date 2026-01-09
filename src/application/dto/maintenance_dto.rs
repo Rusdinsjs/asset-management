@@ -1,8 +1,8 @@
 use rust_decimal::Decimal;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct CreateMaintenanceRequest {
     pub asset_id: Uuid,
     pub maintenance_type_id: Option<i32>,

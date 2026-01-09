@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Extension, Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -11,7 +11,8 @@ use crate::{
     application::dto::{
         CreateMaintenanceRequest, MaintenanceSearchParams, UpdateMaintenanceRequest,
     },
-    // domain::errors::DomainResult,
+    application::services::MaintenanceOperationResult,
+    domain::entities::user::UserClaims,
     shared::errors::AppError,
     AppState,
 };
@@ -52,13 +53,38 @@ pub async fn list_maintenance(
     ))))
 }
 
-/// Create maintenance record
+/// Create maintenance record (Work Order)
 pub async fn create_maintenance(
     State(state): State<AppState>,
+    Extension(claims): Extension<UserClaims>,
     Json(payload): Json<CreateMaintenanceRequest>,
 ) -> Result<impl IntoResponse, AppError> {
-    let record = state.maintenance_service.create(payload).await?;
-    Ok((StatusCode::CREATED, Json(ApiResponse::success(record))))
+    let user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| AppError::BadRequest("Invalid user ID in token".to_string()))?;
+
+    let result = state
+        .maintenance_service
+        .create(payload, user_id, claims.role_level)
+        .await?;
+
+    match result {
+        MaintenanceOperationResult::Success(record) => Ok((
+            StatusCode::CREATED,
+            Json(ApiResponse::success_with_message(
+                record,
+                "Work Order created",
+            )),
+        )
+            .into_response()),
+        MaintenanceOperationResult::PendingApproval(request) => Ok((
+            StatusCode::ACCEPTED,
+            Json(ApiResponse::success_with_message(
+                request,
+                "Cost exceeds threshold - Approval request submitted",
+            )),
+        )
+            .into_response()),
+    }
 }
 
 /// List overdue maintenance

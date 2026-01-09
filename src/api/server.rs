@@ -61,7 +61,11 @@ impl AppState {
         let auth_service = AuthService::new(user_repo, rbac_repo.clone(), jwt_config);
         let category_service = CategoryService::new(category_repo);
         let loan_service = LoanService::new(loan_repo, asset_repo.clone());
-        let maintenance_service = MaintenanceService::new(maintenance_repo, asset_repo.clone());
+        let maintenance_service = MaintenanceService::new(
+            maintenance_repo,
+            asset_repo.clone(),
+            approval_service.clone(),
+        );
         let work_order_service = WorkOrderService::new(work_order_repo);
         let notification_service = NotificationService::new(notification_repo);
         let rbac_service = RbacService::new(rbac_repo);
