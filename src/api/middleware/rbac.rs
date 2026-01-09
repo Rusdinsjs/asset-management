@@ -14,6 +14,12 @@ use crate::shared::utils::jwt::{decode_token, JwtConfig};
 
 /// Extract user claims from request
 pub fn extract_user_claims(request: &Request) -> Option<UserClaims> {
+    // Try to get from extensions first (if auth_middleware ran)
+    if let Some(claims) = request.extensions().get::<UserClaims>() {
+        return Some(claims.clone());
+    }
+
+    // Fallback: parse header manually (if middleware didn't run or order is different)
     let auth_header = request
         .headers()
         .get(header::AUTHORIZATION)?

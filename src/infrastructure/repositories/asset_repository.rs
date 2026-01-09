@@ -79,6 +79,27 @@ impl AssetRepository {
         .await
     }
 
+    /// Find all assets (for export)
+    pub async fn find_all(&self) -> Result<Vec<Asset>, sqlx::Error> {
+        sqlx::query_as::<_, Asset>(
+            r#"
+            SELECT 
+                id, asset_code, name, category_id, location_id, department_id, assigned_to, vendor_id,
+                is_rental, asset_class, status, condition_id,
+                serial_number, brand, model, year_manufacture,
+                specifications,
+                purchase_date, purchase_price, currency_id, unit_id, quantity,
+                residual_value, useful_life_months,
+                qr_code_url, notes,
+                created_at, updated_at
+            FROM assets
+            ORDER BY created_at DESC
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
     /// Count total assets
     pub async fn count(&self) -> Result<i64, sqlx::Error> {
         let result: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM assets")

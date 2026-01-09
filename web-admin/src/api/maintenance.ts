@@ -73,28 +73,48 @@ export interface UpdateMaintenanceRequest {
     odometer_reading?: number;
 }
 
+export interface PaginationMeta {
+    total: number;
+    page: number;
+    per_page: number;
+    total_pages: number;
+    has_next: boolean;
+    has_prev: boolean;
+}
+
+export interface PaginatedData<T> {
+    data: T[];
+    pagination: PaginationMeta;
+}
+
+export interface ApiResponse<T> {
+    success: boolean;
+    message: string | null;
+    data: T;
+}
+
 export const maintenanceApi = {
-    list: async (params: MaintenanceSearchParams) => {
+    list: async (params: MaintenanceSearchParams): Promise<ApiResponse<PaginatedData<MaintenanceSummary>>> => {
         const response = await api.get('/maintenance', { params });
         return response.data;
     },
-    listOverdue: async () => {
+    listOverdue: async (): Promise<ApiResponse<MaintenanceSummary[]>> => {
         const response = await api.get('/maintenance/overdue');
         return response.data;
     },
-    get: async (id: string): Promise<{ data: MaintenanceRecord; success: boolean }> => {
+    get: async (id: string): Promise<ApiResponse<MaintenanceRecord>> => {
         const response = await api.get(`/maintenance/${id}`);
         return response.data;
     },
-    create: async (data: CreateMaintenanceRequest) => {
+    create: async (data: CreateMaintenanceRequest): Promise<ApiResponse<MaintenanceRecord>> => {
         const response = await api.post('/maintenance', data);
         return response.data;
     },
-    update: async (id: string, data: UpdateMaintenanceRequest) => {
+    update: async (id: string, data: UpdateMaintenanceRequest): Promise<ApiResponse<MaintenanceRecord>> => {
         const response = await api.put(`/maintenance/${id}`, data);
         return response.data;
     },
-    delete: async (id: string) => {
+    delete: async (id: string): Promise<ApiResponse<null>> => {
         const response = await api.delete(`/maintenance/${id}`);
         return response.data;
     },

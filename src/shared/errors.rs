@@ -75,6 +75,9 @@ impl IntoResponse for AppError {
             Self::Domain(DomainError::Conflict { message }) => {
                 (StatusCode::CONFLICT, "CONFLICT", message)
             }
+            Self::Domain(DomainError::BadRequest { message }) => {
+                (StatusCode::BAD_REQUEST, "BAD_REQUEST", message)
+            }
             Self::Domain(DomainError::ExternalServiceError { service, message }) => (
                 StatusCode::SERVICE_UNAVAILABLE,
                 "SERVICE_ERROR",
@@ -84,6 +87,12 @@ impl IntoResponse for AppError {
             Self::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", msg),
             Self::BadRequest(msg) => (StatusCode::BAD_REQUEST, "BAD_REQUEST", msg),
             Self::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg),
+            Self::Domain(DomainError::Internal { message }) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", message)
+            }
+            Self::Domain(DomainError::Database(message)) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "DATABASE_ERROR", message)
+            }
         };
 
         let body = Json(ErrorResponse {

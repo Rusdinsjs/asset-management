@@ -7,11 +7,11 @@ import { Assets } from './pages/Assets';
 import { Categories } from './pages/Categories';
 import { WorkOrders } from './pages/WorkOrders';
 import { ApprovalCenter } from './pages/ApprovalCenter';
-import { Text } from '@mantine/core';
-
-// Placeholder components
-const Reports = () => <Text>Reports Page (Coming Soon)</Text>;
-const Users = () => <Text>Users Page (Coming Soon)</Text>;
+import { PermissionGate } from './components/PermissionGate';
+import { Users } from './pages/Users';
+import { Profile } from './pages/Profile';
+import Reports from './pages/Reports';
+import { AuditMode } from './pages/AuditMode'; // Added
 
 function App() {
   return (
@@ -27,7 +27,13 @@ function App() {
             <Route path="/work-orders" element={<WorkOrders />} />
             <Route path="/approvals" element={<ApprovalCenter />} />
             <Route path="/reports" element={<Reports />} />
-            <Route path="/users" element={<Users />} />
+            <Route path="/users" element={
+              <PermissionGate requiredLevel={2}>
+                <Users />
+              </PermissionGate>
+            } />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/audit" element={<AuditMode />} /> // Added
           </Route>
         </Route>
 

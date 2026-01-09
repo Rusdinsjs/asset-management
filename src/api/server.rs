@@ -2,17 +2,19 @@
 
 use sqlx::PgPool;
 use tower_http::cors::CorsLayer;
+use tower_http::services::ServeDir;
 
 use crate::api::routes::create_router;
 use crate::application::services::{
-    ApprovalService, AssetService, AuthService, CategoryService, DataService, LoanService,
-    MaintenanceService, NotificationService, RbacService, SchedulerService, SensorService,
-    WorkOrderService,
+    ApprovalService, AssetService, AuditService, AuthService, CategoryService, DataService,
+    LoanService, MaintenanceService, NotificationService, RbacService, ReportService,
+    SchedulerService, SensorService, UserService, WorkOrderService,
 };
 use crate::infrastructure::cache::{CacheOperations, RedisCache, RedisConfig};
 use crate::infrastructure::repositories::{
-    ApprovalRepository, AssetRepository, CategoryRepository, LoanRepository, MaintenanceRepository,
-    NotificationRepository, RbacRepository, SensorRepository, UserRepository, WorkOrderRepository,
+    ApprovalRepository, AssetRepository, AuditRepository, CategoryRepository, LoanRepository,
+    MaintenanceRepository, NotificationRepository, RbacRepository, SensorRepository,
+    UserRepository, WorkOrderRepository,
 };
 use crate::shared::utils::jwt::JwtConfig;
 use std::sync::Arc;
@@ -22,7 +24,8 @@ use std::sync::Arc;
 pub struct AppState {
     pub asset_service: AssetService,
     pub auth_service: AuthService,
-    pub approval_service: ApprovalService, // Added
+    pub approval_service: ApprovalService,
+    pub audit_service: AuditService, // Added
     pub category_service: CategoryService,
     pub loan_service: LoanService,
     pub maintenance_service: MaintenanceService,
@@ -32,6 +35,8 @@ pub struct AppState {
     pub sensor_service: SensorService,
     pub data_service: DataService,
     pub scheduler_service: SchedulerService,
+    pub user_service: UserService,     // Added
+    pub report_service: ReportService, // Added
     pub pool: PgPool,
 }
 
@@ -46,7 +51,8 @@ impl AppState {
         let work_order_repo = WorkOrderRepository::new(pool.clone());
         let notification_repo = NotificationRepository::new(pool.clone());
         let rbac_repo = RbacRepository::new(pool.clone());
-        let approval_repo = ApprovalRepository::new(pool.clone()); // Added
+        let approval_repo = ApprovalRepository::new(pool.clone());
+        let audit_repo = AuditRepository::new(pool.clone()); // Added
         let sensor_repo = SensorRepository::new(pool.clone());
 
         // Create cache
@@ -55,28 +61,32 @@ impl AppState {
         let cache: Arc<dyn CacheOperations> = Arc::new(redis_cache);
 
         // Create services
-        let approval_service = ApprovalService::new(approval_repo); // Added
+        let approval_service = ApprovalService::new(approval_repo);
         let asset_service =
             AssetService::new(asset_repo.clone(), cache.clone(), approval_service.clone());
-        let auth_service = AuthService::new(user_repo, rbac_repo.clone(), jwt_config);
+        let audit_service = AuditService::new(audit_repo); // Added
+        let auth_service = AuthService::new(user_repo.clone(), rbac_repo.clone(), jwt_config);
         let category_service = CategoryService::new(category_repo);
         let loan_service = LoanService::new(loan_repo, asset_repo.clone());
         let maintenance_service = MaintenanceService::new(
-            maintenance_repo,
+            maintenance_repo.clone(),
             asset_repo.clone(),
             approval_service.clone(),
         );
         let work_order_service = WorkOrderService::new(work_order_repo);
         let notification_service = NotificationService::new(notification_repo);
-        let rbac_service = RbacService::new(rbac_repo);
+        let rbac_service = RbacService::new(rbac_repo.clone());
         // Approval service moved up
         let sensor_service = SensorService::new(sensor_repo);
-        let data_service = DataService::new(asset_repo);
+        let data_service = DataService::new(asset_repo.clone());
         let scheduler_service =
             SchedulerService::new(loan_service.clone(), maintenance_service.clone());
+        let user_service = UserService::new(user_repo, rbac_repo);
+        let report_service = ReportService::new(asset_repo.clone(), maintenance_repo.clone());
 
         Self {
             asset_service,
+            audit_service, // Added
             auth_service,
             category_service,
             loan_service,
@@ -84,10 +94,12 @@ impl AppState {
             work_order_service,
             notification_service,
             rbac_service,
-            approval_service, // Added
+            approval_service,
             sensor_service,
             data_service,
             scheduler_service,
+            user_service,
+            report_service,
             pool,
         }
     }
@@ -95,5 +107,7 @@ impl AppState {
 
 /// Create the application router
 pub fn create_app(state: AppState) -> axum::Router {
-    create_router(state).layer(CorsLayer::permissive())
+    create_router(state)
+        .nest_service("/api/uploads", ServeDir::new("uploads"))
+        .layer(CorsLayer::permissive())
 }

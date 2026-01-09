@@ -46,6 +46,30 @@ impl MaintenanceRepository {
         .await
     }
 
+    pub async fn find_by_date_range(
+        &self,
+        start_date: chrono::NaiveDate,
+        end_date: chrono::NaiveDate,
+    ) -> Result<Vec<MaintenanceSummary>, sqlx::Error> {
+        sqlx::query_as::<_, MaintenanceSummary>(
+            r#"
+            SELECT 
+                m.id, m.asset_id, m.maintenance_type_id, m.scheduled_date, m.actual_date, m.status, m.cost,
+                a.name as asset_name,
+                t.name as type_name
+            FROM maintenance_records m
+            LEFT JOIN assets a ON m.asset_id = a.id
+            LEFT JOIN maintenance_types t ON m.maintenance_type_id = t.id
+            WHERE m.scheduled_date BETWEEN $1 AND $2
+            ORDER BY m.scheduled_date DESC
+            "#,
+        )
+        .bind(start_date)
+        .bind(end_date)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn list_by_asset(
         &self,
         asset_id: Uuid,

@@ -22,7 +22,7 @@ impl UserRepository {
                 u.id, u.email, u.password_hash, u.name, 
                 u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
                 u.department_id, u.organization_id,
-                NULL::text as phone, NULL::text as avatar_url,
+                u.phone, u.avatar_url,
                 u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
                 u.created_at, u.updated_at
             FROM users u
@@ -42,7 +42,7 @@ impl UserRepository {
                 u.id, u.email, u.password_hash, u.name, 
                 u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
                 u.department_id, u.organization_id,
-                NULL::text as phone, NULL::text as avatar_url,
+                u.phone, u.avatar_url,
                 u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
                 u.created_at, u.updated_at
             FROM users u
@@ -136,5 +136,110 @@ impl UserRepository {
             .execute(&self.pool)
             .await?;
         Ok(result.rows_affected() > 0)
+    }
+    pub async fn update(
+        &self,
+        id: Uuid,
+        name: Option<String>,
+        role_id: Option<Uuid>,
+        role_code: Option<String>, // Legacy fallback
+        department_id: Option<Uuid>,
+        is_active: Option<bool>,
+    ) -> Result<User, sqlx::Error> {
+        sqlx::query_as::<_, User>(
+            r#"
+            WITH updated_user AS (
+                UPDATE users 
+                SET 
+                    name = COALESCE($2, name),
+                    role_id = COALESCE($3, role_id),
+                    role = COALESCE($4, role),
+                    department_id = COALESCE($5, department_id),
+                    is_active = COALESCE($6, is_active),
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING *
+            )
+            SELECT 
+                u.id, u.email, u.password_hash, u.name, 
+                u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
+                u.department_id, u.organization_id,
+                u.phone, u.avatar_url,
+                u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
+                u.created_at, u.updated_at
+            FROM updated_user u
+            LEFT JOIN roles r ON u.role_id = r.id
+            "#,
+        )
+        .bind(id)
+        .bind(name)
+        .bind(role_id)
+        .bind(role_code)
+        .bind(department_id)
+        .bind(is_active)
+        .fetch_one(&self.pool)
+        .await
+    }
+    pub async fn update_profile(
+        &self,
+        id: Uuid,
+        name: String,
+        phone: Option<String>,
+    ) -> Result<User, sqlx::Error> {
+        sqlx::query_as::<_, User>(
+            r#"
+            WITH updated_user AS (
+                UPDATE users 
+                SET 
+                    name = $2,
+                    phone = $3,
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING *
+            )
+            SELECT 
+                u.id, u.email, u.password_hash, u.name, 
+                u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
+                u.department_id, u.organization_id,
+                u.phone, u.avatar_url,
+                u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
+                u.created_at, u.updated_at
+            FROM updated_user u
+            LEFT JOIN roles r ON u.role_id = r.id
+            "#,
+        )
+        .bind(id)
+        .bind(name)
+        .bind(phone)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn update_avatar(&self, id: Uuid, avatar_url: String) -> Result<User, sqlx::Error> {
+        sqlx::query_as::<_, User>(
+            r#"
+            WITH updated_user AS (
+                UPDATE users 
+                SET 
+                    avatar_url = $2,
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING *
+            )
+            SELECT 
+                u.id, u.email, u.password_hash, u.name, 
+                u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
+                u.department_id, u.organization_id,
+                u.phone, u.avatar_url,
+                u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
+                u.created_at, u.updated_at
+            FROM updated_user u
+            LEFT JOIN roles r ON u.role_id = r.id
+            "#,
+        )
+        .bind(id)
+        .bind(avatar_url)
+        .fetch_one(&self.pool)
+        .await
     }
 }

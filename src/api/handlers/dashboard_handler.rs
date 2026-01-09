@@ -15,6 +15,14 @@ pub struct DashboardStats {
     pub maintenance: MaintenanceStats,
     pub loans: LoanStats,
     pub alerts: AlertStats,
+    pub category_distribution: Vec<CategoryDistribution>,
+}
+
+#[derive(Serialize)]
+pub struct CategoryDistribution {
+    pub category: String,
+    pub count: i64,
+    pub value: Decimal,
 }
 
 #[derive(Serialize)]
@@ -63,6 +71,7 @@ pub async fn get_dashboard_stats(
     State(state): State<AppState>,
 ) -> Result<Json<DashboardStats>, AppError> {
     let pool = state.pool.clone();
+
     // Asset stats
     let asset_total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM assets")
         .fetch_one(&pool)
@@ -128,6 +137,32 @@ pub async fn get_dashboard_stats(
     .await
     .map_err(db_error)?;
 
+    // Category Distribution
+    let category_distribution: Vec<CategoryDistribution> =
+        sqlx::query_as::<_, (String, i64, Decimal)>(
+            r#"
+        SELECT 
+            c.name as category, 
+            COUNT(a.id) as count, 
+            COALESCE(SUM(a.purchase_price), 0) as value
+        FROM assets a
+        JOIN categories c ON a.category_id = c.id
+        GROUP BY c.name
+        ORDER BY value DESC
+        LIMIT 5
+        "#,
+        )
+        .fetch_all(&pool)
+        .await
+        .map_err(db_error)?
+        .into_iter()
+        .map(|(category, count, value)| CategoryDistribution {
+            category,
+            count,
+            value,
+        })
+        .collect();
+
     Ok(Json(DashboardStats {
         assets: AssetStats {
             total: asset_total.0,
@@ -147,6 +182,7 @@ pub async fn get_dashboard_stats(
             active: alerts_active.0,
             critical: alerts_critical.0,
         },
+        category_distribution,
     }))
 }
 

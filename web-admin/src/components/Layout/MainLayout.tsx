@@ -8,9 +8,12 @@ import {
     IconLogout,
     IconChartBar,
     IconCategory2,
+    IconUser,
+    IconScan, // Added
 } from '@tabler/icons-react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
+import { NotificationBell } from '../Header/NotificationBell';
 
 export function MainLayout() {
     const [opened, { toggle }] = useDisclosure();
@@ -31,6 +34,8 @@ export function MainLayout() {
         { label: 'Work Orders', icon: IconTool, path: '/work-orders' },
         { label: 'Reports', icon: IconChartBar, path: '/reports' },
         { label: 'Users', icon: IconUsers, path: '/users' },
+        { label: 'Audit', icon: IconScan, path: '/audit' }, // Added
+        { label: 'Profile', icon: IconUser, path: '/profile' },
     ];
 
     return (
@@ -47,23 +52,33 @@ export function MainLayout() {
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
                     <Title order={3}>Asset Manager</Title>
-                    <Text ml="auto" size="sm">{user?.name}</Text>
+                    <Group ml="auto">
+                        <NotificationBell />
+                        <Text size="sm">{user?.name}</Text>
+                    </Group>
                 </Group>
             </AppShell.Header>
 
             <AppShell.Navbar p="md">
-                {navItems.map((item) => (
-                    <NavLink
-                        key={item.path}
-                        label={item.label}
-                        leftSection={<item.icon size="1rem" stroke={1.5} />}
-                        active={location.pathname === item.path}
-                        onClick={() => {
-                            navigate(item.path);
-                            if (window.innerWidth < 768) toggle();
-                        }}
-                    />
-                ))}
+                {navItems.map((item) => {
+                    // Hide Users menu for non-admins (Level > 2)
+                    if (item.path === '/users' && (user?.role_level ?? 5) > 2) {
+                        return null;
+                    }
+
+                    return (
+                        <NavLink
+                            key={item.path}
+                            label={item.label}
+                            leftSection={<item.icon size="1rem" stroke={1.5} />}
+                            active={location.pathname === item.path}
+                            onClick={() => {
+                                navigate(item.path);
+                                if (window.innerWidth < 768) toggle();
+                            }}
+                        />
+                    );
+                })}
 
                 <NavLink
                     label="Logout"

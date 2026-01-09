@@ -1,0 +1,260 @@
+
+import { useEffect, useState } from 'react';
+import { Title, Container, Table, Badge, Button, Group, Card, ActionIcon, Modal, Select, TextInput, PasswordInput, Switch, LoadingOverlay } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
+import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
+import { useDisclosure } from '@mantine/hooks';
+import { usersApi, type UserSummary, type CreateUserRequest, type UpdateUserRequest } from '../api/users';
+
+interface Role {
+    id: string;
+    code: string;
+    name: string;
+    role_level: number;
+}
+
+const initialFormState: CreateUserRequest = {
+    email: '',
+    password: '',
+    name: '',
+    role_code: 'user',
+};
+
+export function Users() {
+    const [users, setUsers] = useState<UserSummary[]>([]);
+    const [roles, setRoles] = useState<Role[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    // Create/Edit State
+    const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false);
+    const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
+    const [submitting, setSubmitting] = useState(false);
+
+    const [editingUser, setEditingUser] = useState<UserSummary | null>(null);
+    const [formData, setFormData] = useState<CreateUserRequest>(initialFormState);
+    const [editFormData, setEditFormData] = useState<UpdateUserRequest>({});
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const [usersRes, rolesRes] = await Promise.all([
+                usersApi.list(1, 50),
+                usersApi.listRoles()
+            ]);
+
+            if (usersRes && Array.isArray(usersRes.data)) {
+                setUsers(usersRes.data);
+            } else if (Array.isArray(usersRes)) {
+                setUsers(usersRes);
+            }
+
+            if (Array.isArray(rolesRes)) {
+                setRoles(rolesRes);
+            }
+        } catch (error) {
+            console.error(error);
+            notifications.show({ title: 'Error', message: 'Failed to load data', color: 'red' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreate = async () => {
+        setSubmitting(true);
+        try {
+            await usersApi.create(formData);
+            notifications.show({ title: 'Success', message: 'User created', color: 'green' });
+            closeCreate();
+            setFormData(initialFormState);
+            loadData();
+        } catch (e: any) {
+            notifications.show({ title: 'Error', message: e.response?.data?.message || 'Failed to create user', color: 'red' });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleUpdate = async () => {
+        if (!editingUser) return;
+        setSubmitting(true);
+        try {
+            await usersApi.update(editingUser.id, editFormData);
+            notifications.show({ title: 'Success', message: 'User updated', color: 'green' });
+            closeEdit();
+            loadData();
+        } catch (e: any) {
+            notifications.show({ title: 'Error', message: e.response?.data?.message || 'Failed to update user', color: 'red' });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDelete = async (user: UserSummary) => {
+        if (!window.confirm(`Are you sure you want to delete ${user.name}?`)) return;
+        try {
+            await usersApi.delete(user.id);
+            notifications.show({ title: 'Success', message: 'User deleted', color: 'green' });
+            loadData();
+        } catch (e: any) {
+            notifications.show({ title: 'Error', message: 'Failed to delete user', color: 'red' });
+        }
+    };
+
+    const openEditModal = (user: UserSummary) => {
+        setEditingUser(user);
+        setEditFormData({
+            name: user.name,
+            role_code: user.role_code,
+            is_active: user.is_active,
+            // password left undefined (optional)
+        });
+        openEdit();
+    };
+
+    const getRoleParams = (level: number) => {
+        if (level === 1) return { color: 'red', label: 'Super Admin' };
+        if (level === 2) return { color: 'orange', label: 'Manager' };
+        if (level === 3) return { color: 'yellow', label: 'Supervisor' };
+        if (level === 4) return { color: 'blue', label: 'Admin/Specialist' };
+        return { color: 'gray', label: 'User/Viewer' };
+    };
+
+    const rows = users.map((user) => {
+        const badgeParams = getRoleParams(user.role_level);
+        return (
+            <Table.Tr key={user.id}>
+                <Table.Td>{user.name}</Table.Td>
+                <Table.Td>{user.email}</Table.Td>
+                <Table.Td>
+                    <Badge color={badgeParams.color} variant="light">
+                        {user.role_code} (L{user.role_level})
+                    </Badge>
+                </Table.Td>
+                <Table.Td>
+                    <Badge color={user.is_active ? 'green' : 'gray'} variant="dot">
+                        {user.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                </Table.Td>
+                <Table.Td>
+                    <Group gap="xs">
+                        <ActionIcon variant="subtle" color="blue" onClick={() => openEditModal(user)}>
+                            <IconEdit size={16} />
+                        </ActionIcon>
+                        {user.role_level > 1 && ( // Prevent deleting Super Admins easily (simple check)
+                            <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(user)}>
+                                <IconTrash size={16} />
+                            </ActionIcon>
+                        )}
+                    </Group>
+                </Table.Td>
+            </Table.Tr>
+        );
+    });
+
+    const roleOptions = roles.map(r => ({ value: r.code, label: `${r.name} (L${r.role_level})` }));
+
+    return (
+        <Container size="xl">
+            <Group justify="space-between" mb="md">
+                <Title order={2}>User Management</Title>
+                <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>Add User</Button>
+            </Group>
+
+            <Card withBorder>
+                <LoadingOverlay visible={loading} />
+                <Table>
+                    <Table.Thead>
+                        <Table.Tr>
+                            <Table.Th>Name</Table.Th>
+                            <Table.Th>Email</Table.Th>
+                            <Table.Th>Role</Table.Th>
+                            <Table.Th>Status</Table.Th>
+                            <Table.Th>Action</Table.Th>
+                        </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                        {users.length > 0 ? rows : (
+                            <Table.Tr>
+                                <Table.Td colSpan={5} style={{ textAlign: 'center' }}>No users found</Table.Td>
+                            </Table.Tr>
+                        )}
+                    </Table.Tbody>
+                </Table>
+            </Card>
+
+            {/* Create Modal */}
+            <Modal opened={createOpened} onClose={closeCreate} title="Create New User">
+                <TextInput
+                    label="Name"
+                    placeholder="Full Name"
+                    mb="sm"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                />
+                <TextInput
+                    label="Email"
+                    placeholder="email@example.com"
+                    mb="sm"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required
+                />
+                <PasswordInput
+                    label="Password"
+                    placeholder="WeakPassword123"
+                    mb="sm"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
+                />
+                <Select
+                    label="Role"
+                    placeholder="Select Role"
+                    data={roleOptions}
+                    value={formData.role_code}
+                    onChange={(val) => setFormData({ ...formData, role_code: val || 'user' })}
+                    mb="md"
+                    searchable
+                />
+                <Button fullWidth onClick={handleCreate} loading={submitting}>Create User</Button>
+            </Modal>
+
+            {/* Edit Modal */}
+            <Modal opened={editOpened} onClose={closeEdit} title="Edit User">
+                <TextInput
+                    label="Name"
+                    mb="sm"
+                    value={editFormData.name || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                />
+                <Select
+                    label="Role"
+                    data={roleOptions}
+                    value={editFormData.role_code || ''}
+                    onChange={(val) => setEditFormData({ ...editFormData, role_code: val || undefined })}
+                    mb="sm"
+                    searchable
+                />
+                <PasswordInput
+                    label="New Password (Optional)"
+                    placeholder="Leave blank to keep current"
+                    mb="sm"
+                    value={editFormData.password || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value || undefined })}
+                />
+                <Switch
+                    label="Active Account"
+                    checked={editFormData.is_active ?? true}
+                    onChange={(e) => setEditFormData({ ...editFormData, is_active: e.currentTarget.checked })}
+                    mb="md"
+                />
+                <Button fullWidth onClick={handleUpdate} loading={submitting}>Save Changes</Button>
+            </Modal>
+        </Container>
+    );
+}

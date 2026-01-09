@@ -4,6 +4,7 @@ import { IconBox, IconTool, IconAlertTriangle, IconCurrencyDollar, IconClock, Ic
 import { api } from '../api/client';
 import { StatCard } from '../components/dashboard/StatCard';
 import { RecentActivity, type ActivityItem } from '../components/dashboard/RecentActivity';
+import { DashboardCharts } from '../components/dashboard/DashboardCharts';
 
 export function Dashboard() {
     // 1. Fetch Main Stats
@@ -84,6 +85,12 @@ export function Dashboard() {
                     <StatCard key={item.label} {...item} />
                 ))}
             </SimpleGrid>
+
+            {/* Charts Section */}
+            <DashboardCharts
+                categoryDistribution={stats?.category_distribution}
+                statusDistribution={stats?.assets?.by_status}
+            />
 
             <Grid gutter="lg">
                 {/* Main Content Area - Left Column */}

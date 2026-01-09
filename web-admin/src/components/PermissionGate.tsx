@@ -11,24 +11,20 @@ interface PermissionGateProps {
 
 export function PermissionGate({
     children,
-    requiredPermission: _requiredPermission,
+    requiredPermission,
     requiredRole,
     requiredLevel,
     fallback = null
 }: PermissionGateProps) {
-    const user = useAuthStore((state) => state.user);
+    const { user, hasPermission, hasRoleLevel } = useAuthStore();
 
     if (!user) {
         return <>{fallback}</>;
     }
 
-    // Role Level Check (Lower value is higher privilege usually, e.g. 1 SuperAdmin, 5 Viewer)
-    // Wait, implementation plan says: 1 SuperAdmin, 5 Viewer.
-    // So if requiredLevel is 3 (Supervisor), user with 1, 2, 3 should see it.
-    // So user.role_level <= requiredLevel
-
+    // Role Level Check
     if (requiredLevel !== undefined) {
-        if (!user.role_level || user.role_level > requiredLevel) {
+        if (!hasRoleLevel(requiredLevel)) {
             return <>{fallback}</>;
         }
     }
@@ -41,11 +37,11 @@ export function PermissionGate({
     }
 
     // Permission Check
-    // We didn't implement permissions array in User interface yet fully (commented out).
-    // But if we did:
-    // if (requiredPermission && !user.permissions?.includes(requiredPermission)) {
-    //    return <>{fallback}</>;
-    // }
+    if (requiredPermission) {
+        if (!hasPermission(requiredPermission)) {
+            return <>{fallback}</>;
+        }
+    }
 
     return <>{children}</>;
 }

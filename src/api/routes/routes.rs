@@ -1,13 +1,17 @@
 //! Route Definitions
 
 use axum::{
+    handler::Handler,
     middleware as axum_middleware,
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 
 use crate::api::handlers::*;
-use crate::api::middleware::auth_middleware;
+use crate::api::middleware::{
+    auth_middleware,
+    rbac::{admin_only_middleware, require_permission},
+};
 use crate::api::server::AppState;
 
 pub fn create_router(state: AppState) -> Router {
@@ -29,11 +33,29 @@ pub fn create_router(state: AppState) -> Router {
     // Protected routes
     let protected_routes = Router::new()
         // Assets
-        .route("/api/assets", get(list_assets).post(create_asset))
-        .route("/api/assets/search", get(search_assets))
+        .route(
+            "/api/assets",
+            get(list_assets.layer(axum_middleware::from_fn(require_permission("asset.read"))))
+                .post(
+                    create_asset
+                        .layer(axum_middleware::from_fn(require_permission("asset.create"))),
+                ),
+        )
+        .route(
+            "/api/assets/search",
+            get(search_assets.layer(axum_middleware::from_fn(require_permission("asset.read")))),
+        )
         .route(
             "/api/assets/:id",
-            get(get_asset).put(update_asset).delete(delete_asset),
+            get(get_asset.layer(axum_middleware::from_fn(require_permission("asset.read"))))
+                .put(
+                    update_asset
+                        .layer(axum_middleware::from_fn(require_permission("asset.update"))),
+                )
+                .delete(
+                    delete_asset
+                        .layer(axum_middleware::from_fn(require_permission("asset.delete"))),
+                ),
         )
         // Maintenance - Merged below
         // Work Orders
@@ -74,6 +96,25 @@ pub fn create_router(state: AppState) -> Router {
             "/api/notifications/:id/read",
             post(mark_notification_as_read),
         )
+        // Users (Admin Only)
+        .route(
+            "/api/users",
+            get(list_users.layer(axum_middleware::from_fn(admin_only_middleware)))
+                .post(create_user.layer(axum_middleware::from_fn(admin_only_middleware))),
+        )
+        // Profile Routes (Checked for protected_routes and auth_middleware coverage)
+        .route(
+            "/api/me",
+            get(profile_handler::get_profile).put(profile_handler::update_profile),
+        )
+        .route("/api/me/password", put(profile_handler::change_password))
+        .route("/api/me/avatar", post(profile_handler::upload_avatar))
+        .route(
+            "/api/users/:id",
+            put(update_user.layer(axum_middleware::from_fn(admin_only_middleware)))
+                .delete(delete_user.layer(axum_middleware::from_fn(admin_only_middleware))),
+        )
+        // I'll rewrite this block more cleanly
         // RBAC
         .route("/api/rbac/roles", get(list_roles))
         .route("/api/rbac/permissions", get(list_permissions))
@@ -105,9 +146,34 @@ pub fn create_router(state: AppState) -> Router {
             "/api/sensors/alerts/:id/acknowledge",
             post(acknowledge_alert),
         )
+        .route("/api/reports/assets", get(report_handler::export_assets))
+        .route(
+            "/api/reports/maintenance",
+            get(report_handler::export_maintenance),
+        )
         .route("/api/dashboard", get(get_dashboard_stats))
         .route("/api/dashboard/activity", get(get_recent_activities))
         .route("/api/dashboard/depreciation", get(get_depreciation_summary))
+        .route(
+            "/api/audit/sessions",
+            post(audit_handler::start_audit_session),
+        )
+        .route(
+            "/api/audit/sessions/active",
+            get(audit_handler::get_active_session),
+        )
+        .route(
+            "/api/audit/sessions/:id/records",
+            post(audit_handler::submit_audit_record),
+        )
+        .route(
+            "/api/audit/sessions/:id/close",
+            post(audit_handler::close_session),
+        )
+        .route(
+            "/api/audit/sessions/:id/progress",
+            get(audit_handler::get_audit_progress),
+        )
         .merge(crate::api::routes::data_routes::data_routes())
         .merge(crate::api::routes::maintenance_routes::routes())
         .merge(crate::api::routes::approval_routes::approval_routes(

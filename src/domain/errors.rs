@@ -27,6 +27,15 @@ pub enum DomainError {
 
     /// External service error
     ExternalServiceError { service: String, message: String },
+
+    /// Bad request
+    BadRequest { message: String },
+
+    /// Internal error
+    Internal { message: String },
+
+    /// Database error
+    Database(String),
 }
 
 impl DomainError {
@@ -69,6 +78,18 @@ impl DomainError {
             message: message.to_string(),
         }
     }
+
+    pub fn bad_request(message: &str) -> Self {
+        Self::BadRequest {
+            message: message.to_string(),
+        }
+    }
+
+    pub fn internal(message: impl ToString) -> Self {
+        Self::Internal {
+            message: message.to_string(),
+        }
+    }
 }
 
 impl fmt::Display for DomainError {
@@ -94,6 +115,15 @@ impl fmt::Display for DomainError {
             }
             Self::ExternalServiceError { service, message } => {
                 write!(f, "External service '{}' error: {}", service, message)
+            }
+            Self::BadRequest { message } => {
+                write!(f, "Bad request: {}", message)
+            }
+            Self::Internal { message } => {
+                write!(f, "Internal error: {}", message)
+            }
+            Self::Database(message) => {
+                write!(f, "Database error: {}", message)
             }
         }
     }

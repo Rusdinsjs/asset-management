@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Title, Container, Table, Badge, Button, Group, Text, Card, Tabs, Textarea, Modal } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { approvalsApi } from '../api/approvals';
-import type { ApprovalRequest } from '../api/approvals';
+import { approvalApi } from '../api/approval';
+import type { ApprovalRequest } from '../api/approval';
 import { useDisclosure } from '@mantine/hooks';
 
 export function ApprovalCenter() {
@@ -26,10 +26,10 @@ export function ApprovalCenter() {
                 // Mock role level or get from store. Backend endpoint uses token context.
                 // We pass generic 0 or let backend handle it? 
                 // The API listPending implementation calls /approvals/pending without params
-                const data = await approvalsApi.listPending(0);
+                const data = await approvalApi.listPending();
                 setPendingRequests(data);
             } else {
-                const data = await approvalsApi.listMyRequests();
+                const data = await approvalApi.listMyRequests();
                 setMyRequests(data);
             }
         } catch (error) {
@@ -49,10 +49,10 @@ export function ApprovalCenter() {
         if (!selectedRequest) return;
         try {
             if (actionType === 'approve') {
-                await approvalsApi.approve(selectedRequest.id, actionNotes);
+                await approvalApi.approve(selectedRequest.id, actionNotes);
                 notifications.show({ title: 'Success', message: 'Request approved', color: 'green' });
             } else {
-                await approvalsApi.reject(selectedRequest.id, actionNotes);
+                await approvalApi.reject(selectedRequest.id, actionNotes);
                 notifications.show({ title: 'Success', message: 'Request rejected', color: 'green' });
             }
             close();
@@ -75,7 +75,7 @@ export function ApprovalCenter() {
 
     const rows = (activeTab === 'pending' ? pendingRequests : myRequests).map((req) => (
         <Table.Tr key={req.id}>
-            <Table.Td>{new Date(req.requested_at).toLocaleDateString()}</Table.Td>
+            <Table.Td>{new Date(req.created_at).toLocaleDateString()}</Table.Td>
             <Table.Td>{req.resource_type}</Table.Td>
             <Table.Td>{req.action_type}</Table.Td>
             <Table.Td>

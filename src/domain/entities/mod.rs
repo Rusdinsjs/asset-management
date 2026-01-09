@@ -5,6 +5,7 @@
 pub mod asset;
 pub mod asset_details;
 pub mod asset_lifecycle;
+pub mod audit;
 pub mod category;
 pub mod department;
 pub mod loan;
@@ -21,6 +22,7 @@ pub mod work_order;
 pub use asset::{Asset, AssetHistory, AssetSummary};
 pub use asset_details::*;
 pub use asset_lifecycle::*;
+pub use audit::*;
 pub use category::Category;
 pub use department::*;
 pub use loan::*;

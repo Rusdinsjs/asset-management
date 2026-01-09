@@ -6,6 +6,7 @@ use uuid::Uuid;
 use crate::domain::entities::{User, UserClaims, UserRole};
 use crate::domain::errors::{DomainError, DomainResult};
 use crate::infrastructure::repositories::{RbacRepository, UserRepository};
+use crate::shared::utils::crypto::{hash_password, verify_password};
 use crate::shared::utils::jwt::{create_token, JwtConfig};
 
 /// Auth service
@@ -121,37 +122,4 @@ impl AuthService {
                 message: e.to_string(),
             })
     }
-}
-
-/// Hash password using argon2
-fn hash_password(password: &str) -> Result<String, String> {
-    use argon2::{
-        password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-        Argon2,
-    };
-
-    let salt = SaltString::generate(&mut OsRng);
-    let argon2 = Argon2::default();
-
-    argon2
-        .hash_password(password.as_bytes(), &salt)
-        .map(|hash| hash.to_string())
-        .map_err(|e| e.to_string())
-}
-
-/// Verify password
-fn verify_password(password: &str, hash: &str) -> bool {
-    use argon2::{
-        password_hash::{PasswordHash, PasswordVerifier},
-        Argon2,
-    };
-
-    let parsed_hash = match PasswordHash::new(hash) {
-        Ok(h) => h,
-        Err(_) => return false,
-    };
-
-    Argon2::default()
-        .verify_password(password.as_bytes(), &parsed_hash)
-        .is_ok()
 }

@@ -31,34 +31,30 @@ export function WorkOrders() {
     // Fetch Maintenance
     const { data: maintenanceData, isLoading } = useQuery({
         queryKey: ['maintenance', page, activeTab],
-        queryFn: () => {
+        queryFn: async () => {
             // Basic filtering based on tab
-            // Since API is simple list, we filter client side or backend should support status filter?
-            // Backend has `status` in params.
-            // Backend has `status` in params.
-            // Actually let's just list all and maybe filter in UI or backend.
-            // Actually let's just list all and maybe filter in UI or backend.
-            // Handler only checks `params.status`.
-            // If tab is 'overdue', we use specific endpoint.
-            if (activeTab === 'overdue') return maintenanceApi.listOverdue();
 
-            return maintenanceApi.list({
+            if (activeTab === 'overdue') {
+                const response = await maintenanceApi.listOverdue();
+                // Normalize to a common structure or return as is and handle in component
+                return response as any;
+            }
+
+            const response = await maintenanceApi.list({
                 page,
                 per_page: 20,
                 // status: activeTab === 'history' ? 'completed' : undefined
             });
+            return response as any;
         },
     });
 
-    // TODO: The API response structure for `listOverdue` matches `list`?
-    // Handler `list_overdue_maintenance` returns `Vec<MaintenanceSummary>`.
-    // Handler `list` returns `PaginatedResponse`.
-    // We need to handle this diff.
+    // Correctly handle the API response structure difference
     const records = activeTab === 'overdue'
-        ? (maintenanceData as any) // Overdue returns array directly from handler (ApiResponse<Vec>)
-        : (maintenanceData as any)?.data || []; // List returns PaginatedResponse inside ApiResponse
+        ? (maintenanceData as any)?.data || [] // Overdue returns ApiResponse<Vec<MaintenanceSummary>>
+        : (maintenanceData as any)?.data?.data || []; // List returns ApiResponse<PaginatedData<MaintenanceSummary>>
 
-    const totalPages = (maintenanceData as any)?.pagination?.total_pages || 1;
+    const totalPages = (maintenanceData as any)?.data?.pagination?.total_pages || 1;
 
     // Delete Mutation
     const deleteMutation = useMutation({
