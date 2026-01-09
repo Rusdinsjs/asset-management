@@ -1,0 +1,5 @@
+[2m2026-01-09T05:09:21.765321Z[0m [32m INFO[0m [2mbackend_ma[0m[2m:[0m Starting Asset Management Backend v0.1.0
+[2m2026-01-09T05:09:21.766109Z[0m [32m INFO[0m [2mbackend_ma[0m[2m:[0m Environment: development
+[2m2026-01-09T05:09:21.804910Z[0m [32m INFO[0m [2mbackend_ma[0m[2m:[0m Database connected successfully
+[2m2026-01-09T05:09:21.806892Z[0m [32m INFO[0m [2mbackend_ma::application::services::scheduler_service[0m[2m:[0m Scheduler started
+[2m2026-01-09T05:09:21.809474Z[0m [32m INFO[0m [2mbackend_ma[0m[2m:[0m Server listening on http://0.0.0.0:8080
