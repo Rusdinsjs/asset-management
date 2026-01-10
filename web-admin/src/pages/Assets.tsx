@@ -16,12 +16,13 @@ import {
     Text,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconSearch, IconPlus, IconEdit, IconTrash, IconRefresh } from '@tabler/icons-react';
+import { IconSearch, IconPlus, IconEdit, IconTrash, IconRefresh, IconUpload } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { assetApi } from '../api/assets';
 import type { Asset, CreateAssetRequest } from '../api/assets';
 import { api } from '../api/client';
 import { AssetForm } from './AssetForm';
+import { ImportAssetsModal } from '../components/Assets/ImportAssetsModal';
 import { useNavigate } from 'react-router-dom';
 
 // Helper to flatten category tree
@@ -45,6 +46,7 @@ export function Assets() {
     const [debouncedSearch] = useDebouncedValue(search, 500);
 
     const [drawerOpen, setDrawerOpen] = useState(false);
+    const [importModalOpen, setImportModalOpen] = useState(false);
     const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
 
     // Fetch Assets
@@ -164,6 +166,9 @@ export function Assets() {
                             value={search}
                             onChange={(e) => setSearch(e.currentTarget.value)}
                         />
+                        <Button variant="light" leftSection={<IconUpload size={16} />} onClick={() => setImportModalOpen(true)}>
+                            Import
+                        </Button>
                         <Button leftSection={<IconPlus size={16} />} onClick={handleAddNew}>
                             Add Asset
                         </Button>
@@ -265,6 +270,14 @@ export function Assets() {
                     isLoading={createMutation.isPending || updateMutation.isPending}
                 />
             </Drawer>
-        </Stack>
+
+            <ImportAssetsModal
+                opened={importModalOpen}
+                onClose={() => setImportModalOpen(false)}
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ['assets'] })}
+                categories={categories}
+                locations={locations}
+            />
+        </Stack >
     );
 }

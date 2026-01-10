@@ -1,5 +1,5 @@
-[2m2026-01-10T03:02:18.593201Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
-[2m2026-01-10T03:02:18.594262Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
-[2m2026-01-10T03:02:20.671550Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
-[2m2026-01-10T03:02:20.687623Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
-[2m2026-01-10T03:02:20.704895Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080
+[2m2026-01-10T06:00:54.132965Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
+[2m2026-01-10T06:00:54.133736Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
+[2m2026-01-10T06:00:56.205468Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
+[2m2026-01-10T06:00:56.208535Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
+[2m2026-01-10T06:00:56.212395Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080

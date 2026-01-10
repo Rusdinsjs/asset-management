@@ -55,7 +55,7 @@ catch {
 
 # 2. Jalankan Backend (Cargo) di background
 Write-Green "3. Menjalankan Backend (Rust)..."
-$backendProcess = Start-Process -FilePath "cargo" -ArgumentList "run" -RedirectStandardOutput "backend.out.log" -RedirectStandardError "backend.err.log" -PassThru
+$backendProcess = Start-Process -FilePath "cargo" -ArgumentList "run" -RedirectStandardOutput "backend.out.log" -RedirectStandardError "backend.err.log" -PassThru -NoNewWindow
 Write-Host "Backend running with PID: $($backendProcess.Id)"
 
 # 3. Jalankan Frontend (Bun/Npm) di background
@@ -65,7 +65,7 @@ Push-Location "web-admin"
 $frontendProcess = $null
 if (Get-Command "bun" -ErrorAction SilentlyContinue) {
     Write-Host "Using Bun..."
-    $frontendProcess = Start-Process -FilePath "bun" -ArgumentList "dev" -RedirectStandardOutput "frontend.out.log" -RedirectStandardError "frontend.err.log" -PassThru
+    $frontendProcess = Start-Process -FilePath "bun" -ArgumentList "dev" -RedirectStandardOutput "frontend.out.log" -RedirectStandardError "frontend.err.log" -PassThru -NoNewWindow
 }
 else {
     Write-Host "Bun not found, using NPM..."
@@ -73,7 +73,7 @@ else {
     $npmCmd = Get-Command "npm" -CommandType Application, Cmdlet, ExternalScript | Select-Object -First 1
     if ($npmCmd) {
         # Wrap in cmd /c to ensure it executes properly as a background process
-        $frontendProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c npm run dev" -RedirectStandardOutput "frontend.out.log" -RedirectStandardError "frontend.err.log" -PassThru
+        $frontendProcess = Start-Process -FilePath "cmd.exe" -ArgumentList "/c npm run dev" -RedirectStandardOutput "frontend.out.log" -RedirectStandardError "frontend.err.log" -PassThru -NoNewWindow
     }
     else {
         Write-Error "Neither Bun nor NPM found!"
@@ -102,15 +102,18 @@ finally {
     Write-Blue "`n>>> Mematikan Service..."
     
     if ($backendProcess -and -not $backendProcess.HasExited) {
-        Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue
+        Write-Host "  Stopping Backend (PID: $($backendProcess.Id))..."
+        # Use taskkill to ensure the whole tree (cargo + app) is killed
+        taskkill /F /T /PID $backendProcess.Id | Out-Null
     }
     
     if ($frontendProcess -and -not $frontendProcess.HasExited) {
-        # Stopping the cmd wrapper usually kills the child, but explicitly killing the process tree is harder in pure PS without WMI.
-        # Basic Stop-Process is usually sufficient for dev scripts.
-        Stop-Process -Id $frontendProcess.Id -Force -ErrorAction SilentlyContinue
+        Write-Host "  Stopping Frontend (PID: $($frontendProcess.Id))..."
+        # Use taskkill to ensure the whole tree (cmd + node/bun) is killed
+        taskkill /F /T /PID $frontendProcess.Id | Out-Null
     }
 
+    Write-Host "  Stopping Containers..."
     Invoke-Expression "$dockerCmd compose stop"
     Write-Green ">>> Selesai. Sampai jumpa! 👋"
 }

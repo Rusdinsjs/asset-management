@@ -9,8 +9,8 @@ use uuid::Uuid;
 
 use crate::api::server::AppState;
 use crate::application::dto::{
-    ApiResponse, AssetSearchParams, CreateAssetRequest, PaginatedResponse, PaginationParams,
-    UpdateAssetRequest,
+    ApiResponse, AssetSearchParams, BulkCreateAssetRequest, CreateAssetRequest, PaginatedResponse,
+    PaginationParams, UpdateAssetRequest,
 };
 use crate::application::services::asset_service::AssetOperationResult;
 use crate::domain::entities::user::UserClaims;
@@ -74,6 +74,29 @@ pub async fn create_asset(
         )
             .into_response()),
     }
+}
+
+pub async fn bulk_create_assets(
+    State(state): State<AppState>,
+    Extension(claims): Extension<UserClaims>,
+    Json(payload): Json<BulkCreateAssetRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    let user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| AppError::BadRequest("Invalid user ID".to_string()))?;
+
+    let results = state
+        .asset_service
+        .bulk_create(payload, user_id, claims.role_level)
+        .await?;
+
+    Ok((
+        StatusCode::OK,
+        Json(ApiResponse::success_with_message(
+            results.len(),
+            "Assets processed",
+        )),
+    )
+        .into_response())
 }
 
 pub async fn update_asset(

@@ -42,6 +42,13 @@ pub fn create_router(state: AppState) -> Router {
                 ),
         )
         .route(
+            "/api/assets/bulk",
+            post(
+                bulk_create_assets
+                    .layer(axum_middleware::from_fn(require_permission("asset.create"))),
+            ),
+        )
+        .route(
             "/api/assets/search",
             get(search_assets.layer(axum_middleware::from_fn(require_permission("asset.read")))),
         )
@@ -223,45 +230,15 @@ pub fn create_router(state: AppState) -> Router {
             "/api/lifecycle/states",
             get(lifecycle_handler::get_all_states),
         )
-        // Conversion routes
-        .route(
-            "/api/assets/:id/conversion-requests",
-            post(conversion_handler::create_conversion_request)
-                .get(conversion_handler::get_asset_conversions),
-        )
-        .route(
-            "/api/conversion-requests/pending",
-            get(conversion_handler::get_pending_conversions),
-        )
-        .route(
-            "/api/conversion-requests/:id",
-            get(conversion_handler::get_conversion),
-        )
-        .route(
-            "/api/conversion-requests/:id/approve",
-            put(conversion_handler::approve_conversion),
-        )
-        .route(
-            "/api/conversion-requests/:id/reject",
-            put(conversion_handler::reject_conversion),
-        )
-        .route(
-            "/api/conversion-requests/:id/execute",
-            post(conversion_handler::execute_conversion),
-        )
-        .route(
-            "/api/conversion-requests/:id/complete",
-            post(conversion_handler::complete_conversion),
-        )
-        .merge(crate::api::routes::data_routes::data_routes())
+        .merge(crate::api::routes::category_routes::category_routes())
+        .merge(crate::api::routes::conversion_routes::conversion_routes(
+            state.clone(),
+        ))
+        //.merge(crate::api::routes::location_routes::location_routes()) // Commented out until confirmed
         .merge(crate::api::routes::maintenance_routes::routes())
         .merge(crate::api::routes::approval_routes::approval_routes(
             state.clone(),
-        )) // Added
-        .nest(
-            "/api/categories",
-            crate::api::routes::category_routes::category_routes(),
-        )
+        ))
         .nest(
             "/api/mobile",
             crate::api::routes::mobile_routes::mobile_routes(state.clone()),

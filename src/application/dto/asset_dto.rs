@@ -53,6 +53,12 @@ pub struct CreateAssetRequest {
     pub vehicle_details: Option<VehicleDetailsDto>,
 }
 
+/// Bulk create asset request
+#[derive(Debug, Deserialize, Serialize)]
+pub struct BulkCreateAssetRequest {
+    pub assets: Vec<CreateAssetRequest>,
+}
+
 /// Update asset request
 #[derive(Debug, Deserialize, Default)]
 pub struct UpdateAssetRequest {

@@ -1,158 +1,142 @@
-//! Conversion API Handler
-//!
-//! Endpoints for asset transformation/conversion workflow.
-
+use crate::api::server::AppState;
+use crate::application::dto::{ApiResponse, CreateConversionRequest, ExecuteConversionRequest};
+use crate::domain::entities::user::UserClaims;
+use crate::shared::errors::AppError;
 use axum::{
     extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
     Extension, Json,
 };
-use rust_decimal::Decimal;
-use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::api::server::AppState;
-use crate::application::dto::ApiResponse;
-use crate::domain::entities::{AssetConversion, UserClaims as Claims};
-use crate::shared::errors::AppError;
-
-#[derive(Deserialize)]
-pub struct CreateConversionRequest {
-    pub from_category_id: Option<Uuid>,
-    pub to_category_id: Option<Uuid>,
-    pub from_subtype: Option<String>,
-    pub to_subtype: Option<String>,
-    pub conversion_type: String,
-    pub conversion_cost: Option<Decimal>,
-    pub old_specifications: Option<serde_json::Value>,
-    pub new_specifications: Option<serde_json::Value>,
-    pub justification: String,
-}
-
-#[derive(Deserialize)]
-pub struct RejectRequest {
-    pub reason: String,
-}
-
-/// POST /api/assets/:id/conversion-requests
+/// Create a conversion request
 pub async fn create_conversion_request(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
-    Path(asset_id): Path<Uuid>,
-    Json(req): Json<CreateConversionRequest>,
-) -> Result<Json<ApiResponse<AssetConversion>>, AppError> {
+    Extension(claims): Extension<UserClaims>,
+    Path(asset_id): Path<Uuid>, // We might not need this if it's in body, but RESTful
+    Json(payload): Json<CreateConversionRequest>,
+) -> Result<impl IntoResponse, AppError> {
+    // Ensure payload asset_id matches path
+    if payload.asset_id != asset_id {
+        return Err(AppError::BadRequest("Asset ID mismatch".into()));
+    }
+
     let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
+        .map_err(|_| AppError::BadRequest("Invalid user ID".to_string()))?;
 
     let conversion = state
         .conversion_service
-        .request_conversion(
-            asset_id,
-            req.from_category_id,
-            req.to_category_id,
-            req.from_subtype,
-            req.to_subtype,
-            &req.conversion_type,
-            req.conversion_cost,
-            req.old_specifications,
-            req.new_specifications,
-            &req.justification,
-            user_id,
-        )
+        .create_request(payload, user_id)
         .await?;
 
-    Ok(Json(ApiResponse::success(conversion)))
+    Ok((
+        StatusCode::CREATED,
+        Json(ApiResponse::success_with_message(
+            conversion,
+            "Conversion request created",
+        )),
+    )
+        .into_response())
 }
 
-/// GET /api/assets/:id/conversion-requests
+/// Get pending conversion requests
+pub async fn get_pending_conversions(
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    let conversions = state.conversion_service.get_pending_requests().await?;
+
+    Ok((StatusCode::OK, Json(ApiResponse::success(conversions))).into_response())
+}
+
+/// Get conversion requests for an asset
 pub async fn get_asset_conversions(
     State(state): State<AppState>,
     Path(asset_id): Path<Uuid>,
-) -> Result<Json<ApiResponse<Vec<AssetConversion>>>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     let conversions = state
         .conversion_service
         .get_asset_conversions(asset_id)
         .await?;
-    Ok(Json(ApiResponse::success(conversions)))
+
+    Ok((StatusCode::OK, Json(ApiResponse::success(conversions))).into_response())
 }
 
-/// GET /api/conversion-requests/pending
-pub async fn get_pending_conversions(
-    State(state): State<AppState>,
-) -> Result<Json<ApiResponse<Vec<AssetConversion>>>, AppError> {
-    let conversions = state.conversion_service.get_pending_conversions().await?;
-    Ok(Json(ApiResponse::success(conversions)))
-}
-
-/// GET /api/conversion-requests/:id
+/// Get a single conversion request
 pub async fn get_conversion(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<ApiResponse<AssetConversion>>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     let conversion = state.conversion_service.get_conversion(id).await?;
-    Ok(Json(ApiResponse::success(conversion)))
+    Ok((StatusCode::OK, Json(ApiResponse::success(conversion))).into_response())
 }
 
-/// PUT /api/conversion-requests/:id/approve
-pub async fn approve_conversion(
-    State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
-    Path(id): Path<Uuid>,
-) -> Result<Json<ApiResponse<AssetConversion>>, AppError> {
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
-
-    let conversion = state
-        .conversion_service
-        .approve_conversion(id, user_id)
-        .await?;
-    Ok(Json(ApiResponse::success(conversion)))
-}
-
-/// PUT /api/conversion-requests/:id/reject
+/// Reject a conversion request
 pub async fn reject_conversion(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<Uuid>,
-    Json(req): Json<RejectRequest>,
-) -> Result<Json<ApiResponse<AssetConversion>>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
+    let _user_id = Uuid::parse_str(&claims.sub)
+        .map_err(|_| AppError::BadRequest("Invalid user ID".to_string()))?;
+
+    let conversion = state.conversion_service.reject_request(id).await?;
+
+    Ok((
+        StatusCode::OK,
+        Json(ApiResponse::success_with_message(
+            conversion,
+            "Conversion request rejected",
+        )),
+    )
+        .into_response())
+}
+
+/// Approve a conversion request
+pub async fn approve_conversion(
+    State(state): State<AppState>,
+    Extension(claims): Extension<UserClaims>,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse, AppError> {
     let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
+        .map_err(|_| AppError::BadRequest("Invalid user ID".to_string()))?;
 
     let conversion = state
         .conversion_service
-        .reject_conversion(id, user_id, &req.reason)
+        .approve_request(id, user_id)
         .await?;
-    Ok(Json(ApiResponse::success(conversion)))
+
+    Ok((
+        StatusCode::OK,
+        Json(ApiResponse::success_with_message(
+            conversion,
+            "Conversion request approved",
+        )),
+    )
+        .into_response())
 }
 
-/// POST /api/conversion-requests/:id/execute
+/// Execute a conversion request
 pub async fn execute_conversion(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<Uuid>,
-) -> Result<Json<ApiResponse<AssetConversion>>, AppError> {
+    Json(payload): Json<ExecuteConversionRequest>,
+) -> Result<impl IntoResponse, AppError> {
     let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
+        .map_err(|_| AppError::BadRequest("Invalid user ID".to_string()))?;
 
     let conversion = state
         .conversion_service
-        .execute_conversion(id, user_id)
+        .execute_conversion(id, user_id, payload)
         .await?;
-    Ok(Json(ApiResponse::success(conversion)))
-}
 
-/// POST /api/conversion-requests/:id/complete
-pub async fn complete_conversion(
-    State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
-    Path(id): Path<Uuid>,
-) -> Result<Json<ApiResponse<AssetConversion>>, AppError> {
-    let user_id = Uuid::parse_str(&claims.sub)
-        .map_err(|_| AppError::Unauthorized("Invalid user ID".to_string()))?;
-
-    let conversion = state
-        .conversion_service
-        .complete_conversion(id, user_id)
-        .await?;
-    Ok(Json(ApiResponse::success(conversion)))
+    Ok((
+        StatusCode::OK,
+        Json(ApiResponse::success_with_message(
+            conversion,
+            "Conversion executed successfully",
+        )),
+    )
+        .into_response())
 }

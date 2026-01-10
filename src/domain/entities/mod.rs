@@ -7,6 +7,7 @@ pub mod asset_details;
 pub mod asset_lifecycle;
 pub mod audit;
 pub mod category;
+pub mod conversion;
 pub mod department;
 pub mod loan;
 pub mod location;

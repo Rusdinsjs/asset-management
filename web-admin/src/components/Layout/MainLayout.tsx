@@ -11,6 +11,7 @@ import {
     IconUser,
     IconScan,
     IconCheckbox,
+    IconExchange,
 } from '@tabler/icons-react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -33,6 +34,7 @@ export function MainLayout() {
         { label: 'Assets', icon: IconBox, path: '/assets' },
         { label: 'Categories', icon: IconCategory2, path: '/categories' },
         { label: 'Work Orders', icon: IconTool, path: '/work-orders' },
+        { label: 'Conversions', icon: IconExchange, path: '/conversions' },
         { label: 'Approvals', icon: IconCheckbox, path: '/approvals' },
         { label: 'Reports', icon: IconChartBar, path: '/reports' },
         { label: 'Users', icon: IconUsers, path: '/users' },

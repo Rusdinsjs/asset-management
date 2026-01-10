@@ -6,7 +6,8 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::application::dto::{
-    AssetSearchParams, CreateAssetRequest, PaginatedResponse, UpdateAssetRequest,
+    AssetSearchParams, BulkCreateAssetRequest, CreateAssetRequest, PaginatedResponse,
+    UpdateAssetRequest,
 };
 use crate::domain::entities::{Asset, AssetHistory, AssetState, AssetSummary};
 use crate::domain::errors::{DomainError, DomainResult};
@@ -255,6 +256,27 @@ impl AssetService {
         }
 
         Ok(AssetOperationResult::Success(created_asset))
+    }
+
+    /// Bulk create assets
+    pub async fn bulk_create(
+        &self,
+        request: BulkCreateAssetRequest,
+        user_id: Uuid,
+        role_level: i32,
+    ) -> DomainResult<Vec<AssetOperationResult>> {
+        let mut results = Vec::new();
+
+        for asset_req in request.assets {
+            // Re-use single create logic
+            // In a real implementation this should use a transaction or batch insert
+            // For now we iterate to ensure all logic (validation, vehicle details etc) is applied
+            if let Ok(result) = self.create(asset_req, user_id, role_level).await {
+                results.push(result);
+            }
+        }
+
+        Ok(results)
     }
 
     /// Update asset

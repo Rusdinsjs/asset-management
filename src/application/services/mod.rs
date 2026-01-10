@@ -2,7 +2,7 @@
 
 pub mod approval_service; // Added
 pub mod asset_service;
-pub mod audit_service;
+pub mod audit_service; // Added
 pub mod auth_service;
 pub mod category_service;
 pub mod conversion_service;

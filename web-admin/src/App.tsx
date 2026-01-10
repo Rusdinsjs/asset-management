@@ -14,6 +14,7 @@ import { Profile } from './pages/Profile';
 import Reports from './pages/Reports';
 import { AuditMode } from './pages/AuditMode';
 import { AssetLifecycle } from './pages/AssetLifecycle';
+import { ConversionRequests } from './pages/ConversionRequests';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
             <Route path="/work-orders" element={<WorkOrders />} />
             <Route path="/work-orders/:id" element={<WorkOrderDetails />} />
             <Route path="/approvals" element={<ApprovalCenter />} />
+            <Route path="/conversions" element={<ConversionRequests />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/users" element={
               <PermissionGate requiredLevel={2}>

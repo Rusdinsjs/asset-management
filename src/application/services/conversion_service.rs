@@ -1,214 +1,281 @@
 //! Conversion Service
-//!
-//! Business logic for asset transformation/conversion workflow.
+//! Business logic for asset conversions
 
-use rust_decimal::Decimal;
-use uuid::Uuid;
-
-use crate::domain::entities::{AssetConversion, AssetState, ConversionStatus};
+use crate::application::dto::{CreateConversionRequest, ExecuteConversionRequest};
+use crate::domain::entities::conversion::AssetConversion;
+use crate::domain::entities::AssetHistory;
 use crate::domain::errors::{DomainError, DomainResult};
-use crate::infrastructure::repositories::{ConversionRepository, LifecycleRepository};
+use crate::infrastructure::repositories::{
+    AssetRepository, ConversionRepository, LifecycleRepository,
+};
+use chrono::Utc;
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct ConversionService {
     conversion_repo: ConversionRepository,
     lifecycle_repo: LifecycleRepository,
+    asset_repo: AssetRepository, // Added direct access for now
 }
 
 impl ConversionService {
-    pub fn new(conversion_repo: ConversionRepository, lifecycle_repo: LifecycleRepository) -> Self {
+    pub fn new(
+        conversion_repo: ConversionRepository,
+        lifecycle_repo: LifecycleRepository,
+        asset_repo: AssetRepository,
+    ) -> Self {
         Self {
             conversion_repo,
             lifecycle_repo,
+            asset_repo,
         }
     }
 
-    /// Request a new conversion
-    pub async fn request_conversion(
+    /// Create a new conversion request
+    pub async fn create_request(
         &self,
-        asset_id: Uuid,
-        from_category_id: Option<Uuid>,
-        to_category_id: Option<Uuid>,
-        from_subtype: Option<String>,
-        to_subtype: Option<String>,
-        conversion_type: &str,
-        conversion_cost: Option<Decimal>,
-        old_specs: Option<serde_json::Value>,
-        new_specs: Option<serde_json::Value>,
-        justification: &str,
+        request: CreateConversionRequest,
         requested_by: Uuid,
     ) -> DomainResult<AssetConversion> {
-        // Check the asset exists and is in a valid state for conversion
-        let current_status = self.lifecycle_repo.get_asset_status(asset_id).await?;
-        let current_state = AssetState::from_str(&current_status)
-            .ok_or_else(|| DomainError::bad_request("Invalid asset state"))?;
-
-        // Only deployed assets can be converted
-        if !current_state.can_transition_to(&AssetState::UnderConversion) {
-            return Err(DomainError::business_rule(
-                "Conversion",
-                &format!(
-                    "Asset in {} state cannot be converted. Must be in Deployed state.",
-                    current_state.display_name()
-                ),
-            ));
-        }
-
-        self.conversion_repo
-            .create_request(
-                asset_id,
-                from_category_id,
-                to_category_id,
-                from_subtype,
-                to_subtype,
-                conversion_type,
-                conversion_cost,
-                old_specs,
-                new_specs,
-                justification,
-                requested_by,
-            )
+        // Validate asset exists
+        let asset = self
+            .asset_repo
+            .find_by_id(request.asset_id)
             .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?
+            .ok_or_else(|| DomainError::not_found("Asset", request.asset_id))?;
+
+        // Generate Request Number (Simple Timestamp based for MVP)
+        let request_number = format!("CNV-{}", Utc::now().format("%Y%m%d-%H%M%S"));
+
+        let conversion = AssetConversion {
+            id: Uuid::new_v4(),
+            request_number,
+            asset_id: request.asset_id,
+            title: request.title,
+            status: "pending".to_string(),
+            from_category_id: Some(asset.category_id),
+            to_category_id: request.to_category_id,
+            target_specifications: request.target_specifications,
+            conversion_cost: request.conversion_cost,
+            cost_treatment: request.cost_treatment,
+            reason: Some(request.reason),
+            notes: None,
+            requested_by,
+            approved_by: None,
+            executed_by: None,
+            request_date: Some(Utc::now()),
+            approval_date: None,
+            execution_date: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        let created_conversion = self
+            .conversion_repo
+            .create(&conversion)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?;
+
+        // Update asset status to indicate conversion process?
+        // For MVP, simplistic: Let's not lock it yet until approval or explicit status change.
+
+        Ok(created_conversion)
     }
 
-    /// Get conversion request by ID
-    pub async fn get_conversion(&self, id: Uuid) -> DomainResult<AssetConversion> {
+    /// Get pending requests
+    pub async fn get_pending_requests(&self) -> DomainResult<Vec<AssetConversion>> {
         self.conversion_repo
-            .find_by_id(id)
-            .await?
-            .ok_or_else(|| DomainError::not_found("Conversion", id))
-    }
-
-    /// Get all conversions for an asset
-    pub async fn get_asset_conversions(
-        &self,
-        asset_id: Uuid,
-    ) -> DomainResult<Vec<AssetConversion>> {
-        self.conversion_repo.find_by_asset(asset_id).await
-    }
-
-    /// Get pending conversion requests
-    pub async fn get_pending_conversions(&self) -> DomainResult<Vec<AssetConversion>> {
-        self.conversion_repo.find_pending().await
+            .find_pending()
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })
     }
 
     /// Approve a conversion request
-    pub async fn approve_conversion(
+    pub async fn approve_request(
         &self,
         id: Uuid,
         approved_by: Uuid,
     ) -> DomainResult<AssetConversion> {
-        let conversion = self.get_conversion(id).await?;
+        let mut conversion = self
+            .conversion_repo
+            .find_by_id(id)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?
+            .ok_or_else(|| DomainError::not_found("Conversion Request", id))?;
 
-        if conversion.status != ConversionStatus::Pending.as_str() {
-            return Err(DomainError::business_rule(
-                "Conversion",
-                "Only pending conversions can be approved",
-            ));
-        }
+        conversion.status = "approved".to_string();
+        conversion.approved_by = Some(approved_by);
+        conversion.approval_date = Some(Utc::now());
+        conversion.updated_at = Utc::now();
 
-        self.conversion_repo.approve(id, approved_by).await
+        let updated_conversion = self
+            .conversion_repo
+            .update(&conversion)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?;
+
+        Ok(updated_conversion)
     }
 
     /// Reject a conversion request
-    pub async fn reject_conversion(
+    pub async fn reject_request(
         &self,
         id: Uuid,
-        rejected_by: Uuid,
-        reason: &str,
+        // rejected_by: Uuid
     ) -> DomainResult<AssetConversion> {
-        let conversion = self.get_conversion(id).await?;
+        let mut conversion = self
+            .conversion_repo
+            .find_by_id(id)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?
+            .ok_or_else(|| DomainError::not_found("Conversion Request", id))?;
 
-        if conversion.status != ConversionStatus::Pending.as_str() {
-            return Err(DomainError::business_rule(
-                "Conversion",
-                "Only pending conversions can be rejected",
-            ));
-        }
+        conversion.status = "rejected".to_string();
+        conversion.updated_at = Utc::now();
 
-        self.conversion_repo.reject(id, rejected_by, reason).await
+        let updated_conversion = self
+            .conversion_repo
+            .update(&conversion)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?;
+
+        Ok(updated_conversion)
     }
 
-    /// Execute an approved conversion
+    /// Execute conversion
     pub async fn execute_conversion(
         &self,
         id: Uuid,
         executed_by: Uuid,
+        request: ExecuteConversionRequest,
     ) -> DomainResult<AssetConversion> {
-        let conversion = self.get_conversion(id).await?;
+        let mut conversion = self
+            .conversion_repo
+            .find_by_id(id)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?
+            .ok_or_else(|| DomainError::not_found("Conversion Request", id))?;
 
-        if conversion.status != ConversionStatus::Approved.as_str() {
-            return Err(DomainError::business_rule(
-                "Conversion",
+        if conversion.status != "approved" {
+            return Err(DomainError::validation(
+                "status",
                 "Only approved conversions can be executed",
             ));
         }
 
-        // Transition asset to UnderConversion state
-        self.lifecycle_repo
-            .update_asset_status(conversion.asset_id, AssetState::UnderConversion.as_str())
-            .await?;
-
-        // Record transition in history
-        let current_state = AssetState::Deployed; // Assumed from validation
-        self.lifecycle_repo
-            .record_transition(
-                conversion.asset_id,
-                &current_state,
-                &AssetState::UnderConversion,
-                Some(format!(
-                    "Conversion started: {} → {}",
-                    conversion.from_subtype.as_deref().unwrap_or("N/A"),
-                    conversion.to_subtype.as_deref().unwrap_or("N/A")
-                )),
-                Some(executed_by),
-                None,
-            )
-            .await?;
-
-        // Mark conversion as in progress
-        self.conversion_repo.start_execution(id).await
-    }
-
-    /// Complete a conversion and return asset to deployed
-    pub async fn complete_conversion(
-        &self,
-        id: Uuid,
-        completed_by: Uuid,
-    ) -> DomainResult<AssetConversion> {
-        let conversion = self.get_conversion(id).await?;
-
-        if conversion.status != ConversionStatus::InProgress.as_str() {
-            return Err(DomainError::business_rule(
-                "Conversion",
-                "Only in-progress conversions can be completed",
-            ));
+        // Update with notes if provided
+        if let Some(notes) = request.notes {
+            conversion.notes = Some(notes);
         }
 
-        // Transition asset back to Deployed state
-        self.lifecycle_repo
-            .update_asset_status(conversion.asset_id, AssetState::Deployed.as_str())
-            .await?;
+        let mut asset = self
+            .asset_repo
+            .find_by_id(conversion.asset_id)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?
+            .ok_or_else(|| DomainError::not_found("Asset", conversion.asset_id))?;
 
-        // Record transition in history
-        self.lifecycle_repo
-            .record_transition(
-                conversion.asset_id,
-                &AssetState::UnderConversion,
-                &AssetState::Deployed,
-                Some(format!(
-                    "Conversion completed: {} → {}",
-                    conversion.from_subtype.as_deref().unwrap_or("N/A"),
-                    conversion.to_subtype.as_deref().unwrap_or("N/A")
-                )),
-                Some(completed_by),
-                None,
-            )
-            .await?;
+        // 1. Update Asset Category
+        asset.category_id = conversion.to_category_id;
 
-        // TODO: Update asset specifications based on new_specifications
+        // 2. Update Specifications if present
+        if let Some(specs) = &conversion.target_specifications {
+            asset.specifications = Some(specs.clone());
+        }
 
-        // Mark conversion as completed
-        self.conversion_repo.complete(id, completed_by).await
+        // 3. Financial Treatment
+        if conversion.cost_treatment == "capitalize" {
+            if let Some(price) = asset.purchase_price {
+                asset.purchase_price = Some(price + conversion.conversion_cost);
+            } else {
+                asset.purchase_price = Some(conversion.conversion_cost);
+            }
+        }
+
+        // 4. Save Asset
+        self.asset_repo
+            .update(&asset)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?;
+
+        // 5. Update Conversion Status
+        conversion.status = "executed".to_string();
+        conversion.executed_by = Some(executed_by);
+        conversion.execution_date = Some(Utc::now());
+        conversion.updated_at = Utc::now();
+
+        let updated_conversion = self
+            .conversion_repo
+            .update(&conversion)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?;
+
+        // 6. Add History
+        let history = AssetHistory::new(
+            asset.id,
+            &format!("converted_to_category_{}", conversion.to_category_id),
+            Some(executed_by),
+        );
+        let _ = self.asset_repo.add_history(&history).await;
+
+        Ok(updated_conversion)
+    }
+
+    pub async fn get_asset_conversions(
+        &self,
+        asset_id: Uuid,
+    ) -> DomainResult<Vec<AssetConversion>> {
+        self.conversion_repo
+            .find_by_asset_id(asset_id)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })
+    }
+
+    pub async fn get_conversion(&self, id: Uuid) -> DomainResult<AssetConversion> {
+        self.conversion_repo
+            .find_by_id(id)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?
+            .ok_or_else(|| DomainError::not_found("Conversion", id))
     }
 }

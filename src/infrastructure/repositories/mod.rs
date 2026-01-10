@@ -6,7 +6,7 @@ pub mod approval_repository;
 pub mod asset_repository;
 pub mod audit_repository;
 pub mod category_repository;
-pub mod conversion_repository;
+pub mod conversion_repository; // Added this line based on the example
 pub mod lifecycle_repository;
 pub mod loan_repository;
 pub mod location_repository;

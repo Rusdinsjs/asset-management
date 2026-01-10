@@ -88,7 +88,8 @@ impl AppState {
         let user_service = UserService::new(user_repo, rbac_repo);
         let report_service = ReportService::new(asset_repo.clone(), maintenance_repo.clone());
         let lifecycle_service = LifecycleService::new(lifecycle_repo.clone());
-        let conversion_service = ConversionService::new(conversion_repo, lifecycle_repo);
+        let conversion_service =
+            ConversionService::new(conversion_repo, lifecycle_repo, asset_repo.clone());
 
         Self {
             asset_service,
