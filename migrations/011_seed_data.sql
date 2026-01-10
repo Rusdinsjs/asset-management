@@ -33,7 +33,7 @@ INSERT INTO users (id, email, password_hash, name, role, department_id, organiza
     (
         '00000000-0000-0000-0000-000000000001',
         'admin@example.com',
-        '$argon2id$v=19$m=19456,t=2,p=1$7FSBqJLqHv3j3D1fE2cmLA$M2H2AXqxWu2cqjLnmFB8FvXKmeFO7hhZnFVD7dEbQcE',
+        '$argon2id$v=19$m=19456,t=2,p=1$TP8PZIwf0JaE1YEOZwgGMg$9z4WYIvT8BW65k1G8U05wN5Zun695WsylcWQBpg5bQQ',
         'System Administrator',
         'super_admin',
         '22222222-2222-2222-2222-222222222201',
@@ -43,7 +43,7 @@ INSERT INTO users (id, email, password_hash, name, role, department_id, organiza
     (
         '00000000-0000-0000-0000-000000000002',
         'manager@example.com',
-        '$argon2id$v=19$m=19456,t=2,p=1$7FSBqJLqHv3j3D1fE2cmLA$M2H2AXqxWu2cqjLnmFB8FvXKmeFO7hhZnFVD7dEbQcE',
+        '$argon2id$v=19$m=19456,t=2,p=1$TP8PZIwf0JaE1YEOZwgGMg$9z4WYIvT8BW65k1G8U05wN5Zun695WsylcWQBpg5bQQ',
         'Asset Manager',
         'manager',
         '22222222-2222-2222-2222-222222222201',
@@ -53,7 +53,7 @@ INSERT INTO users (id, email, password_hash, name, role, department_id, organiza
     (
         '00000000-0000-0000-0000-000000000003',
         'technician@example.com',
-        '$argon2id$v=19$m=19456,t=2,p=1$7FSBqJLqHv3j3D1fE2cmLA$M2H2AXqxWu2cqjLnmFB8FvXKmeFO7hhZnFVD7dEbQcE',
+        '$argon2id$v=19$m=19456,t=2,p=1$TP8PZIwf0JaE1YEOZwgGMg$9z4WYIvT8BW65k1G8U05wN5Zun695WsylcWQBpg5bQQ',
         'Maintenance Technician',
         'technician',
         '22222222-2222-2222-2222-222222222204',
@@ -63,7 +63,7 @@ INSERT INTO users (id, email, password_hash, name, role, department_id, organiza
     (
         '00000000-0000-0000-0000-000000000004',
         'user@example.com',
-        '$argon2id$v=19$m=19456,t=2,p=1$7FSBqJLqHv3j3D1fE2cmLA$M2H2AXqxWu2cqjLnmFB8FvXKmeFO7hhZnFVD7dEbQcE',
+        '$argon2id$v=19$m=19456,t=2,p=1$TP8PZIwf0JaE1YEOZwgGMg$9z4WYIvT8BW65k1G8U05wN5Zun695WsylcWQBpg5bQQ',
         'Regular User',
         'user',
         '22222222-2222-2222-2222-222222222202',

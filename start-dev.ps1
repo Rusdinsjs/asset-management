@@ -11,17 +11,25 @@ Write-Green "1. Menjalankan Docker Service (DB & Redis)..."
 
 $dockerCmd = "docker"
 if (-not (Get-Command "docker" -ErrorAction SilentlyContinue)) {
-    if (Get-Command "wsl" -ErrorAction SilentlyContinue) {
+    if (Get-Command "podman" -ErrorAction SilentlyContinue) {
+        $dockerCmd = "podman"
+        Write-Host "Docker not found. Using Podman..." -ForegroundColor Cyan
+    }
+    elseif (Test-Path "C:\Program Files\RedHat\Podman\podman.exe") {
+        $dockerCmd = "& 'C:\Program Files\RedHat\Podman\podman.exe'"
+        Write-Host "Docker not found. Using Podman (full path)..." -ForegroundColor Cyan
+    }
+    elseif (Get-Command "wsl" -ErrorAction SilentlyContinue) {
         $dockerCmd = "wsl -d archlinux docker"
-        Write-Host "Docker command not found. Using: $dockerCmd" -ForegroundColor Yellow
+        Write-Host "Docker command not found. Using wsl docker..." -ForegroundColor Yellow
     }
     else {
-        Write-Error "Docker tidak ditemukan. Harap install Docker."
+        Write-Error "Container engine (Docker/Podman) tidak ditemukan. Harap install Docker atau Podman."
     }
 }
 
-# Jalankan docker compose up
-Invoke-Expression "$dockerCmd compose up -d"
+Write-Green "1. Menjalankan Service (DB & Redis) menggunakan $dockerCmd..."
+Invoke-Expression "$dockerCmd compose up -d postgres redis"
 
 Write-Green "2. Menunggu Database Siap..."
 Start-Sleep -Seconds 3
