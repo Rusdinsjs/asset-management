@@ -16,14 +16,19 @@ export interface ApprovalRequest {
     notes_l2?: string;
 }
 
+interface ApiResponse<T> {
+    success: boolean;
+    data: T;
+}
+
 export const approvalApi = {
-    listPending: async () => {
-        const response = await api.get('/approvals/pending');
-        return response.data;
+    listPending: async (): Promise<ApprovalRequest[]> => {
+        const response = await api.get<ApiResponse<ApprovalRequest[]>>('/approvals/pending');
+        return response.data.data;
     },
-    listMyRequests: async () => {
-        const response = await api.get('/approvals/my-requests');
-        return response.data;
+    listMyRequests: async (): Promise<ApprovalRequest[]> => {
+        const response = await api.get<ApiResponse<ApprovalRequest[]>>('/approvals/my-requests');
+        return response.data.data;
     },
     approve: async (id: string, notes?: string) => {
         const response = await api.post(`/approvals/${id}/approve`, { notes });

@@ -4,9 +4,11 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
-use crate::domain::entities::{ChecklistItem, WorkOrder, WorkOrderStatus};
+use crate::domain::entities::{
+    AssetState, ChecklistItem, WorkOrder, WorkOrderPart, WorkOrderStatus,
+};
 use crate::domain::errors::{DomainError, DomainResult};
-use crate::infrastructure::repositories::WorkOrderRepository;
+use crate::infrastructure::repositories::{LifecycleRepository, WorkOrderRepository};
 
 /// Create work order request
 #[derive(Debug, serde::Deserialize)]
@@ -26,11 +28,24 @@ pub struct CreateWorkOrderRequest {
 #[derive(Clone)]
 pub struct WorkOrderService {
     repository: WorkOrderRepository,
+    lifecycle_repo: LifecycleRepository,
 }
 
 impl WorkOrderService {
-    pub fn new(repository: WorkOrderRepository) -> Self {
-        Self { repository }
+    pub fn new(repository: WorkOrderRepository, lifecycle_repo: LifecycleRepository) -> Self {
+        Self {
+            repository,
+            lifecycle_repo,
+        }
+    }
+
+    /// Get lifecycle target state based on WO type
+    fn get_lifecycle_state_for_wo_type(wo_type: &str) -> Option<AssetState> {
+        match wo_type.to_lowercase().as_str() {
+            "maintenance" | "preventive" | "pm" => Some(AssetState::UnderMaintenance),
+            "repair" | "corrective" | "cm" | "breakdown" => Some(AssetState::UnderRepair),
+            _ => None,
+        }
     }
 
     pub async fn create(
@@ -151,7 +166,11 @@ impl WorkOrderService {
         self.get_by_id(id).await
     }
 
+    /// Start work on a work order - also transitions asset lifecycle
     pub async fn start_work(&self, id: Uuid) -> DomainResult<WorkOrder> {
+        let wo = self.get_by_id(id).await?;
+
+        // Update WO status
         self.repository
             .start_work(id)
             .await
@@ -160,9 +179,41 @@ impl WorkOrderService {
                 message: e.to_string(),
             })?;
 
+        // Transition asset lifecycle based on WO type
+        if let Some(target_state) = Self::get_lifecycle_state_for_wo_type(&wo.wo_type) {
+            // Get current asset status
+            if let Ok(current_status) = self.lifecycle_repo.get_asset_status(wo.asset_id).await {
+                let current_state =
+                    AssetState::from_str(&current_status).unwrap_or(AssetState::Deployed);
+
+                // Only transition if the target state is valid
+                if current_state.can_transition_to(&target_state) {
+                    // Update asset status
+                    let _ = self
+                        .lifecycle_repo
+                        .update_asset_status(wo.asset_id, target_state.as_str())
+                        .await;
+
+                    // Record in history
+                    let _ = self
+                        .lifecycle_repo
+                        .record_transition(
+                            wo.asset_id,
+                            &current_state,
+                            &target_state,
+                            Some(format!("Work Order {} started", wo.wo_number)),
+                            wo.assigned_technician,
+                            None,
+                        )
+                        .await;
+                }
+            }
+        }
+
         self.get_by_id(id).await
     }
 
+    /// Complete work order - transitions asset back to deployed
     pub async fn complete(
         &self,
         id: Uuid,
@@ -170,6 +221,9 @@ impl WorkOrderService {
         work_performed: &str,
         actual_cost: Option<Decimal>,
     ) -> DomainResult<WorkOrder> {
+        let wo = self.get_by_id(id).await?;
+
+        // Complete WO in database
         self.repository
             .complete(id, completed_by, work_performed, actual_cost)
             .await
@@ -177,6 +231,44 @@ impl WorkOrderService {
                 service: "database".to_string(),
                 message: e.to_string(),
             })?;
+
+        // Transition asset back to deployed
+        if let Ok(current_status) = self.lifecycle_repo.get_asset_status(wo.asset_id).await {
+            let current_state =
+                AssetState::from_str(&current_status).unwrap_or(AssetState::Deployed);
+
+            // Only transition if currently under maintenance/repair
+            if matches!(
+                current_state,
+                AssetState::UnderMaintenance | AssetState::UnderRepair
+            ) {
+                let target_state = AssetState::Deployed;
+
+                if current_state.can_transition_to(&target_state) {
+                    // Update asset status
+                    let _ = self
+                        .lifecycle_repo
+                        .update_asset_status(wo.asset_id, target_state.as_str())
+                        .await;
+
+                    // Record in history
+                    let _ = self
+                        .lifecycle_repo
+                        .record_transition(
+                            wo.asset_id,
+                            &current_state,
+                            &target_state,
+                            Some(format!(
+                                "Work Order {} completed: {}",
+                                wo.wo_number, work_performed
+                            )),
+                            Some(completed_by),
+                            None,
+                        )
+                        .await;
+                }
+            }
+        }
 
         self.get_by_id(id).await
     }
@@ -221,5 +313,61 @@ impl WorkOrderService {
                 service: "database".to_string(),
                 message: e.to_string(),
             })
+    }
+
+    pub async fn remove_checklist_item(&self, id: Uuid) -> DomainResult<bool> {
+        self.repository
+            .remove_checklist_item(id)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })
+    }
+
+    // Parts methods
+    pub async fn get_parts(&self, work_order_id: Uuid) -> DomainResult<Vec<WorkOrderPart>> {
+        self.repository.get_parts(work_order_id).await.map_err(|e| {
+            DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            }
+        })
+    }
+
+    pub async fn add_part(
+        &self,
+        work_order_id: Uuid,
+        part_name: String,
+        quantity: Decimal,
+        unit_cost: Decimal,
+    ) -> DomainResult<WorkOrderPart> {
+        let part = WorkOrderPart::new(work_order_id, &part_name, quantity, unit_cost);
+
+        let created = self.repository.add_part(&part).await.map_err(|e| {
+            DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            }
+        })?;
+
+        // Recalculate cost
+        let _ = self.repository.update_parts_cost(work_order_id).await;
+
+        Ok(created)
+    }
+
+    pub async fn remove_part(&self, id: Uuid, work_order_id: Uuid) -> DomainResult<bool> {
+        let result = self.repository.remove_part(id).await.map_err(|e| {
+            DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            }
+        })?;
+
+        // Recalculate cost
+        let _ = self.repository.update_parts_cost(work_order_id).await;
+
+        Ok(result)
     }
 }

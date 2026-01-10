@@ -8,6 +8,11 @@ export interface AssetState {
     is_terminal: boolean;
 }
 
+export interface AssetStateWithApproval extends AssetState {
+    requires_approval: boolean;
+    approval_level: number; // 0=None, 1=Supervisor, 2=Manager
+}
+
 export interface LifecycleHistory {
     id: string;
     asset_id: string;
@@ -71,6 +76,11 @@ export const lifecycleApi = {
         return res.data.data;
     },
 
+    getValidTransitionsWithApproval: async (assetId: string): Promise<AssetStateWithApproval[]> => {
+        const res = await api.get<ApiResponse<AssetStateWithApproval[]>>(`/assets/${assetId}/lifecycle/valid-transitions-with-approval`);
+        return res.data.data;
+    },
+
     getHistory: async (assetId: string): Promise<LifecycleHistory[]> => {
         const res = await api.get<ApiResponse<LifecycleHistory[]>>(`/assets/${assetId}/lifecycle/history`);
         return res.data.data;
@@ -83,7 +93,28 @@ export const lifecycleApi = {
         });
         return res.data.data;
     },
+
+    requestTransition: async (assetId: string, targetState: string, reason?: string): Promise<TransitionResponse> => {
+        const res = await api.post<ApiResponse<TransitionResponse>>(`/assets/${assetId}/lifecycle/request-transition`, {
+            target_state: targetState,
+            reason,
+        });
+        return res.data.data;
+    },
+
+    getCurrentStatus: async (assetId: string): Promise<AssetState> => {
+        const res = await api.get<ApiResponse<AssetState>>(`/assets/${assetId}/lifecycle/status`);
+        return res.data.data;
+    },
 };
+
+// Transition response types
+export interface TransitionResponse {
+    result_type: 'Executed' | 'ApprovalCreated';
+    history?: LifecycleHistory;
+    approval_request_id?: string;
+    message?: string;
+}
 
 // Conversion API
 export const conversionApi = {

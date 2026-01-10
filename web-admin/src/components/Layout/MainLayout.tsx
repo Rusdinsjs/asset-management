@@ -9,7 +9,8 @@ import {
     IconChartBar,
     IconCategory2,
     IconUser,
-    IconScan, // Added
+    IconScan,
+    IconCheckbox,
 } from '@tabler/icons-react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -32,9 +33,10 @@ export function MainLayout() {
         { label: 'Assets', icon: IconBox, path: '/assets' },
         { label: 'Categories', icon: IconCategory2, path: '/categories' },
         { label: 'Work Orders', icon: IconTool, path: '/work-orders' },
+        { label: 'Approvals', icon: IconCheckbox, path: '/approvals' },
         { label: 'Reports', icon: IconChartBar, path: '/reports' },
         { label: 'Users', icon: IconUsers, path: '/users' },
-        { label: 'Audit', icon: IconScan, path: '/audit' }, // Added
+        { label: 'Audit', icon: IconScan, path: '/audit' },
         { label: 'Profile', icon: IconUser, path: '/profile' },
     ];
 

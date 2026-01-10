@@ -77,7 +77,7 @@ impl AppState {
             asset_repo.clone(),
             approval_service.clone(),
         );
-        let work_order_service = WorkOrderService::new(work_order_repo);
+        let work_order_service = WorkOrderService::new(work_order_repo, lifecycle_repo.clone());
         let notification_service = NotificationService::new(notification_repo);
         let rbac_service = RbacService::new(rbac_repo.clone());
         // Approval service moved up

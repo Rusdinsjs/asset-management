@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Assets } from './pages/Assets';
 import { Categories } from './pages/Categories';
 import { WorkOrders } from './pages/WorkOrders';
+import { WorkOrderDetails } from './pages/WorkOrderDetails';
 import { ApprovalCenter } from './pages/ApprovalCenter';
 import { PermissionGate } from './components/PermissionGate';
 import { Users } from './pages/Users';
@@ -27,6 +28,7 @@ function App() {
             <Route path="/assets/:id/lifecycle" element={<AssetLifecycle />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/work-orders" element={<WorkOrders />} />
+            <Route path="/work-orders/:id" element={<WorkOrderDetails />} />
             <Route path="/approvals" element={<ApprovalCenter />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/users" element={

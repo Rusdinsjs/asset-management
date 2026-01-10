@@ -3,7 +3,7 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::entities::{ChecklistItem, WorkOrder};
+use crate::domain::entities::{ChecklistItem, WorkOrder, WorkOrderPart};
 
 #[derive(Clone)]
 pub struct WorkOrderRepository {
@@ -238,5 +238,73 @@ impl WorkOrderRepository {
         .execute(&self.pool)
         .await?;
         Ok(res.rows_affected() > 0)
+    }
+
+    pub async fn remove_checklist_item(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let res = sqlx::query("DELETE FROM maintenance_checklists WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(res.rows_affected() > 0)
+    }
+
+    // Parts methods
+    pub async fn get_parts(&self, work_order_id: Uuid) -> Result<Vec<WorkOrderPart>, sqlx::Error> {
+        sqlx::query_as::<_, WorkOrderPart>(
+            "SELECT * FROM maintenance_work_order_parts WHERE work_order_id = $1 ORDER BY added_at",
+        )
+        .bind(work_order_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn add_part(&self, part: &WorkOrderPart) -> Result<WorkOrderPart, sqlx::Error> {
+        sqlx::query_as::<_, WorkOrderPart>(
+            r#"
+            INSERT INTO maintenance_work_order_parts (id, work_order_id, part_name, quantity, unit_cost, total_cost, added_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+            "#
+        )
+        .bind(part.id)
+        .bind(part.work_order_id)
+        .bind(&part.part_name)
+        .bind(part.quantity)
+        .bind(part.unit_cost)
+        .bind(part.total_cost)
+        .bind(part.added_at)
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    pub async fn remove_part(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let res = sqlx::query("DELETE FROM maintenance_work_order_parts WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(res.rows_affected() > 0)
+    }
+
+    pub async fn update_parts_cost(
+        &self,
+        work_order_id: Uuid,
+    ) -> Result<rust_decimal::Decimal, sqlx::Error> {
+        let row: (Option<rust_decimal::Decimal>,) = sqlx::query_as(
+            "SELECT SUM(total_cost) FROM maintenance_work_order_parts WHERE work_order_id = $1",
+        )
+        .bind(work_order_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let total = row.0.unwrap_or(rust_decimal::Decimal::ZERO);
+
+        // Update WO parts_cost
+        sqlx::query("UPDATE maintenance_work_orders SET parts_cost = $2 WHERE id = $1")
+            .bind(work_order_id)
+            .bind(total)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(total)
     }
 }

@@ -3,7 +3,7 @@
 use axum::{
     handler::Handler,
     middleware as axum_middleware,
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 
@@ -73,6 +73,26 @@ pub fn create_router(state: AppState) -> Router {
             post(assign_work_order),
         )
         .route("/api/work-orders/:id/start", post(start_work_order))
+        .route("/api/work-orders/:id/complete", post(complete_work_order))
+        .route("/api/work-orders/:id/cancel", post(cancel_work_order))
+        // Tasks
+        .route(
+            "/api/work-orders/:id/tasks",
+            get(get_work_order_tasks).post(add_work_order_task),
+        )
+        .route(
+            "/api/work-orders/:id/tasks/:task_id",
+            delete(remove_work_order_task),
+        )
+        // Parts
+        .route(
+            "/api/work-orders/:id/parts",
+            get(get_work_order_parts).post(add_work_order_part),
+        )
+        .route(
+            "/api/work-orders/:id/parts/:part_id",
+            delete(remove_work_order_part),
+        )
         // Loans
         .route("/api/loans", get(list_loans).post(create_loan))
         .route("/api/loans/overdue", get(list_overdue_loans))
@@ -180,12 +200,24 @@ pub fn create_router(state: AppState) -> Router {
             post(lifecycle_handler::transition_asset),
         )
         .route(
+            "/api/assets/:id/lifecycle/request-transition",
+            post(lifecycle_handler::request_transition),
+        )
+        .route(
             "/api/assets/:id/lifecycle/history",
             get(lifecycle_handler::get_lifecycle_history),
         )
         .route(
             "/api/assets/:id/lifecycle/valid-transitions",
             get(lifecycle_handler::get_valid_transitions),
+        )
+        .route(
+            "/api/assets/:id/lifecycle/valid-transitions-with-approval",
+            get(lifecycle_handler::get_valid_transitions_with_approval),
+        )
+        .route(
+            "/api/assets/:id/lifecycle/status",
+            get(lifecycle_handler::get_current_status),
         )
         .route(
             "/api/lifecycle/states",

@@ -15,6 +15,7 @@ pub enum AppError {
     Domain(DomainError),
     Database(String),
     Unauthorized(String),
+    Forbidden(String),
     BadRequest(String),
     Internal(String),
 }
@@ -85,6 +86,7 @@ impl IntoResponse for AppError {
             ),
             Self::Database(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "DATABASE_ERROR", msg),
             Self::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", msg),
+            Self::Forbidden(msg) => (StatusCode::FORBIDDEN, "FORBIDDEN", msg),
             Self::BadRequest(msg) => (StatusCode::BAD_REQUEST, "BAD_REQUEST", msg),
             Self::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg),
             Self::Domain(DomainError::Internal { message }) => {

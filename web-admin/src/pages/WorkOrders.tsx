@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Title,
     Button,
@@ -27,6 +28,7 @@ export function WorkOrders() {
     const [activeTab, setActiveTab] = useState<string | null>('active');
 
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     // Fetch Maintenance
     const { data: maintenanceData, isLoading } = useQuery({
@@ -130,7 +132,7 @@ export function WorkOrders() {
                             <Table.Tr><Table.Td colSpan={6} align="center">No records found</Table.Td></Table.Tr>
                         ) : (
                             records.map((record: any) => (
-                                <Table.Tr key={record.id} style={{ cursor: 'pointer' }} onClick={() => handleEdit(record.id)}>
+                                <Table.Tr key={record.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/work-orders/${record.id}`)}>
                                     <Table.Td>{record.asset_name}</Table.Td>
                                     <Table.Td>{record.type_name || '-'}</Table.Td>
                                     <Table.Td>

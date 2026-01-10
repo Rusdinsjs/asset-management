@@ -224,3 +224,34 @@ impl ChecklistItem {
         }
     }
 }
+
+/// Spare part used in work order
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct WorkOrderPart {
+    pub id: Uuid,
+    pub work_order_id: Uuid,
+    pub part_name: String,
+    pub quantity: Decimal,
+    pub unit_cost: Decimal,
+    pub total_cost: Decimal,
+    pub added_at: DateTime<Utc>,
+}
+
+impl WorkOrderPart {
+    pub fn new(
+        work_order_id: Uuid,
+        part_name: &str,
+        quantity: Decimal,
+        unit_cost: Decimal,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            work_order_id,
+            part_name: part_name.to_string(),
+            quantity,
+            unit_cost,
+            total_cost: quantity * unit_cost,
+            added_at: Utc::now(),
+        }
+    }
+}

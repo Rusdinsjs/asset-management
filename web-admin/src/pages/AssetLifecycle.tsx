@@ -113,10 +113,17 @@ export function AssetLifecycle() {
         queryFn: lifecycleApi.getAllStates,
     });
 
-    // Fetch valid transitions for this asset
+    // Fetch current status from database
+    const { data: currentStatus } = useQuery({
+        queryKey: ['current-status', assetId],
+        queryFn: () => lifecycleApi.getCurrentStatus(assetId!),
+        enabled: !!assetId,
+    });
+
+    // Fetch valid transitions with approval info
     const { data: validTransitions, isLoading: loadingTransitions, error: transitionsError } = useQuery({
-        queryKey: ['valid-transitions', assetId],
-        queryFn: () => lifecycleApi.getValidTransitions(assetId!),
+        queryKey: ['valid-transitions-with-approval', assetId],
+        queryFn: () => lifecycleApi.getValidTransitionsWithApproval(assetId!),
         enabled: !!assetId,
     });
 
@@ -127,16 +134,25 @@ export function AssetLifecycle() {
         enabled: !!assetId,
     });
 
-    // Transition mutation
+    // Transition mutation using request-transition (with approval workflow)
     const transitionMutation = useMutation({
-        mutationFn: () => lifecycleApi.transitionAsset(assetId!, selectedState!, reason || undefined),
-        onSuccess: () => {
-            notifications.show({
-                title: 'Success',
-                message: 'Asset status updated successfully',
-                color: 'green',
-            });
-            queryClient.invalidateQueries({ queryKey: ['valid-transitions', assetId] });
+        mutationFn: () => lifecycleApi.requestTransition(assetId!, selectedState!, reason || undefined),
+        onSuccess: (response) => {
+            if (response.result_type === 'Executed') {
+                notifications.show({
+                    title: 'Success',
+                    message: 'Asset status updated successfully',
+                    color: 'green',
+                });
+            } else {
+                notifications.show({
+                    title: 'Approval Request Created',
+                    message: response.message || 'Your transition request has been submitted for approval',
+                    color: 'blue',
+                });
+            }
+            queryClient.invalidateQueries({ queryKey: ['current-status', assetId] });
+            queryClient.invalidateQueries({ queryKey: ['valid-transitions-with-approval', assetId] });
             queryClient.invalidateQueries({ queryKey: ['lifecycle-history', assetId] });
             close();
             setSelectedState(null);
@@ -169,9 +185,10 @@ export function AssetLifecycle() {
         transitionMutation.mutate();
     };
 
+    // Use actual status from database
     const getCurrentState = (): string => {
-        if (history && history.length > 0) {
-            return history[0].to_state;
+        if (currentStatus) {
+            return currentStatus.value;
         }
         return 'planning';
     };
@@ -241,12 +258,19 @@ export function AssetLifecycle() {
                             <SimpleGrid cols={2}>
                                 {validTransitions.map((state) => {
                                     const hasPermission = canTransition(state.value);
-                                    const requiredLevel = transitionPermissions[state.value] ?? 2;
+                                    const requiredLevel = state.approval_level || (transitionPermissions[state.value] ?? 2);
+                                    const needsApproval = state.requires_approval;
 
                                     return (
                                         <Tooltip
                                             key={state.value}
-                                            label={hasPermission ? 'Click to transition' : `Requires ${getRoleName(requiredLevel)} or higher`}
+                                            label={
+                                                !hasPermission
+                                                    ? `Requires ${getRoleName(requiredLevel)} or higher`
+                                                    : needsApproval
+                                                        ? `Requires ${getRoleName(requiredLevel)} approval`
+                                                        : 'Click to transition (no approval needed)'
+                                            }
                                             position="top"
                                         >
                                             <Card
@@ -270,13 +294,23 @@ export function AssetLifecycle() {
                                                             : <IconLock size={16} />
                                                         }
                                                     </ThemeIcon>
-                                                    <div>
-                                                        <Text size="sm" fw={500}>{state.label}</Text>
+                                                    <div style={{ flex: 1 }}>
+                                                        <Group gap={4}>
+                                                            <Text size="sm" fw={500}>{state.label}</Text>
+                                                            {needsApproval && (
+                                                                <Badge size="xs" color="orange" variant="light">
+                                                                    Approval
+                                                                </Badge>
+                                                            )}
+                                                        </Group>
                                                         {state.is_terminal && (
                                                             <Text size="xs" c="dimmed">Terminal state</Text>
                                                         )}
                                                         {!hasPermission && (
                                                             <Text size="xs" c="red">Requires {getRoleName(requiredLevel)}</Text>
+                                                        )}
+                                                        {hasPermission && needsApproval && (
+                                                            <Text size="xs" c="orange">Needs {getRoleName(requiredLevel)} approval</Text>
                                                         )}
                                                     </div>
                                                 </Group>
