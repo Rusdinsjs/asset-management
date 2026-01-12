@@ -4,7 +4,9 @@ import { Platform } from 'react-native';
 
 // Detect URL based on environment
 // Android Emulator uses 10.0.2.2 to access localhost
-const API_URL = 'http://192.168.1.4:8080/api';
+// Detect URL based on environment
+// Android Emulator uses 10.0.2.2 to access localhost
+export const API_URL = 'http://192.168.1.4:8080/api';
 
 export const api = axios.create({
     baseURL: API_URL,

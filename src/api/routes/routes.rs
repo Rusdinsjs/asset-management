@@ -18,7 +18,13 @@ pub fn create_router(state: AppState) -> Router {
     // Public routes
     let public_routes = Router::new()
         .route("/health", get(health_check))
-        .route("/api/auth/login", post(login));
+        .route("/api/auth/login", post(login))
+        .route(
+            "/api/uploads",
+            post(upload_handler::upload_file).layer(tower_http::limit::RequestBodyLimitLayer::new(
+                10 * 1024 * 1024,
+            )),
+        );
 
     // Lookup routes
     let lookup_routes = Router::new()

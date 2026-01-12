@@ -22,6 +22,7 @@ pub mod rental_handler;
 pub mod report_handler;
 pub mod sensor_handler;
 pub mod timesheet_handler; // Added
+pub mod upload_handler;
 pub mod user_handler;
 pub mod work_order_handler;
 
@@ -44,5 +45,6 @@ pub use rental_handler::*;
 pub use report_handler::*;
 pub use sensor_handler::*;
 pub use timesheet_handler::*;
+pub use upload_handler::*;
 pub use user_handler::*;
 pub use work_order_handler::*;

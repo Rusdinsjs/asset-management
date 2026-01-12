@@ -5,13 +5,41 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { rentalsApi } from '../../api/rentals';
+import { api, API_URL } from '../../api/client';
 import { timesheetApi, TimesheetRequest } from '../../api/timesheet';
 import { format } from 'date-fns';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadApi } from '../../api/upload';
+import { Image } from 'react-native';
 
 export default function InputScreen() {
     const theme = useTheme();
     const params = useLocalSearchParams();
     const queryClient = useQueryClient();
+
+    const pickImage = async () => {
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            quality: 0.5,
+        });
+
+        if (!result.canceled) {
+            handleUpload(result.assets[0].uri);
+        }
+    };
+
+    const handleUpload = async (uri: string) => {
+        try {
+            setIsUploading(true);
+            const response = await uploadApi.uploadImage(uri);
+            setPhotos(prev => [...prev, response.url]);
+        } catch (error) {
+            Alert.alert('Upload Failed', 'Could not upload image');
+            console.error(error);
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     // State
     const [rentalId, setRentalId] = useState<string>('');
@@ -28,6 +56,8 @@ export default function InputScreen() {
     const [operatingHours, setOperatingHours] = useState('');
 
     const [notes, setNotes] = useState('');
+    const [photos, setPhotos] = useState<string[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Load Rentals for Dropdown (Simplified as List for now)
     const { data: rentals } = useQuery({ queryKey: ['active-rentals'], queryFn: rentalsApi.listActive });
@@ -201,7 +231,6 @@ export default function InputScreen() {
                     </Card.Content>
                 </Card>
 
-                {/* Notes */}
                 <TextInput
                     label="Notes / Remarks"
                     value={notes}
@@ -211,6 +240,32 @@ export default function InputScreen() {
                     numberOfLines={3}
                     style={styles.input}
                 />
+
+                {/* Photos Section */}
+                <Card style={styles.card}>
+                    <Card.Content>
+                        <Text variant="titleMedium" style={{ marginBottom: 10 }}>Photos / Evidence</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                            {photos.map((url, index) => (
+                                <Image
+                                    key={index}
+                                    source={{ uri: `${API_URL.replace('/api', '')}${url}` }}
+                                    style={{ width: 80, height: 80, borderRadius: 8 }}
+                                />
+                            ))}
+                            <Button
+                                mode="outlined"
+                                onPress={pickImage}
+                                icon="camera"
+                                style={{ justifyContent: 'center', height: 80, width: 80 }}
+                                disabled={isUploading}
+                            >
+                                {isUploading ? '...' : '+'}
+                            </Button>
+                        </View>
+                        {isUploading && <Text variant="bodySmall" style={{ marginTop: 5 }}>Uploading...</Text>}
+                    </Card.Content>
+                </Card>
 
                 <Button
                     mode="contained"

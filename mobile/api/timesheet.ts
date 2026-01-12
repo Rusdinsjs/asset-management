@@ -13,6 +13,7 @@ export interface TimesheetRequest {
     operation_status: 'operating' | 'standby' | 'breakdown';
     work_description?: string;
     checker_notes?: string;
+    photos?: string[]; // Array of URL strings
 }
 
 export const timesheetApi = {
