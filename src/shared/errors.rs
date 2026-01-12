@@ -32,6 +32,12 @@ impl From<sqlx::Error> for AppError {
     }
 }
 
+impl From<uuid::Error> for AppError {
+    fn from(err: uuid::Error) -> Self {
+        Self::BadRequest(format!("Invalid UUID: {}", err))
+    }
+}
+
 #[derive(Serialize)]
 struct ErrorResponse {
     success: bool,

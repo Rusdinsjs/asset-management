@@ -8,7 +8,7 @@ use axum::{
     Router,
 };
 
-pub fn conversion_routes(state: AppState) -> Router<AppState> {
+pub fn conversion_routes(_state: AppState) -> Router<AppState> {
     Router::new()
         .route(
             "/api/assets/:asset_id/conversion-requests",

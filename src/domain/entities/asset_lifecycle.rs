@@ -15,6 +15,7 @@ pub enum AssetState {
     Received,
     InInventory,
     Deployed,
+    RentedOut,
     UnderMaintenance,
     UnderRepair,
     UnderConversion,
@@ -33,6 +34,7 @@ impl AssetState {
             Self::Received => "received",
             Self::InInventory => "in_inventory",
             Self::Deployed => "deployed",
+            Self::RentedOut => "rented_out",
             Self::UnderMaintenance => "under_maintenance",
             Self::UnderRepair => "under_repair",
             Self::UnderConversion => "under_conversion",
@@ -51,6 +53,7 @@ impl AssetState {
             "received" => Some(Self::Received),
             "in_inventory" => Some(Self::InInventory),
             "deployed" => Some(Self::Deployed),
+            "rented_out" => Some(Self::RentedOut),
             "under_maintenance" => Some(Self::UnderMaintenance),
             "under_repair" => Some(Self::UnderRepair),
             "under_conversion" => Some(Self::UnderConversion),
@@ -73,11 +76,12 @@ impl AssetState {
             Self::Planning => matches!(target, Self::Procurement),
             Self::Procurement => matches!(target, Self::Received),
             Self::Received => matches!(target, Self::InInventory),
-            Self::InInventory => matches!(target, Self::Deployed),
+            Self::InInventory => matches!(target, Self::Deployed | Self::RentedOut),
             Self::Deployed => matches!(
                 target,
                 Self::UnderMaintenance | Self::UnderRepair | Self::UnderConversion | Self::Retired
             ),
+            Self::RentedOut => matches!(target, Self::InInventory),
             Self::UnderMaintenance => matches!(target, Self::Deployed),
             Self::UnderRepair => matches!(target, Self::Deployed),
             Self::UnderConversion => matches!(target, Self::Deployed),
@@ -96,7 +100,7 @@ impl AssetState {
             Self::Planning => transitions.push(Self::Procurement),
             Self::Procurement => transitions.push(Self::Received),
             Self::Received => transitions.push(Self::InInventory),
-            Self::InInventory => transitions.push(Self::Deployed),
+            Self::InInventory => transitions.extend([Self::Deployed, Self::RentedOut]),
             Self::Deployed => {
                 transitions.extend([
                     Self::UnderMaintenance,
@@ -105,6 +109,7 @@ impl AssetState {
                     Self::Retired,
                 ]);
             }
+            Self::RentedOut => transitions.push(Self::InInventory),
             Self::UnderMaintenance => transitions.push(Self::Deployed),
             Self::UnderRepair => transitions.push(Self::Deployed),
             Self::UnderConversion => transitions.push(Self::Deployed),
@@ -127,7 +132,11 @@ impl AssetState {
     pub fn is_active(&self) -> bool {
         matches!(
             self,
-            Self::InInventory | Self::Deployed | Self::UnderMaintenance | Self::UnderRepair
+            Self::InInventory
+                | Self::Deployed
+                | Self::RentedOut
+                | Self::UnderMaintenance
+                | Self::UnderRepair
         )
     }
 
@@ -139,6 +148,7 @@ impl AssetState {
             Self::Received => "Received",
             Self::InInventory => "In Inventory",
             Self::Deployed => "Deployed",
+            Self::RentedOut => "Rented Out",
             Self::UnderMaintenance => "Under Maintenance",
             Self::UnderRepair => "Under Repair",
             Self::UnderConversion => "Under Conversion",
@@ -157,8 +167,9 @@ impl AssetState {
             Self::Received => "cyan",
             Self::InInventory => "green",
             Self::Deployed => "emerald",
+            Self::RentedOut => "orange",
             Self::UnderMaintenance => "yellow",
-            Self::UnderRepair => "orange",
+            Self::UnderRepair => "amber",
             Self::UnderConversion => "violet",
             Self::Retired => "slate",
             Self::Disposed => "neutral",

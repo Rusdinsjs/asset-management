@@ -6,15 +6,17 @@ use tower_http::services::ServeDir;
 
 use crate::api::routes::create_router;
 use crate::application::services::{
-    ApprovalService, AssetService, AuditService, AuthService, CategoryService, ConversionService,
-    DataService, LifecycleService, LoanService, MaintenanceService, NotificationService,
-    RbacService, ReportService, SchedulerService, SensorService, UserService, WorkOrderService,
+    ApprovalService, AssetService, AuditService, AuthService, BillingService, CategoryService,
+    ConversionService, DataService, LifecycleService, LoanService, MaintenanceService,
+    NotificationService, RbacService, RentalService, ReportService, SchedulerService,
+    SensorService, TimesheetService, UserService, WorkOrderService,
 };
 use crate::infrastructure::cache::{CacheOperations, RedisCache, RedisConfig};
 use crate::infrastructure::repositories::{
-    ApprovalRepository, AssetRepository, AuditRepository, CategoryRepository, ConversionRepository,
-    LifecycleRepository, LoanRepository, MaintenanceRepository, NotificationRepository,
-    RbacRepository, SensorRepository, UserRepository, WorkOrderRepository,
+    ApprovalRepository, AssetRepository, AuditRepository, CategoryRepository, ClientRepository,
+    ConversionRepository, LifecycleRepository, LoanRepository, MaintenanceRepository,
+    NotificationRepository, RbacRepository, RentalRepository, SensorRepository,
+    TimesheetRepository, UserRepository, WorkOrderRepository,
 };
 use crate::shared::utils::jwt::JwtConfig;
 use std::sync::Arc;
@@ -26,6 +28,7 @@ pub struct AppState {
     pub auth_service: AuthService,
     pub approval_service: ApprovalService,
     pub audit_service: AuditService,
+    pub billing_service: BillingService,
     pub category_service: CategoryService,
     pub conversion_service: ConversionService,
     pub lifecycle_service: LifecycleService,
@@ -34,7 +37,9 @@ pub struct AppState {
     pub work_order_service: WorkOrderService,
     pub notification_service: NotificationService,
     pub rbac_service: RbacService,
+    pub rental_service: RentalService,
     pub sensor_service: SensorService,
+    pub timesheet_service: TimesheetService,
     pub data_service: DataService,
     pub scheduler_service: SchedulerService,
     pub user_service: UserService,
@@ -58,6 +63,9 @@ impl AppState {
         let lifecycle_repo = LifecycleRepository::new(pool.clone());
         let conversion_repo = ConversionRepository::new(pool.clone());
         let sensor_repo = SensorRepository::new(pool.clone());
+        let client_repo = ClientRepository::new(pool.clone());
+        let rental_repo = RentalRepository::new(pool.clone());
+        let timesheet_repo = TimesheetRepository::new(pool.clone());
 
         // Create cache
         let redis_config = RedisConfig::from_env();
@@ -82,14 +90,18 @@ impl AppState {
         let rbac_service = RbacService::new(rbac_repo.clone());
         // Approval service moved up
         let sensor_service = SensorService::new(sensor_repo);
+        let conversion_service =
+            ConversionService::new(conversion_repo.clone(), asset_repo.clone());
+        let rental_service =
+            RentalService::new(rental_repo.clone(), client_repo, asset_repo.clone());
         let data_service = DataService::new(asset_repo.clone());
         let scheduler_service =
             SchedulerService::new(loan_service.clone(), maintenance_service.clone());
         let user_service = UserService::new(user_repo, rbac_repo);
         let report_service = ReportService::new(asset_repo.clone(), maintenance_repo.clone());
         let lifecycle_service = LifecycleService::new(lifecycle_repo.clone());
-        let conversion_service =
-            ConversionService::new(conversion_repo, lifecycle_repo, asset_repo.clone());
+        let timesheet_service = TimesheetService::new(timesheet_repo.clone(), rental_repo.clone());
+        let billing_service = BillingService::new(timesheet_repo.clone(), rental_repo.clone());
 
         Self {
             asset_service,
@@ -103,8 +115,11 @@ impl AppState {
             work_order_service,
             notification_service,
             rbac_service,
+            rental_service,
             approval_service,
             sensor_service,
+            timesheet_service,
+            billing_service,
             data_service,
             scheduler_service,
             user_service,

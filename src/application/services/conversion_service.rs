@@ -5,28 +5,20 @@ use crate::application::dto::{CreateConversionRequest, ExecuteConversionRequest}
 use crate::domain::entities::conversion::AssetConversion;
 use crate::domain::entities::AssetHistory;
 use crate::domain::errors::{DomainError, DomainResult};
-use crate::infrastructure::repositories::{
-    AssetRepository, ConversionRepository, LifecycleRepository,
-};
+use crate::infrastructure::repositories::{AssetRepository, ConversionRepository};
 use chrono::Utc;
 use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct ConversionService {
     conversion_repo: ConversionRepository,
-    lifecycle_repo: LifecycleRepository,
     asset_repo: AssetRepository, // Added direct access for now
 }
 
 impl ConversionService {
-    pub fn new(
-        conversion_repo: ConversionRepository,
-        lifecycle_repo: LifecycleRepository,
-        asset_repo: AssetRepository,
-    ) -> Self {
+    pub fn new(conversion_repo: ConversionRepository, asset_repo: AssetRepository) -> Self {
         Self {
             conversion_repo,
-            lifecycle_repo,
             asset_repo,
         }
     }

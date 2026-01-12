@@ -243,6 +243,9 @@ pub fn create_router(state: AppState) -> Router {
             "/api/mobile",
             crate::api::routes::mobile_routes::mobile_routes(state.clone()),
         )
+        .merge(crate::api::routes::rental_routes::rental_routes())
+        .merge(crate::api::routes::timesheet_routes::timesheet_routes())
+        .merge(crate::api::routes::billing_routes::billing_routes())
         .layer(axum_middleware::from_fn(auth_middleware));
 
     Router::new()

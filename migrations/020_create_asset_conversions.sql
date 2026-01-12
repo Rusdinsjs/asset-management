@@ -1,7 +1,7 @@
 -- Migration: 020_create_asset_conversions.sql
 -- Description: Create table for asset conversions
 
-CREATE TABLE asset_conversions (
+CREATE TABLE IF NOT EXISTS asset_conversions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     request_number VARCHAR(50) UNIQUE NOT NULL, -- e.g., CNV-2024-001
     asset_id UUID NOT NULL REFERENCES assets(id),
@@ -38,10 +38,11 @@ CREATE TABLE asset_conversions (
 );
 
 -- Index
-CREATE INDEX idx_asset_conversions_asset_id ON asset_conversions(asset_id);
-CREATE INDEX idx_asset_conversions_status ON asset_conversions(status);
-CREATE INDEX idx_asset_conversions_request_no ON asset_conversions(request_number);
+CREATE INDEX IF NOT EXISTS idx_asset_conversions_asset_id ON asset_conversions(asset_id);
+CREATE INDEX IF NOT EXISTS idx_asset_conversions_status ON asset_conversions(status);
+CREATE INDEX IF NOT EXISTS idx_asset_conversions_request_no ON asset_conversions(request_number);
 
 -- Trigger for updated_at
+DROP TRIGGER IF EXISTS update_asset_conversions_updated_at ON asset_conversions;
 CREATE TRIGGER update_asset_conversions_updated_at BEFORE UPDATE ON asset_conversions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

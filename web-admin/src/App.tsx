@@ -15,6 +15,7 @@ import Reports from './pages/Reports';
 import { AuditMode } from './pages/AuditMode';
 import { AssetLifecycle } from './pages/AssetLifecycle';
 import { ConversionRequests } from './pages/ConversionRequests';
+import { Rentals } from './pages/rentals/Rentals';
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
             } />
             <Route path="/profile" element={<Profile />} />
             <Route path="/audit" element={<AuditMode />} />
+            <Route path="/rentals" element={<Rentals />} />
           </Route>
         </Route>
 
