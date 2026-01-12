@@ -20,7 +20,7 @@ pub fn create_router(state: AppState) -> Router {
         .route("/health", get(health_check))
         .route("/api/auth/login", post(login))
         .route(
-            "/api/uploads",
+            "/api/upload",
             post(upload_handler::upload_file).layer(tower_http::limit::RequestBodyLimitLayer::new(
                 10 * 1024 * 1024,
             )),

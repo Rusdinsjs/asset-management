@@ -25,16 +25,13 @@ export const uploadApi = {
             type,
         } as any);
 
-        console.log('Uploading:', { uri, filename, type, url: `${API_URL}/uploads` });
+        console.log('Uploading:', { uri, filename, type, url: `${API_URL}/upload` });
 
-        // Use a fresh instance to avoid 'application/json' default header from the shared api client
-        const response = await axios.post(`${API_URL}/uploads`, formData, {
+        // Use a fresh instance to avoid 'application/json' default header
+        // DO NOT set 'Content-Type' manually; let Axios/Native handle boundary generation.
+        const response = await axios.post(`${API_URL}/upload`, formData, {
             headers: {
-                // Explicitly set multipart/form-data. 
-                // In recent Axios versions, this works fine with FormData, 
-                // but if it fails, we might need to remove it to let the browser set boundary.
-                // However, bypassing the shared client is the key fix here.
-                'Content-Type': 'multipart/form-data',
+                'Accept': 'application/json',
             },
         });
 
