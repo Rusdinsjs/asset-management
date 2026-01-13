@@ -1,8 +1,28 @@
 # Project Status Overview
 
-**Last Updated:** 2026-01-12
+**Last Updated:** 2026-01-13
 
 This document provides a high-level overview of the Asset Management System's current implementation status across all modules.
+
+---
+
+## 📋 Changelog
+
+### 2026-01-13
+
+- **Location Module:** Full implementation (Backend Service, Handler, Repository, Frontend Page).
+  - CRUD operations for hierarchical locations (Building → Floor → Room).
+  - Integrated into sidebar navigation.
+  - Fixed SQLx column mapping (`type` → `location_type`).
+- **Database Auto-Migration:** Enabled `sqlx::migrate!()` in `main.rs` for automatic schema updates on startup.
+- **Bug Fixes:**
+  - Fixed 404 on `/api/locations` (uncommented routes).
+  - Fixed 400 on `/api/rentals/clients` (corrected endpoint to `/api/clients`).
+  - Fixed WebSocket connection race conditions in `WebSocketContext.tsx`.
+  - Fixed `ClientList.tsx` crash when API returns non-array response.
+- **User-Employee Integration:** Employees linked to user accounts now display correctly in Users table.
+
+---
 
 ## 🟢 Core Modules (Stable/Complete)
 
@@ -55,11 +75,13 @@ This document provides a high-level overview of the Asset Management System's cu
 ## 🟡 Advanced Rental & Client Module (Sharpened)
 
 ### 8. Client & Rate Management (`src/api/handlers/client_handler.rs`)
+
 - **Features:** Comprehensive Customer/Mitra database.
 - **Rates:** Specialized per-asset or per-category pricing templates.
 - **Frontend:** Dedicated Clients dashboard with quick search & contact management.
 
 ### 9. Evidence-Based Rental Workflow (`src/api/handlers/timesheet_handler.rs`)
+
 - **Workflow:** 4-Step Validation (Operator HM -> Supervisor Photo Verification -> Client PIC Signature -> Admin Billing).
 - **Timesheet Reviewer:** Professional side-by-side view comparing field logs with photo evidence.
 - **Automated Billing:**
@@ -68,6 +90,7 @@ This document provides a high-level overview of the Asset Management System's cu
   - Billable hours audit log integrated into the billing verification UI.
 
 ### 10. Mobile Field Sync (`mobile/`)
+
 - **Status:** **Integrated with Field Reporting**
 - **Features:**
   - Hour Meter (HM) logging with required Photo Evidence.
@@ -75,6 +98,7 @@ This document provides a high-level overview of the Asset Management System's cu
   - Real-time status sync with Web Admin Reviewer.
 
 ## ⚪ Remaining Modules
+
 - **Audits (`audit_handler.rs`):** Stock taking and asset verification features.
 - **Loans (`loan_handler.rs`):** Employee asset lending management.
 - **Reports (`report_handler.rs`):** PDF/Excel export capabilities.

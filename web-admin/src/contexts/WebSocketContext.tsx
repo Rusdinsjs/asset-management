@@ -21,22 +21,30 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const reconnectTimeout = useRef<number | undefined>(undefined);
 
     const connect = useCallback(() => {
-        // Use window.location only if we served from same origin, or env var
-        const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws';
+        // Use window.location.hostname to support network access
+        const hostname = window.location.hostname;
+        const wsUrl = import.meta.env.VITE_WS_URL || `ws://${hostname}:8080/ws`;
 
         // Close existing if any
         if (ws.current) {
+            // Remove listeners to prevent 'onclose' from triggering reconnect for this closed socket
+            ws.current.onclose = null;
+            ws.current.onerror = null;
+            ws.current.onopen = null;
             ws.current.close();
         }
 
         const socket = new WebSocket(wsUrl);
+        ws.current = socket;
 
         socket.onopen = () => {
+            if (socket !== ws.current) return;
             console.log('WebSocket Connected');
             setIsConnected(true);
         };
 
         socket.onclose = () => {
+            if (socket !== ws.current) return;
             console.log('WebSocket Disconnected');
             setIsConnected(false);
             // Reconnect logic
@@ -46,11 +54,13 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         };
 
         socket.onerror = (error) => {
+            if (socket !== ws.current) return;
             console.error('WebSocket Error:', error);
-            socket.close();
+            // socket.close() will trigger onclose
         };
 
         socket.onmessage = (event) => {
+            if (socket !== ws.current) return;
             try {
                 const data = JSON.parse(event.data);
                 if (data.event_type) {
@@ -61,8 +71,6 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 console.error('WS Parse Error', e);
             }
         };
-
-        ws.current = socket;
     }, []);
 
     useEffect(() => {

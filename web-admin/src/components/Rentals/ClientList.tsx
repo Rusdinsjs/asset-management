@@ -28,7 +28,7 @@ export function ClientList() {
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                    {clients?.map((client) => (
+                    {Array.isArray(clients) && clients.map((client) => (
                         <Table.Tr key={client.id}>
                             <Table.Td>{client.name}</Table.Td>
                             <Table.Td>{client.code}</Table.Td>

@@ -3,7 +3,8 @@ import { api } from './client';
 export interface Loan {
     id: string;
     asset_id: string;
-    borrower_id: string;
+    borrower_id?: string;
+    employee_id?: string;
     loan_date: string;
     expected_return_date: string;
     actual_return_date?: string;
@@ -18,6 +19,8 @@ export interface Loan {
     updated_at: string;
     asset_name?: string; // Joined field
     borrower_name?: string; // Joined field
+    employee_name?: string; // Joined field
+    loan_number?: string;
 }
 
 export const loanApi = {

@@ -1,5 +1,32 @@
-[2m2026-01-12T10:17:54.427702Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
-[2m2026-01-12T10:17:54.428487Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
-[2m2026-01-12T10:17:56.530810Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
-[2m2026-01-12T10:17:56.533069Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
-[2m2026-01-12T10:17:56.537695Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080
+[2m2026-01-13T08:31:50.400486Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
+[2m2026-01-13T08:31:50.401020Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
+[2m2026-01-13T08:31:52.452632Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
+[2m2026-01-13T08:31:52.453082Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Running database migrations...
+[2m2026-01-13T08:31:52.465149Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Migrations applied successfully.
+[2m2026-01-13T08:31:52.472410Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
+[2m2026-01-13T08:31:52.482251Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080
+[2m2026-01-13T08:31:54.540678Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 164e5afc-6a71-42dc-b7e3-660b46bb58b9
+[2m2026-01-13T08:32:43.977970Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 164e5afc-6a71-42dc-b7e3-660b46bb58b9
+[2m2026-01-13T08:32:46.456632Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 232a15f5-797c-4098-88e2-bc1830340ac4
+[2m2026-01-13T08:33:49.202129Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 232a15f5-797c-4098-88e2-bc1830340ac4
+[2m2026-01-13T08:33:52.691364Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 47c35226-0eb1-4d8e-8a7e-e322466875dd
+[2m2026-01-13T08:33:54.517857Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 47c35226-0eb1-4d8e-8a7e-e322466875dd
+[2m2026-01-13T08:33:57.826779Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: fa69fea6-2c85-41de-babf-3f403333b594
+[2m2026-01-13T08:34:16.301723Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: fa69fea6-2c85-41de-babf-3f403333b594
+[2m2026-01-13T08:34:17.431179Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 26be1450-35de-450c-bdab-620ca5943fc9
+[2m2026-01-13T08:34:17.665073Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 26be1450-35de-450c-bdab-620ca5943fc9
+[2m2026-01-13T08:34:20.989907Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 076d6fb6-2c47-407e-80e5-339887a927a2
+[2m2026-01-13T08:34:28.801585Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 076d6fb6-2c47-407e-80e5-339887a927a2
+[2m2026-01-13T08:34:29.617219Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 850c0fcb-f605-4f82-88b7-e6c4f9babfba
+[2m2026-01-13T08:35:03.967759Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 850c0fcb-f605-4f82-88b7-e6c4f9babfba
+[2m2026-01-13T08:35:07.291900Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: fdfb0f99-119d-485b-888d-cf504b69163c
+[2m2026-01-13T08:35:14.401224Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: fdfb0f99-119d-485b-888d-cf504b69163c
+[2m2026-01-13T08:35:15.453856Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 85d48091-9ab4-460f-8822-7c9e5e16aaf1
+[2m2026-01-13T08:35:15.474340Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 85d48091-9ab4-460f-8822-7c9e5e16aaf1
+[2m2026-01-13T08:35:15.489586Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: c88ff14b-25bb-4e73-9816-51385a84ba15
+[2m2026-01-13T08:35:15.575267Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: c88ff14b-25bb-4e73-9816-51385a84ba15
+[2m2026-01-13T08:35:18.900530Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 8cf45d17-bcd2-483d-9192-65ddc412ac60
+[2m2026-01-13T08:39:38.960093Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 3440c1c1-c5c2-4ca8-a74f-91185b5e395c
+[2m2026-01-13T08:40:35.961258Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 8cf45d17-bcd2-483d-9192-65ddc412ac60
+[2m2026-01-13T08:40:35.962085Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 3440c1c1-c5c2-4ca8-a74f-91185b5e395c
+[2m2026-01-13T08:40:37.143850Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 675c2e21-5c94-479c-ab6f-3f53082e7a35

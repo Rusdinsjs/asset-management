@@ -61,9 +61,11 @@ impl UserRepository {
             SELECT 
                 u.id, u.email, u.name, 
                 COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
-                u.department, u.department_id, u.is_active
+                u.department, u.department_id, u.is_active,
+                e.name as employee_name, e.nik as employee_nik
             FROM users u
             LEFT JOIN roles r ON u.role_id = r.id
+            LEFT JOIN employees e ON u.id = e.user_id
             ORDER BY u.name
             LIMIT $1 OFFSET $2
             "#,

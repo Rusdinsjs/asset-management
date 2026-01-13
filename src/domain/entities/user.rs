@@ -158,6 +158,8 @@ pub struct UserSummary {
     pub department: Option<String>,
     pub department_id: Option<Uuid>,
     pub is_active: bool,
+    pub employee_name: Option<String>,
+    pub employee_nik: Option<String>,
 }
 
 /// JWT Claims for authentication
@@ -169,9 +171,16 @@ pub struct UserClaims {
     pub role: String,
     pub role_level: i32,
     pub department: Option<String>,
-    pub org: Option<String>, // Organization ID
+    pub org: Option<String>,       // Organization ID
+    pub employee_id: Option<Uuid>, // Employee ID if linked
     pub permissions: Vec<String>,
     pub exp: i64,
     pub iat: i64,
     pub jti: String, // JWT ID for revocation
+}
+
+impl UserClaims {
+    pub fn user_id(&self) -> Uuid {
+        Uuid::parse_str(&self.sub).unwrap_or_else(|_| Uuid::nil())
+    }
 }

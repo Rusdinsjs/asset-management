@@ -17,24 +17,46 @@ impl LoanRepository {
     }
 
     pub async fn find_by_id(&self, id: Uuid) -> Result<Option<Loan>, sqlx::Error> {
-        sqlx::query_as::<_, Loan>("SELECT * FROM asset_loans WHERE id = $1")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await
+        sqlx::query_as::<_, Loan>(
+            r#"
+            SELECT al.*, u.name as borrower_name, e.name as employee_name, a.name as asset_name
+            FROM asset_loans al
+            LEFT JOIN users u ON al.borrower_id = u.id
+            LEFT JOIN employees e ON al.employee_id = e.id
+            LEFT JOIN assets a ON al.asset_id = a.id
+            WHERE al.id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn find_by_number(&self, loan_number: &str) -> Result<Option<Loan>, sqlx::Error> {
-        sqlx::query_as::<_, Loan>("SELECT * FROM asset_loans WHERE loan_number = $1")
-            .bind(loan_number)
-            .fetch_optional(&self.pool)
-            .await
+        sqlx::query_as::<_, Loan>(
+            r#"
+            SELECT al.*, u.name as borrower_name, e.name as employee_name, a.name as asset_name
+            FROM asset_loans al
+            LEFT JOIN users u ON al.borrower_id = u.id
+            LEFT JOIN employees e ON al.employee_id = e.id
+            LEFT JOIN assets a ON al.asset_id = a.id
+            WHERE al.loan_number = $1
+            "#,
+        )
+        .bind(loan_number)
+        .fetch_optional(&self.pool)
+        .await
     }
 
     pub async fn list(&self, limit: i64, offset: i64) -> Result<Vec<Loan>, sqlx::Error> {
         sqlx::query_as::<_, Loan>(
             r#"
-            SELECT * FROM asset_loans
-            ORDER BY created_at DESC
+            SELECT al.*, u.name as borrower_name, e.name as employee_name, a.name as asset_name
+            FROM asset_loans al
+            LEFT JOIN users u ON al.borrower_id = u.id
+            LEFT JOIN employees e ON al.employee_id = e.id
+            LEFT JOIN assets a ON al.asset_id = a.id
+            ORDER BY al.created_at DESC
             LIMIT $1 OFFSET $2
             "#,
         )
@@ -46,16 +68,49 @@ impl LoanRepository {
 
     pub async fn list_by_borrower(&self, borrower_id: Uuid) -> Result<Vec<Loan>, sqlx::Error> {
         sqlx::query_as::<_, Loan>(
-            "SELECT * FROM asset_loans WHERE borrower_id = $1 ORDER BY created_at DESC",
+            r#"
+            SELECT al.*, u.name as borrower_name, e.name as employee_name, a.name as asset_name
+            FROM asset_loans al
+            LEFT JOIN users u ON al.borrower_id = u.id
+            LEFT JOIN employees e ON al.employee_id = e.id
+            LEFT JOIN assets a ON al.asset_id = a.id
+            WHERE al.borrower_id = $1
+            ORDER BY al.created_at DESC
+            "#,
         )
         .bind(borrower_id)
         .fetch_all(&self.pool)
         .await
     }
 
+    pub async fn list_by_employee(&self, employee_id: Uuid) -> Result<Vec<Loan>, sqlx::Error> {
+        sqlx::query_as::<_, Loan>(
+            r#"
+            SELECT al.*, u.name as borrower_name, e.name as employee_name, a.name as asset_name
+            FROM asset_loans al
+            LEFT JOIN users u ON al.borrower_id = u.id
+            LEFT JOIN employees e ON al.employee_id = e.id
+            LEFT JOIN assets a ON al.asset_id = a.id
+            WHERE al.employee_id = $1
+            ORDER BY al.created_at DESC
+            "#,
+        )
+        .bind(employee_id)
+        .fetch_all(&self.pool)
+        .await
+    }
+
     pub async fn list_by_asset(&self, asset_id: Uuid) -> Result<Vec<Loan>, sqlx::Error> {
         sqlx::query_as::<_, Loan>(
-            "SELECT * FROM asset_loans WHERE asset_id = $1 ORDER BY created_at DESC",
+            r#"
+            SELECT al.*, u.name as borrower_name, e.name as employee_name, a.name as asset_name
+            FROM asset_loans al
+            LEFT JOIN users u ON al.borrower_id = u.id
+            LEFT JOIN employees e ON al.employee_id = e.id
+            LEFT JOIN assets a ON al.asset_id = a.id
+            WHERE al.asset_id = $1
+            ORDER BY al.created_at DESC
+            "#,
         )
         .bind(asset_id)
         .fetch_all(&self.pool)
@@ -65,11 +120,15 @@ impl LoanRepository {
     pub async fn list_overdue(&self) -> Result<Vec<Loan>, sqlx::Error> {
         sqlx::query_as::<_, Loan>(
             r#"
-            SELECT * FROM asset_loans
-            WHERE expected_return_date < CURRENT_DATE 
-              AND actual_return_date IS NULL
-              AND status NOT IN ('returned', 'lost', 'rejected')
-            ORDER BY expected_return_date
+            SELECT al.*, u.name as borrower_name, e.name as employee_name, a.name as asset_name
+            FROM asset_loans al
+            LEFT JOIN users u ON al.borrower_id = u.id
+            LEFT JOIN employees e ON al.employee_id = e.id
+            LEFT JOIN assets a ON al.asset_id = a.id
+            WHERE al.expected_return_date < CURRENT_DATE 
+              AND al.actual_return_date IS NULL
+              AND al.status NOT IN ('returned', 'lost', 'rejected')
+            ORDER BY al.expected_return_date
             "#,
         )
         .fetch_all(&self.pool)
@@ -78,7 +137,15 @@ impl LoanRepository {
 
     pub async fn list_pending_approval(&self) -> Result<Vec<Loan>, sqlx::Error> {
         sqlx::query_as::<_, Loan>(
-            "SELECT * FROM asset_loans WHERE status = 'requested' ORDER BY created_at",
+            r#"
+            SELECT al.*, u.name as borrower_name, e.name as employee_name, a.name as asset_name
+            FROM asset_loans al
+            LEFT JOIN users u ON al.borrower_id = u.id
+            LEFT JOIN employees e ON al.employee_id = e.id
+            LEFT JOIN assets a ON al.asset_id = a.id
+            WHERE al.status = 'requested'
+            ORDER BY al.created_at ASC
+            "#,
         )
         .fetch_all(&self.pool)
         .await
@@ -88,14 +155,14 @@ impl LoanRepository {
         sqlx::query_as::<_, Loan>(
             r#"
             INSERT INTO asset_loans (
-                id, loan_number, asset_id, borrower_id, approver_id,
+                id, loan_number, asset_id, borrower_id, employee_id, approver_id,
                 loan_date, expected_return_date, actual_return_date, status,
                 condition_before, condition_after, damage_description, damage_photos,
                 terms_accepted, agreement_document,
                 deposit_amount, deposit_returned, penalty_amount, penalty_paid,
                 checked_out_by, checked_in_by
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
             RETURNING *
             "#
         )
@@ -103,6 +170,7 @@ impl LoanRepository {
         .bind(&loan.loan_number)
         .bind(loan.asset_id)
         .bind(loan.borrower_id)
+        .bind(loan.employee_id)
         .bind(loan.approver_id)
         .bind(loan.loan_date)
         .bind(loan.expected_return_date)
@@ -173,9 +241,10 @@ impl LoanRepository {
         let result = sqlx::query(
             r#"
             UPDATE asset_loans 
-            SET status = 'checked_out', checked_out_by = $2, condition_before = $3, updated_at = NOW() 
+            SET status = 'checked_out', checked_out_by = $2, condition_before = $3, 
+                terms_accepted = true, updated_at = NOW() 
             WHERE id = $1 AND status = 'approved'
-            "#
+            "#,
         )
         .bind(id)
         .bind(checked_out_by)

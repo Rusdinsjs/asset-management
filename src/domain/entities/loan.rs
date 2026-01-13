@@ -60,7 +60,8 @@ pub struct Loan {
     pub id: Uuid,
     pub loan_number: String,
     pub asset_id: Uuid,
-    pub borrower_id: Uuid,
+    pub borrower_id: Option<Uuid>,
+    pub employee_id: Option<Uuid>,
     pub approver_id: Option<Uuid>,
 
     // Dates
@@ -93,12 +94,21 @@ pub struct Loan {
 
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+
+    // Joined fields
+    #[sqlx(default)]
+    pub borrower_name: Option<String>,
+    #[sqlx(default)]
+    pub employee_name: Option<String>,
+    #[sqlx(default)]
+    pub asset_name: Option<String>,
 }
 
 impl Loan {
     pub fn new(
         asset_id: Uuid,
-        borrower_id: Uuid,
+        borrower_id: Option<Uuid>,
+        employee_id: Option<Uuid>,
         loan_date: NaiveDate,
         expected_return_date: NaiveDate,
     ) -> Self {
@@ -110,6 +120,7 @@ impl Loan {
             loan_number,
             asset_id,
             borrower_id,
+            employee_id,
             approver_id: None,
             loan_date,
             expected_return_date,
@@ -129,6 +140,9 @@ impl Loan {
             checked_in_by: None,
             created_at: now,
             updated_at: now,
+            borrower_name: None,
+            employee_name: None,
+            asset_name: None,
         }
     }
 
@@ -154,7 +168,7 @@ impl Loan {
 
     /// Can be checked out
     pub fn can_checkout(&self) -> bool {
-        self.status == LoanStatus::Approved.as_str() && self.terms_accepted
+        self.status == LoanStatus::Approved.as_str()
     }
 
     /// Can be returned
@@ -178,13 +192,15 @@ pub struct LoanSummary {
     pub expected_return_date: NaiveDate,
     pub status: String,
     pub is_overdue: bool,
+    pub employee_id: Option<Uuid>,
 }
 
 /// Loan request for creating new loans
 #[derive(Debug, Clone, Deserialize)]
 pub struct LoanRequest {
     pub asset_id: Uuid,
-    pub borrower_id: Uuid,
+    pub borrower_id: Option<Uuid>,
+    pub employee_id: Option<Uuid>,
     pub loan_date: NaiveDate,
     pub expected_return_date: NaiveDate,
     pub purpose: Option<String>,

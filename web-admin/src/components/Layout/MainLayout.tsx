@@ -16,6 +16,7 @@ import {
     IconHandGrab,
     IconLayoutSidebarLeftCollapse,
     IconLayoutSidebarRightCollapse,
+    IconMapPin,
 } from '@tabler/icons-react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -36,11 +37,13 @@ export function MainLayout() {
     const navItems = [
         { label: 'Dashboard', icon: IconDashboard, path: '/' },
         { label: 'Assets', icon: IconBox, path: '/assets' },
+        { label: 'Locations', icon: IconMapPin, path: '/locations' },
         { label: 'Categories', icon: IconCategory2, path: '/categories' },
         { label: 'Work Orders', icon: IconTool, path: '/work-orders' },
         { label: 'Rentals', icon: IconTruck, path: '/rentals' },
         { label: 'Clients', icon: IconUsers, path: '/clients' },
         { label: 'Loans', icon: IconHandGrab, path: '/loans' },
+        { label: 'Pegawai', icon: IconUsers, path: '/employees' },
         { label: 'Conversions', icon: IconExchange, path: '/conversions' },
         { label: 'Approvals', icon: IconCheckbox, path: '/approvals' },
         { label: 'Reports', icon: IconChartBar, path: '/reports' },

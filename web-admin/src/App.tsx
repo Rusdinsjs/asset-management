@@ -20,6 +20,8 @@ import { Clients } from './pages/Clients';
 import { RentalForm } from './pages/rentals/RentalForm';
 import { RentalDetail } from './pages/rentals/RentalDetail';
 import { Loans } from './pages/Loans';
+import { Locations } from './pages/Locations';
+import { Employees } from './pages/Employees';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 
 function App() {
@@ -52,6 +54,8 @@ function App() {
               <Route path="/rentals/:id" element={<RentalDetail />} />
               <Route path="/clients" element={<Clients />} />
               <Route path="/loans" element={<Loans />} />
+              <Route path="/employees" element={<Employees />} />
+              <Route path="/locations" element={<Locations />} />
             </Route>
           </Route>
 

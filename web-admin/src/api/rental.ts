@@ -87,12 +87,12 @@ export interface CreateRateRequest {
 export const rentalApi = {
     // Clients
     listClients: async () => {
-        const response = await api.get<RentalClient[]>('/rentals/clients');
+        const response = await api.get<RentalClient[]>('/clients');
         return response.data;
     },
 
     createClient: async (data: CreateClientRequest) => {
-        const response = await api.post<RentalClient>('/rentals/clients', data);
+        const response = await api.post<RentalClient>('/clients', data);
         return response.data;
     },
 

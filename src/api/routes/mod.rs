@@ -12,6 +12,7 @@ pub mod timesheet_routes;
 
 pub use routes::*;
 pub mod data_routes;
+pub mod location_routes;
 pub mod mobile_routes;
 pub use billing_routes::billing_routes;
 pub use timesheet_routes::timesheet_routes;

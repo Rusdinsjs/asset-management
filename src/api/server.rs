@@ -6,17 +6,37 @@ use tower_http::services::ServeDir;
 
 use crate::api::routes::create_router;
 use crate::application::services::{
-    AnalyticsService, ApprovalService, AssetService, AuditService, AuthService, BillingService,
-    CategoryService, ClientService, ConversionService, DataService, LifecycleService, LoanService,
-    MaintenanceService, NotificationService, RbacService, RentalService, ReportService,
-    SchedulerService, SensorService, TimesheetService, UserService, WorkOrderService,
+    AnalyticsService,
+    ApprovalService,
+    AssetService,
+    AuditService,
+    AuthService,
+    BillingService,
+    CategoryService,
+    ClientService,
+    ConversionService,
+    DataService,
+    EmployeeService,
+    LifecycleService,
+    LoanService,
+    LocationService, // Added
+    MaintenanceService,
+    NotificationService,
+    RbacService,
+    RentalService,
+    ReportService,
+    SchedulerService,
+    SensorService,
+    TimesheetService,
+    UserService,
+    WorkOrderService,
 };
 use crate::infrastructure::cache::{CacheOperations, RedisCache, RedisConfig};
 use crate::infrastructure::repositories::{
     ApprovalRepository, AssetRepository, AuditRepository, CategoryRepository, ClientRepository,
-    ConversionRepository, LifecycleRepository, LoanRepository, MaintenanceRepository,
-    NotificationRepository, RbacRepository, RentalRepository, SensorRepository,
-    TimesheetRepository, UserRepository, WorkOrderRepository,
+    ConversionRepository, EmployeeRepository, LifecycleRepository, LoanRepository,
+    MaintenanceRepository, NotificationRepository, RbacRepository, RentalRepository,
+    SensorRepository, TimesheetRepository, UserRepository, WorkOrderRepository,
 };
 use crate::shared::utils::jwt::JwtConfig;
 use std::sync::Arc;
@@ -46,6 +66,8 @@ pub struct AppState {
     pub user_service: UserService,
     pub report_service: ReportService,
     pub analytics_service: AnalyticsService,
+    pub employee_service: EmployeeService,
+    pub location_service: LocationService, // Added
     pub pool: PgPool,
     pub ws_manager: Arc<crate::api::handlers::notification_ws::WebSocketManager>,
 }
@@ -59,6 +81,7 @@ impl AppState {
         let loan_repo = LoanRepository::new(pool.clone());
         let maintenance_repo = MaintenanceRepository::new(pool.clone());
         let work_order_repo = WorkOrderRepository::new(pool.clone());
+        let employee_repo = EmployeeRepository::new(pool.clone());
         let notification_repo = NotificationRepository::new(pool.clone());
         let rbac_repo = RbacRepository::new(pool.clone());
         let approval_repo = ApprovalRepository::new(pool.clone());
@@ -80,9 +103,16 @@ impl AppState {
         let asset_service =
             AssetService::new(asset_repo.clone(), cache.clone(), approval_service.clone());
         let audit_service = AuditService::new(audit_repo); // Added
-        let auth_service = AuthService::new(user_repo.clone(), rbac_repo.clone(), jwt_config);
+        let auth_service = AuthService::new(
+            user_repo.clone(),
+            rbac_repo.clone(),
+            employee_repo.clone(),
+            jwt_config,
+        );
         let category_service = CategoryService::new(category_repo);
-        let loan_service = LoanService::new(loan_repo, asset_repo.clone());
+        let notification_service = NotificationService::new(notification_repo);
+        let loan_service =
+            LoanService::new(loan_repo, asset_repo.clone(), notification_service.clone());
         let maintenance_service = MaintenanceService::new(
             maintenance_repo.clone(),
             asset_repo.clone(),
@@ -94,7 +124,6 @@ impl AppState {
             asset_repo.clone(),
             cache.clone(),
         );
-        let notification_service = NotificationService::new(notification_repo);
         let rbac_service = RbacService::new(rbac_repo.clone());
         // Approval service moved up
         let sensor_service = SensorService::new(sensor_repo);
@@ -112,6 +141,10 @@ impl AppState {
         let billing_service = BillingService::new(timesheet_repo.clone(), rental_repo.clone());
         let client_service = ClientService::new(client_repo.clone());
         let analytics_service = AnalyticsService::new(pool.clone());
+        let employee_service = EmployeeService::new(employee_repo, user_service.clone());
+        let location_repo =
+            crate::infrastructure::repositories::LocationRepository::new(pool.clone());
+        let location_service = LocationService::new(location_repo);
 
         Self {
             asset_service,
@@ -136,6 +169,8 @@ impl AppState {
             user_service,
             report_service,
             analytics_service,
+            employee_service,
+            location_service,
             pool,
             ws_manager: Arc::new(crate::api::handlers::notification_ws::WebSocketManager::new()),
         }

@@ -8,7 +8,8 @@ use uuid::Uuid;
 #[derive(Debug, Deserialize)]
 pub struct CreateLoanRequest {
     pub asset_id: Uuid,
-    pub borrower_id: Uuid,
+    pub borrower_id: Option<Uuid>,
+    pub employee_id: Option<Uuid>,
     pub loan_date: NaiveDate,
     pub expected_return_date: NaiveDate,
     pub purpose: Option<String>,

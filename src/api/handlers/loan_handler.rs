@@ -3,13 +3,13 @@
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    Json,
+    Extension, Json,
 };
 use uuid::Uuid;
 
 use crate::api::server::AppState;
 use crate::application::dto::{ApiResponse, CreateLoanRequest, PaginationParams};
-use crate::domain::entities::Loan;
+use crate::domain::entities::{Loan, UserClaims};
 use crate::shared::errors::AppError;
 
 pub async fn list_loans(
@@ -44,10 +44,10 @@ pub async fn create_loan(
 
 pub async fn approve_loan(
     State(state): State<AppState>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<ApiResponse<Loan>>, AppError> {
-    // TODO: Get approver_id from auth context
-    let approver_id = Uuid::new_v4();
+    let approver_id = claims.user_id();
     let loan = state.loan_service.approve(id, approver_id).await?;
     Ok(Json(ApiResponse::success_with_message(
         loan,
@@ -74,11 +74,11 @@ pub struct RejectRequest {
 
 pub async fn checkout_loan(
     State(state): State<AppState>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<Uuid>,
     Json(payload): Json<CheckoutRequest>,
 ) -> Result<Json<ApiResponse<Loan>>, AppError> {
-    // TODO: Get checked_out_by from auth context
-    let checked_out_by = Uuid::nil();
+    let checked_out_by = claims.user_id();
     let loan = state
         .loan_service
         .checkout(id, checked_out_by, &payload.condition)
@@ -91,11 +91,11 @@ pub async fn checkout_loan(
 
 pub async fn checkin_loan(
     State(state): State<AppState>,
+    Extension(claims): Extension<UserClaims>,
     Path(id): Path<Uuid>,
     Json(payload): Json<CheckoutRequest>,
 ) -> Result<Json<ApiResponse<Loan>>, AppError> {
-    // TODO: Get checked_in_by from auth context
-    let checked_in_by = Uuid::nil();
+    let checked_in_by = claims.user_id();
     let loan = state
         .loan_service
         .checkin(id, checked_in_by, &payload.condition)

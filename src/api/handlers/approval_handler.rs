@@ -130,7 +130,7 @@ pub async fn list_pending_requests(
             resource_type: "loan".to_string(),
             resource_id: loan.asset_id,
             action_type: "loan_request".to_string(),
-            requested_by: loan.borrower_id,
+            requested_by: loan.borrower_id.unwrap_or_else(Uuid::nil),
             data_snapshot: Some(serde_json::json!({
                 "asset_id": loan.asset_id,
                 "loan_date": loan.loan_date,

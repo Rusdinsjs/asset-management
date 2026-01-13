@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::domain::entities::{User, UserClaims, UserRole};
 use crate::domain::errors::{DomainError, DomainResult};
-use crate::infrastructure::repositories::{RbacRepository, UserRepository};
+use crate::infrastructure::repositories::{EmployeeRepository, RbacRepository, UserRepository};
 use crate::shared::utils::crypto::{hash_password, verify_password};
 use crate::shared::utils::jwt::{create_token, JwtConfig};
 
@@ -14,6 +14,7 @@ use crate::shared::utils::jwt::{create_token, JwtConfig};
 pub struct AuthService {
     repository: UserRepository,
     rbac_repository: RbacRepository,
+    employee_repository: EmployeeRepository,
     jwt_config: JwtConfig,
 }
 
@@ -21,11 +22,13 @@ impl AuthService {
     pub fn new(
         repository: UserRepository,
         rbac_repository: RbacRepository,
+        employee_repository: EmployeeRepository,
         jwt_config: JwtConfig,
     ) -> Self {
         Self {
             repository,
             rbac_repository,
+            employee_repository,
             jwt_config,
         }
     }
@@ -70,6 +73,14 @@ impl AuthService {
                 .collect()
         };
 
+        // Fetch employee ID if linked
+        let employee = self
+            .employee_repository
+            .find_by_user_id(user.id)
+            .await
+            .unwrap_or(None);
+        let employee_id = employee.map(|e| e.id);
+
         // Generate JWT token
         let claims = UserClaims {
             sub: user.id.to_string(),
@@ -79,6 +90,7 @@ impl AuthService {
             role_level: user.role_level,
             department: user.department.clone(),
             org: user.organization_id.map(|id| id.to_string()),
+            employee_id,
             permissions,
             exp: (Utc::now() + Duration::hours(24)).timestamp(),
             iat: Utc::now().timestamp(),

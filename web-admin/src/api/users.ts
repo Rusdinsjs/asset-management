@@ -8,6 +8,8 @@ export interface UserSummary {
     role_level: number;
     department_id?: string;
     is_active: boolean;
+    employee_name?: string;
+    employee_nik?: string;
 }
 
 export const usersApi = {

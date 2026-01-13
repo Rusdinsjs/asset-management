@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { Title, Container, Table, Badge, Button, Group, Card, ActionIcon, Modal, Select, TextInput, PasswordInput, Switch, LoadingOverlay } from '@mantine/core';
+import { Title, Container, Table, Badge, Button, Group, Card, ActionIcon, Modal, Select, TextInput, PasswordInput, Switch, LoadingOverlay, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useDisclosure } from '@mantine/hooks';
@@ -164,6 +164,19 @@ export function Users() {
                     </Badge>
                 </Table.Td>
                 <Table.Td>
+                    <span style={{ fontSize: '0.9em', color: user.employee_name ? '#333' : '#999' }}>
+                        {user.employee_name ? (
+                            <>
+                                {user.employee_name}
+                                <br />
+                                <Text span c="dimmed" size="xs">{user.employee_nik && `(NIK: ${user.employee_nik})`}</Text>
+                            </>
+                        ) : (
+                            <Text fs="italic" size="xs" c="dimmed">Not Linked</Text>
+                        )}
+                    </span>
+                </Table.Td>
+                <Table.Td>
                     <Group gap="xs">
                         <ActionIcon variant="subtle" color="blue" onClick={() => openEditModal(user)}>
                             <IconEdit size={16} />
@@ -185,7 +198,7 @@ export function Users() {
         <Container size="xl">
             <Group justify="space-between" mb="md">
                 <Title order={2}>User Management</Title>
-                <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>Add User</Button>
+                {/* User creation is now handled in Employees page */}
             </Group>
 
             <Card withBorder>
@@ -198,6 +211,7 @@ export function Users() {
                             <Table.Th>Role</Table.Th>
                             <Table.Th>Access Scope</Table.Th>
                             <Table.Th>Login Status</Table.Th>
+                            <Table.Th>Linked Employee</Table.Th>
                             <Table.Th>Action</Table.Th>
                         </Table.Tr>
                     </Table.Thead>

@@ -42,6 +42,14 @@ async fn main() {
 
     tracing::info!("Database connected successfully");
 
+    // Run migrations
+    tracing::info!("Running database migrations...");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to run migrations");
+    tracing::info!("Migrations applied successfully.");
+
     // JWT configuration
     let jwt_config = JwtConfig::new(config.jwt_secret.clone(), config.jwt_expiry_hours);
 

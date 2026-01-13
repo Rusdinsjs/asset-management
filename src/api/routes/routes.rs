@@ -1,10 +1,11 @@
 //! Route Definitions
 
 use axum::{
+    extract::Path,
     handler::Handler,
     middleware as axum_middleware,
     routing::{delete, get, post, put},
-    Router,
+    Extension, Router,
 };
 
 use crate::api::handlers::*;
@@ -13,6 +14,7 @@ use crate::api::middleware::{
     rbac::{admin_only_middleware, require_permission},
 };
 use crate::api::server::AppState;
+use crate::domain::entities::UserClaims;
 
 pub fn create_router(state: AppState) -> Router {
     // Public routes
@@ -109,6 +111,14 @@ pub fn create_router(state: AppState) -> Router {
         )
         // Loans
         .route("/api/loans", get(list_loans).post(create_loan))
+        .route(
+            "/api/loans/my",
+            get(
+                |state, Extension(claims): Extension<UserClaims>| async move {
+                    list_my_loans(state, Path(claims.user_id())).await
+                },
+            ),
+        )
         .route("/api/loans/overdue", get(list_overdue_loans))
         .route("/api/loans/:id", get(get_loan))
         .route("/api/loans/:id/approve", post(approve_loan))
@@ -152,6 +162,15 @@ pub fn create_router(state: AppState) -> Router {
             put(update_user.layer(axum_middleware::from_fn(admin_only_middleware)))
                 .delete(delete_user.layer(axum_middleware::from_fn(admin_only_middleware))),
         )
+        // Employees
+        .route("/api/employees", get(list_employees).post(create_employee))
+        .route(
+            "/api/employees/:id",
+            get(get_employee)
+                .put(update_employee)
+                .delete(delete_employee),
+        )
+        .route("/api/employees/:id/user", post(create_employee_user))
         // I'll rewrite this block more cleanly
         // RBAC
         .route("/api/rbac/roles", get(list_roles))
@@ -248,7 +267,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(crate::api::routes::conversion_routes::conversion_routes(
             state.clone(),
         ))
-        //.merge(crate::api::routes::location_routes::location_routes()) // Commented out until confirmed
+        .merge(crate::api::routes::location_routes::location_routes())
         .merge(crate::api::routes::approval_routes::approval_routes(
             state.clone(),
         ))

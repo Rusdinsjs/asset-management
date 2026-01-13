@@ -57,18 +57,24 @@ pub struct Location {
     pub parent_id: Option<Uuid>,
     pub code: String,
     pub name: String,
+    #[sqlx(rename = "type")]
     pub location_type: Option<String>,
     pub address: Option<String>,
 
     // Geo coordinates (stored as strings, can be parsed to f64)
+    #[sqlx(default)]
     pub latitude: Option<String>,
+    #[sqlx(default)]
     pub longitude: Option<String>,
 
     // Capacity planning
+    #[sqlx(default)]
     pub capacity: Option<i32>,
+    #[sqlx(default)]
     pub current_count: Option<i32>,
 
     // QR code for physical location
+    #[sqlx(default)]
     pub qr_code: Option<String>,
 
     pub created_at: DateTime<Utc>,

@@ -38,8 +38,11 @@ impl LocationRepository {
     pub async fn create(&self, location: &Location) -> Result<Location, sqlx::Error> {
         sqlx::query_as::<_, Location>(
             r#"
-            INSERT INTO locations (id, parent_id, code, name, type, address)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO locations (
+                id, parent_id, code, name, type, address,
+                latitude, longitude, capacity, current_count, qr_code
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
             "#,
         )
@@ -49,6 +52,11 @@ impl LocationRepository {
         .bind(&location.name)
         .bind(&location.location_type)
         .bind(&location.address)
+        .bind(&location.latitude)
+        .bind(&location.longitude)
+        .bind(location.capacity)
+        .bind(location.current_count)
+        .bind(&location.qr_code)
         .fetch_one(&self.pool)
         .await
     }
@@ -58,6 +66,7 @@ impl LocationRepository {
             r#"
             UPDATE locations SET
                 parent_id = $2, code = $3, name = $4, type = $5, address = $6,
+                latitude = $7, longitude = $8, capacity = $9, current_count = $10, qr_code = $11,
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -69,6 +78,11 @@ impl LocationRepository {
         .bind(&location.name)
         .bind(&location.location_type)
         .bind(&location.address)
+        .bind(&location.latitude)
+        .bind(&location.longitude)
+        .bind(location.capacity)
+        .bind(location.current_count)
+        .bind(&location.qr_code)
         .fetch_one(&self.pool)
         .await
     }

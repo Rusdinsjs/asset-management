@@ -12,13 +12,19 @@ use crate::infrastructure::repositories::{AssetRepository, LoanRepository};
 pub struct LoanService {
     loan_repo: LoanRepository,
     asset_repo: AssetRepository,
+    notification_service: crate::application::services::NotificationService,
 }
 
 impl LoanService {
-    pub fn new(loan_repo: LoanRepository, asset_repo: AssetRepository) -> Self {
+    pub fn new(
+        loan_repo: LoanRepository,
+        asset_repo: AssetRepository,
+        notification_service: crate::application::services::NotificationService,
+    ) -> Self {
         Self {
             loan_repo,
             asset_repo,
+            notification_service,
         }
     }
 
@@ -45,18 +51,24 @@ impl LoanService {
         let mut loan = Loan::new(
             request.asset_id,
             request.borrower_id,
+            request.employee_id,
             request.loan_date,
             request.expected_return_date,
         );
         loan.deposit_amount = request.deposit_amount;
 
-        self.loan_repo
-            .create(&loan)
-            .await
-            .map_err(|e| DomainError::ExternalServiceError {
-                service: "database".to_string(),
-                message: e.to_string(),
-            })
+        let created_loan =
+            self.loan_repo
+                .create(&loan)
+                .await
+                .map_err(|e| DomainError::ExternalServiceError {
+                    service: "database".to_string(),
+                    message: e.to_string(),
+                })?;
+
+        // Optional: Notify admins here
+
+        Ok(created_loan)
     }
 
     /// Get loan by ID
@@ -122,7 +134,27 @@ impl LoanService {
             }
         })?;
 
-        self.get_by_id(id).await
+        let updated_loan = self.get_by_id(id).await?;
+
+        // Notify Borrower
+        let asset = self
+            .asset_repo
+            .find_by_id(updated_loan.asset_id)
+            .await
+            .ok()
+            .flatten();
+        let asset_name = asset
+            .map(|a| a.name)
+            .unwrap_or_else(|| "Unknown Asset".to_string());
+
+        if let Some(borrower_id) = updated_loan.borrower_id {
+            let _ = self
+                .notification_service
+                .notify_loan_approved(borrower_id, &asset_name, updated_loan.id)
+                .await;
+        }
+
+        Ok(updated_loan)
     }
 
     /// Reject loan request
@@ -144,7 +176,37 @@ impl LoanService {
                 message: e.to_string(),
             })?;
 
-        self.get_by_id(id).await
+        let updated_loan = self.get_by_id(id).await?;
+
+        // Notify Borrower
+        let asset = self
+            .asset_repo
+            .find_by_id(updated_loan.asset_id)
+            .await
+            .ok()
+            .flatten();
+        let asset_name = asset
+            .map(|a| a.name)
+            .unwrap_or_else(|| "Unknown Asset".to_string());
+
+        if let Some(borrower_id) = updated_loan.borrower_id {
+            let _ = self
+                .notification_service
+                .create(
+                    borrower_id,
+                    &format!("Loan Rejected: {}", asset_name),
+                    &format!(
+                        "Your loan request for {} has been rejected. Reason: {}",
+                        asset_name,
+                        reason.unwrap_or_else(|| "No reason provided".to_string())
+                    ),
+                    Some("loan"),
+                    Some(updated_loan.id),
+                )
+                .await;
+        }
+
+        Ok(updated_loan)
     }
 
     /// Checkout loan
@@ -209,6 +271,17 @@ impl LoanService {
             .await;
 
         self.get_by_id(id).await
+    }
+
+    /// List loans by employee
+    pub async fn list_by_employee(&self, employee_id: Uuid) -> DomainResult<Vec<Loan>> {
+        self.loan_repo
+            .list_by_employee(employee_id)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })
     }
 
     /// Check and update overdue loans (Background Task)
