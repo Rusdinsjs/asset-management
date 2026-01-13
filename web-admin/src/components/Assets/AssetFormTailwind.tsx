@@ -1,6 +1,6 @@
 // AssetForm - Pure Tailwind Version
 import { useState, useMemo } from 'react';
-import { Save, Car, Building2, DollarSign, FileText, Info } from 'lucide-react';
+import { Save, Car, Building2, DollarSign, FileText, Info, Plus, Trash2 } from 'lucide-react';
 import type { Asset, CreateAssetRequest } from '../../api/assets';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
@@ -11,6 +11,7 @@ import {
     NumberInput,
     DateInput,
     Tabs, TabsList, TabsTrigger, TabsContent,
+    ActionIcon,
 } from '../ui';
 
 interface Category {
@@ -72,6 +73,19 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
         building_certificate_expiry: initialValues?.specifications?.certificate_expiry ? new Date(initialValues.specifications.certificate_expiry) : null,
     });
 
+    // Custom Attributes State
+    const [customSpecs, setCustomSpecs] = useState<{ key: string; value: string }[]>(() => {
+        const specs = initialValues?.specifications;
+        // Simple heuristic: if specs exists and doesn't look like building specs (no address), treat as custom
+        if (specs && typeof specs === 'object' && !specs.address) {
+            return Object.entries(specs).map(([key, value]) => ({
+                key,
+                value: String(value)
+            }));
+        }
+        return [];
+    });
+
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     const updateField = (field: string, value: any) => {
@@ -109,6 +123,21 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
         const code = selectedCategory.code || '';
         return code.includes('BANGUNAN') || code.includes('TANAH') || code.includes('INFRA');
     }, [selectedCategory]);
+
+    // Custom Spec Handlers
+    const addSpec = () => {
+        setCustomSpecs([...customSpecs, { key: '', value: '' }]);
+    };
+
+    const removeSpec = (index: number) => {
+        setCustomSpecs(customSpecs.filter((_, i) => i !== index));
+    };
+
+    const updateSpec = (index: number, field: 'key' | 'value', val: string) => {
+        const newSpecs = [...customSpecs];
+        newSpecs[index][field] = val;
+        setCustomSpecs(newSpecs);
+    };
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -171,6 +200,19 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
             };
         }
 
+        // Generic / Custom Specs
+        if (!isVehicle && !isBuilding && customSpecs.length > 0) {
+            const specObj: Record<string, string> = {};
+            customSpecs.forEach(spec => {
+                if (spec.key.trim()) {
+                    specObj[spec.key.trim()] = spec.value.trim();
+                }
+            });
+            if (Object.keys(specObj).length > 0) {
+                payload.specifications = specObj;
+            }
+        }
+
         onSubmit(payload);
     };
 
@@ -227,6 +269,7 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
                             placeholder="Select category..."
                             error={errors.category_id}
                             required
+                            onCreate={() => window.open('/categories', '_blank')}
                         />
                         <Select
                             label="Location"
@@ -234,6 +277,7 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
                             onChange={(val) => updateField('location_id', val)}
                             options={locationOptions}
                             placeholder="Select location..."
+                            onCreate={() => window.open('/locations', '_blank')}
                         />
                         <Input
                             label="Brand"
@@ -396,9 +440,57 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
                     )}
 
                     {!isVehicle && !isBuilding && (
-                        <div className="text-center py-12 text-slate-400">
-                            <p>No specific details configuration for this category.</p>
-                            <p className="text-sm mt-1">(Generic specifications support coming soon)</p>
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center pb-2 border-b border-slate-800">
+                                <h3 className="text-lg font-semibold text-white">Custom Specifications</h3>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    type="button"
+                                    onClick={addSpec}
+                                    leftIcon={<Plus size={14} />}
+                                >
+                                    Add Attribute
+                                </Button>
+                            </div>
+
+                            {customSpecs.length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-8 text-slate-500 bg-slate-900/30 rounded-lg border border-dashed border-slate-800">
+                                    <FileText size={32} className="mb-2 opacity-50" />
+                                    <p>No specific attributes defined.</p>
+                                    <p className="text-xs">Click "Add Attribute" to add custom details (e.g., Color, Weight, RAM).</p>
+                                </div>
+                            )}
+
+                            <div className="space-y-3">
+                                {customSpecs.map((spec, index) => (
+                                    <div key={index} className="flex gap-3 items-start animate-in fade-in slide-in-from-top-2 duration-200">
+                                        <div className="flex-1">
+                                            <Input
+                                                placeholder="Attribute Name (e.g. Color)"
+                                                value={spec.key}
+                                                onChange={(e) => updateSpec(index, 'key', e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <Input
+                                                placeholder="Value (e.g. Red)"
+                                                value={spec.value}
+                                                onChange={(e) => updateSpec(index, 'value', e.target.value)}
+                                            />
+                                        </div>
+                                        <ActionIcon
+                                            variant="danger"
+                                            className="mt-1"
+                                            type="button"
+                                            onClick={() => removeSpec(index)}
+                                            title="Remove attribute"
+                                        >
+                                            <Trash2 size={16} />
+                                        </ActionIcon>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </TabsContent>

@@ -18,8 +18,13 @@ import {
     useToast,
 } from '../components/ui';
 
-export function WorkOrderDetails() {
-    const { id } = useParams<{ id: string }>();
+interface WorkOrderDetailsProps {
+    workOrderId?: string | null;
+}
+
+export function WorkOrderDetails({ workOrderId: propId }: WorkOrderDetailsProps) {
+    const { id: paramId } = useParams<{ id: string }>();
+    const id = propId || paramId;
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const { success } = useToast();

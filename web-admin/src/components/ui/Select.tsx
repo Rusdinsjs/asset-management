@@ -15,10 +15,22 @@ interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onC
     options: SelectOption[];
     placeholder?: string;
     onChange?: (value: string) => void;
+    onCreate?: () => void;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-    ({ label, error, hint, options, placeholder, className = '', onChange, ...props }, ref) => {
+    ({ label, error, hint, options, placeholder, className = '', onChange, onCreate, ...props }, ref) => {
+        const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+            const newValue = e.target.value;
+            if (onCreate && newValue === '__CREATE_NEW__') {
+                onCreate();
+                // We don't call onChange, so the controlled value remains unchanged
+                // React will re-render and snap the select back to the original value
+                return;
+            }
+            onChange?.(newValue);
+        };
+
         return (
             <div className="space-y-1.5">
                 {label && (
@@ -39,7 +51,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                             ${error ? 'border-red-500 focus:ring-red-500/50' : 'border-slate-700'}
                             ${className}
                         `}
-                        onChange={(e) => onChange?.(e.target.value)}
+                        onChange={handleChange}
                         {...props}
                     >
                         {placeholder && (
@@ -57,6 +69,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
                                 {option.label}
                             </option>
                         ))}
+                        {onCreate && (
+                            <option value="__CREATE_NEW__" className="bg-slate-800 text-cyan-400 font-semibold">
+                                + Add New Item...
+                            </option>
+                        )}
                     </select>
                     <ChevronDown
                         size={18}

@@ -1,11 +1,12 @@
 // ApprovalCenter Page - Pure Tailwind
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
     Check, X, RefreshCw, Wrench, ClipboardList, ArrowRight,
-    Calendar, User, Clock, Truck, ClipboardCheck, Info
+    Calendar, User, Clock, Truck, ClipboardCheck, Info, ArrowLeftRight
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { approvalApi } from '../api/approval';
+import { conversionApi } from '../api/conversion';
 import type { ApprovalRequest } from '../api/approval';
 import {
     Button,
@@ -16,7 +17,6 @@ import {
     Select,
     Textarea,
     LoadingOverlay,
-
     useToast,
 } from '../components/ui';
 
@@ -28,6 +28,7 @@ const resourceTypeConfig: Record<string, { label: string; iconColor: string }> =
     rental_request: { label: 'Rental Request', iconColor: 'text-orange-400' },
     timesheet_verification: { label: 'Timesheet', iconColor: 'text-teal-400' },
     loan: { label: 'Loan Request', iconColor: 'text-cyan-400' },
+    conversion_request: { label: 'Conversion', iconColor: 'text-purple-400' },
 };
 
 // State colors for lifecycle
@@ -44,6 +45,21 @@ const stateBadgeVariant: Record<string, 'default' | 'info' | 'success' | 'warnin
 
 function RequestDetails({ request }: { request: ApprovalRequest }) {
     const data = request.data_snapshot;
+
+    if (request.resource_type === 'conversion_request') {
+        return (
+            <div className="space-y-1">
+                <p className="text-sm font-medium text-white">{data?.title || 'Conversion Request'}</p>
+                <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <ArrowLeftRight size={12} />
+                    <span>Cost: Rp {Number(data?.conversion_cost || 0).toLocaleString()}</span>
+                </div>
+                <p className="text-xs text-slate-500">
+                    {data?.reason ? `Reason: ${data.reason}` : 'No reason provided'}
+                </p>
+            </div>
+        );
+    }
 
     if (request.resource_type === 'lifecycle_transition') {
         return (
@@ -156,9 +172,17 @@ export function ApprovalCenter() {
     const [actionNotes, setActionNotes] = useState('');
     const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
 
-    const { data: pendingRequests = [], isLoading: loadingPending } = useQuery({
+    // Standard Approvals
+    const { data: standardRequests = [], isLoading: loadingStandard } = useQuery({
         queryKey: ['approvals', 'pending'],
         queryFn: approvalApi.listPending,
+        enabled: activeTab === 'pending',
+    });
+
+    // Conversion Requests (integrated)
+    const { data: conversionRequests = [], isLoading: loadingConversions } = useQuery({
+        queryKey: ['conversions', 'pending'],
+        queryFn: conversionApi.getPendingRequests,
         enabled: activeTab === 'pending',
     });
 
@@ -168,27 +192,59 @@ export function ApprovalCenter() {
         enabled: activeTab === 'my_requests',
     });
 
+    // Merge Requests for 'pending' view
+    const pendingRequests = useMemo(() => {
+        const mappedConversions: ApprovalRequest[] = conversionRequests.map((c: any) => ({
+            id: c.id,
+            resource_type: 'conversion_request',
+            resource_id: c.asset_id,
+            action_type: 'conversion',
+            status: c.status.toUpperCase(), // 'PENDING'
+            current_approval_level: 1,
+            requester_id: '',
+            requester_name: c.requested_by,
+            created_at: c.created_at,
+            updated_at: c.created_at,
+            data_snapshot: c, // Pass full object as snapshot
+        }));
+        return [...standardRequests, ...mappedConversions].sort((a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+    }, [standardRequests, conversionRequests]);
+
     const approveMutation = useMutation({
-        mutationFn: ({ id, notes }: { id: string; notes?: string }) => approvalApi.approve(id, notes),
+        mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+            if (selectedRequest?.resource_type === 'conversion_request') {
+                return conversionApi.approveRequest(id);
+            }
+            return approvalApi.approve(id, notes);
+        },
         onSuccess: () => {
             success('Request approved', 'Success');
             queryClient.invalidateQueries({ queryKey: ['approvals'] });
+            queryClient.invalidateQueries({ queryKey: ['conversions'] });
             setActionModalOpen(false);
         },
-        onError: () => {
-            showError('Failed to approve request', 'Error');
+        onError: (err: any) => {
+            showError(err.message || 'Failed to approve request', 'Error');
         },
     });
 
     const rejectMutation = useMutation({
-        mutationFn: ({ id, notes }: { id: string; notes: string }) => approvalApi.reject(id, notes),
+        mutationFn: async ({ id, notes }: { id: string; notes: string }) => {
+            if (selectedRequest?.resource_type === 'conversion_request') {
+                return conversionApi.rejectRequest(id);
+            }
+            return approvalApi.reject(id, notes);
+        },
         onSuccess: () => {
             success('Request rejected', 'Success');
             queryClient.invalidateQueries({ queryKey: ['approvals'] });
+            queryClient.invalidateQueries({ queryKey: ['conversions'] });
             setActionModalOpen(false);
         },
-        onError: () => {
-            showError('Failed to reject request', 'Error');
+        onError: (err: any) => {
+            showError(err.message || 'Failed to reject request', 'Error');
         },
     });
 
@@ -212,14 +268,16 @@ export function ApprovalCenter() {
         switch (status) {
             case 'APPROVED_L1': return 'info';
             case 'APPROVED_L2': return 'success';
-            case 'REJECTED': return 'danger';
-            case 'PENDING': return 'warning';
+            case 'REJECTED':
+            case 'rejected': return 'danger';
+            case 'PENDING':
+            case 'pending': return 'warning';
             default: return 'default';
         }
     };
 
     const currentData = activeTab === 'pending' ? pendingRequests : myRequests;
-    const isLoading = activeTab === 'pending' ? loadingPending : loadingMy;
+    const isLoading = activeTab === 'pending' ? (loadingStandard || loadingConversions) : loadingMy;
     const filteredData = filterType === 'all' ? currentData : currentData.filter(r => r.resource_type === filterType);
 
     // Stats
@@ -227,7 +285,9 @@ export function ApprovalCenter() {
     const workOrderCount = pendingRequests.filter(r => r.resource_type === 'work_order').length;
     const rentalCount = pendingRequests.filter(r => r.resource_type === 'rental_request').length;
     const timesheetCount = pendingRequests.filter(r => r.resource_type === 'timesheet_verification').length;
+    const conversionCount = pendingRequests.filter(r => r.resource_type === 'conversion_request').length;
     const assetCount = pendingRequests.filter(r => r.resource_type === 'asset').length;
+    const loanCount = pendingRequests.filter(r => r.resource_type === 'loan').length;
 
     const TabButton = ({ value, children, icon: Icon }: { value: string; children: React.ReactNode; icon: any }) => (
         <button
@@ -253,12 +313,14 @@ export function ApprovalCenter() {
 
             {/* Stats */}
             {activeTab === 'pending' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
                     <StatCard title="Lifecycle" value={lifecycleCount} icon={RefreshCw} iconColor="text-violet-400" />
                     <StatCard title="Work Orders" value={workOrderCount} icon={Wrench} iconColor="text-blue-400" />
                     <StatCard title="Rentals" value={rentalCount} icon={Truck} iconColor="text-orange-400" />
+                    <StatCard title="Conversions" value={conversionCount} icon={ArrowLeftRight} iconColor="text-purple-400" />
                     <StatCard title="Timesheets" value={timesheetCount} icon={ClipboardCheck} iconColor="text-teal-400" />
                     <StatCard title="Assets" value={assetCount} icon={ClipboardList} iconColor="text-green-400" />
+                    <StatCard title="Loans" value={loanCount} icon={ClipboardList} iconColor="text-pink-400" />
                 </div>
             )}
 
@@ -274,6 +336,7 @@ export function ApprovalCenter() {
                     onChange={setFilterType}
                     options={[
                         { value: 'all', label: 'All Types' },
+                        { value: 'conversion_request', label: 'Conversion' },
                         { value: 'lifecycle_transition', label: 'Lifecycle' },
                         { value: 'work_order', label: 'Work Order' },
                         { value: 'rental_request', label: 'Rental Request' },

@@ -76,8 +76,13 @@ const transitionPermissions: Record<string, number> = {
     'archived': 2,
 };
 
-export function AssetLifecycle() {
-    const { id: assetId } = useParams<{ id: string }>();
+interface AssetLifecycleProps {
+    assetId?: string | null;
+}
+
+export function AssetLifecycle({ assetId: propAssetId }: AssetLifecycleProps) {
+    const { id: paramAssetId } = useParams<{ id: string }>();
+    const assetId = propAssetId || paramAssetId;
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const { success, error: showError, info } = useToast();

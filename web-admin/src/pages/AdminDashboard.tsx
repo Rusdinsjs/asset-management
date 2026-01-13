@@ -1,11 +1,11 @@
 // Admin Dashboard - Main Container with Dark Theme
-import { useState, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, lazy, Suspense, useEffect } from 'react';
+import { useNavigate, useLocation, matchPath } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import {
     LayoutDashboard, Package, FolderTree, Wrench, Users, LogOut, Menu, X,
     FileText, Settings, Bell, ChevronDown, ChevronRight, ClipboardCheck,
-    Truck, HandMetal, Building2, MapPin, Scan, ArrowLeftRight, UserCircle
+    Truck, HandMetal, Building2, MapPin, Scan, UserCircle
 } from 'lucide-react';
 
 // Import all views
@@ -20,7 +20,6 @@ const ProfileView = lazy(() => import('./Profile').then(m => ({ default: m.Profi
 const ReportsView = lazy(() => import('./Reports'));
 const AuditModeView = lazy(() => import('./AuditMode').then(m => ({ default: m.AuditMode })));
 const AssetLifecycleView = lazy(() => import('./AssetLifecycle').then(m => ({ default: m.AssetLifecycle })));
-const ConversionRequestsView = lazy(() => import('./ConversionRequests').then(m => ({ default: m.ConversionRequests })));
 const RentalsView = lazy(() => import('./rentals/Rentals').then(m => ({ default: m.Rentals })));
 const ClientsView = lazy(() => import('./Clients').then(m => ({ default: m.Clients })));
 const LoansView = lazy(() => import('./Loans').then(m => ({ default: m.Loans })));
@@ -50,6 +49,7 @@ interface NavItem {
     icon: any;
     label: string;
     adminOnly?: boolean;
+    showBadge?: boolean;
 }
 
 interface NavGroup {
@@ -70,8 +70,6 @@ const isNavGroup = (entry: NavEntry): entry is NavGroup => {
 const navItems: NavEntry[] = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'assets', icon: Package, label: 'Aset' },
-    { id: 'locations', icon: MapPin, label: 'Lokasi' },
-    { id: 'categories', icon: FolderTree, label: 'Kategori' },
     {
         id: 'operations',
         label: 'Operasional',
@@ -89,18 +87,11 @@ const navItems: NavEntry[] = [
         children: [
             { id: 'clients', icon: Building2, label: 'Klien' },
             { id: 'employees', icon: Users, label: 'Pegawai' },
+            { id: 'locations', icon: MapPin, label: 'Lokasi' },
+            { id: 'categories', icon: FolderTree, label: 'Kategori' },
         ]
     },
-    {
-        id: 'approval_group',
-        label: 'Approval',
-        icon: ClipboardCheck,
-        showBadge: true,
-        children: [
-            { id: 'conversions', icon: ArrowLeftRight, label: 'Konversi Aset' },
-            { id: 'approvals', icon: ClipboardCheck, label: 'Approval Center' },
-        ]
-    },
+    { id: 'approvals', icon: ClipboardCheck, label: 'Approval Center', showBadge: true },
     { id: 'reports', icon: FileText, label: 'Laporan' },
     {
         id: 'settings_group',
@@ -132,6 +123,66 @@ export function AdminDashboard() {
 
     const { user, logout } = useAuthStore();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Sync URL with State
+    useEffect(() => {
+        const path = location.pathname;
+
+        // 1. Handle Deep Links (Priority)
+        const lifecycleMatch = matchPath('/assets/:id/lifecycle', path);
+        if (lifecycleMatch?.params.id) {
+            setActiveTab('assets');
+            setSelectedAssetId(lifecycleMatch.params.id);
+            setSelectedWorkOrderId(null);
+            return;
+        }
+
+        const woMatch = matchPath('/work-orders/:id', path);
+        if (woMatch?.params.id) {
+            setActiveTab('work-orders');
+            setSelectedWorkOrderId(woMatch.params.id);
+            setSelectedAssetId(null);
+            setOpenGroups(prev => ({ ...prev, operations: true }));
+            return;
+        }
+
+        // 2. Handle Standard Tabs
+        const segment = path.split('/')[1] || 'dashboard';
+
+        // Find matching tab and group
+        let foundTab: TabId | null = null;
+        let foundGroup: string | null = null;
+
+        for (const item of navItems) {
+            if (isNavGroup(item)) {
+                const child = item.children.find(c => c.id === segment);
+                if (child) {
+                    foundTab = child.id;
+                    foundGroup = item.id;
+                    break;
+                }
+            } else {
+                if (item.id === segment) {
+                    foundTab = item.id;
+                    break;
+                }
+            }
+        }
+
+        if (foundTab) {
+            setActiveTab(foundTab);
+            if (foundGroup) {
+                setOpenGroups(prev => ({ ...prev, [foundGroup]: true }));
+            }
+            setSelectedAssetId(null);
+            setSelectedWorkOrderId(null);
+        } else if (path === '/') {
+            setActiveTab('dashboard');
+            setSelectedAssetId(null);
+            setSelectedWorkOrderId(null);
+        }
+    }, [location.pathname]);
 
     const handleLogout = () => {
         setLogoutModalOpen(true);
@@ -159,9 +210,10 @@ export function AdminDashboard() {
             <button
                 key={item.id}
                 onClick={() => {
-                    setActiveTab(item.id);
-                    setSelectedWorkOrderId(null);
-                    setSelectedAssetId(null);
+                    navigate(`/${item.id}`);
+                    if (window.innerWidth < 1024) {
+                        setSidebarOpen(false);
+                    }
                 }}
                 className={`w-full flex items-center gap-3 px-4 ${isChild ? 'py-2' : 'py-3'} rounded-lg transition-all duration-200 ${activeTab === item.id
                     ? 'bg-cyan-500/20 text-cyan-400 shadow-sm shadow-cyan-500/10'
@@ -169,7 +221,16 @@ export function AdminDashboard() {
                     } ${isChild ? 'text-sm' : ''}`}
             >
                 <item.icon size={isChild ? 16 : 20} />
-                {sidebarOpen && <span className="font-medium">{item.label}</span>}
+                {sidebarOpen && (
+                    <>
+                        <span className="font-medium flex-1 text-left">{item.label}</span>
+                        {item.showBadge && (
+                            <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
+                                !
+                            </span>
+                        )}
+                    </>
+                )}
             </button>
         );
     };
@@ -216,10 +277,10 @@ export function AdminDashboard() {
     const renderContent = () => {
         // Handle sub-views with IDs
         if (selectedWorkOrderId) {
-            return <WorkOrderDetailsView />;
+            return <WorkOrderDetailsView workOrderId={selectedWorkOrderId} />;
         }
         if (selectedAssetId) {
-            return <AssetLifecycleView />;
+            return <AssetLifecycleView assetId={selectedAssetId} />;
         }
 
         switch (activeTab) {
@@ -232,7 +293,6 @@ export function AdminDashboard() {
             case 'clients': return <ClientsView />;
             case 'loans': return <LoansView />;
             case 'employees': return <EmployeesView />;
-            case 'conversions': return <ConversionRequestsView />;
             case 'approvals': return <ApprovalCenterView />;
             case 'reports': return <ReportsView />;
             case 'users': return <UsersView />;

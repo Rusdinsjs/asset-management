@@ -27,6 +27,7 @@ export function ActionIcon({
 
     return (
         <button
+            type="button"
             className={`
                 inline-flex items-center justify-center rounded-lg
                 transition-colors duration-200
