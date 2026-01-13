@@ -123,6 +123,22 @@ export function Users() {
         return { color: 'gray', label: 'User/Viewer' };
     };
 
+    const getAccessScope = (roleCode: string) => {
+        switch (roleCode) {
+            case 'super_admin': return 'Full System Access';
+            case 'admin': return 'Organization Management';
+            case 'manager': return 'Approval L2, Asset Management';
+            case 'supervisor': return 'Approval L1, Operational View';
+            case 'admin_heavy_eq': return 'Heavy Equipment Specialist';
+            case 'admin_vehicle': return 'Vehicle Specialist';
+            case 'admin_infra': return 'Infrastructure Specialist';
+            case 'technician': return 'Maintenance Execution';
+            case 'staff': return 'General Staff View';
+            case 'user': return 'Basic View Access';
+            default: return 'Limited Access';
+        }
+    };
+
     const rows = users.map((user) => {
         const badgeParams = getRoleParams(user.role_level);
         return (
@@ -130,13 +146,21 @@ export function Users() {
                 <Table.Td>{user.name}</Table.Td>
                 <Table.Td>{user.email}</Table.Td>
                 <Table.Td>
-                    <Badge color={badgeParams.color} variant="light">
-                        {user.role_code} (L{user.role_level})
-                    </Badge>
+                    <Group gap="xs">
+                        <Badge color={badgeParams.color} variant="light">
+                            {user.role_code}
+                        </Badge>
+                        {/* Show level as a small detail or separate badge if needed, strictly asking for 'Access' now */}
+                    </Group>
                 </Table.Td>
                 <Table.Td>
-                    <Badge color={user.is_active ? 'green' : 'gray'} variant="dot">
-                        {user.is_active ? 'Active' : 'Inactive'}
+                    <span style={{ fontSize: '0.9em', color: '#666' }}>
+                        {getAccessScope(user.role_code)}
+                    </span>
+                </Table.Td>
+                <Table.Td>
+                    <Badge color={user.is_active ? 'green' : 'red'} variant="filled">
+                        {user.is_active ? 'Allowed' : 'Denied'}
                     </Badge>
                 </Table.Td>
                 <Table.Td>
@@ -172,14 +196,15 @@ export function Users() {
                             <Table.Th>Name</Table.Th>
                             <Table.Th>Email</Table.Th>
                             <Table.Th>Role</Table.Th>
-                            <Table.Th>Status</Table.Th>
+                            <Table.Th>Access Scope</Table.Th>
+                            <Table.Th>Login Status</Table.Th>
                             <Table.Th>Action</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
                         {users.length > 0 ? rows : (
                             <Table.Tr>
-                                <Table.Td colSpan={5} style={{ textAlign: 'center' }}>No users found</Table.Td>
+                                <Table.Td colSpan={6} style={{ textAlign: 'center' }}>No users found</Table.Td>
                             </Table.Tr>
                         )}
                     </Table.Tbody>

@@ -46,6 +46,13 @@ export interface Timesheet {
     checker_notes?: string;
     verifier_notes?: string;
     client_notes?: string;
+    photos?: string[];
+}
+
+export interface TimesheetDetail extends Timesheet {
+    rental_number: string;
+    asset_name: string;
+    client_name: string;
 }
 
 export interface BillingPeriod {
@@ -115,6 +122,11 @@ export const timesheetApi = {
         return response.data;
     },
 
+    listPending: async () => {
+        const response = await api.get<TimesheetDetail[]>('/rentals/timesheets/pending');
+        return response.data;
+    },
+
     create: async (data: CreateTimesheetRequest) => {
         const response = await api.post<Timesheet>('/rentals/timesheets', data);
         return response.data;
@@ -171,6 +183,11 @@ export const billingApi = {
 
     generateInvoice: async (id: string, invoiceNumber?: string) => {
         const response = await api.post<string>(`/rentals/billing/${id}/invoice`, { invoice_number: invoiceNumber });
+        return response.data;
+    },
+
+    getSummary: async (id: string) => {
+        const response = await api.get(`/rentals/billing/${id}/summary`);
         return response.data;
     }
 };

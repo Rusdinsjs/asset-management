@@ -46,15 +46,13 @@ pub fn rental_routes() -> Router<AppState> {
             "/api/rentals/:id/handovers",
             get(rental_handler::get_rental_handovers),
         )
-        // Clients
-        .route(
-            "/api/clients",
-            get(rental_handler::list_clients).post(rental_handler::create_client),
-        )
-        .route("/api/clients/:id", get(rental_handler::get_client))
         // Rental Rates
         .route(
             "/api/rental-rates",
             get(rental_handler::list_rental_rates).post(rental_handler::create_rental_rate),
+        )
+        .route(
+            "/api/rental-rates/:id",
+            put(rental_handler::update_rental_rate).delete(rental_handler::delete_rental_rate),
         )
 }

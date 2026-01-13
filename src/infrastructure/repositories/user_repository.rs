@@ -21,7 +21,7 @@ impl UserRepository {
             SELECT 
                 u.id, u.email, u.password_hash, u.name, 
                 u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
-                u.department_id, u.organization_id,
+                u.department, u.department_id, u.organization_id,
                 u.phone, u.avatar_url,
                 u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
                 u.created_at, u.updated_at
@@ -41,7 +41,7 @@ impl UserRepository {
             SELECT 
                 u.id, u.email, u.password_hash, u.name, 
                 u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
-                u.department_id, u.organization_id,
+                u.department, u.department_id, u.organization_id,
                 u.phone, u.avatar_url,
                 u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
                 u.created_at, u.updated_at
@@ -61,7 +61,7 @@ impl UserRepository {
             SELECT 
                 u.id, u.email, u.name, 
                 COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
-                u.department_id, u.is_active
+                u.department, u.department_id, u.is_active
             FROM users u
             LEFT JOIN roles r ON u.role_id = r.id
             ORDER BY u.name
@@ -85,14 +85,14 @@ impl UserRepository {
         sqlx::query_as::<_, User>(
             r#"
             WITH inserted_user AS (
-                INSERT INTO users (id, email, password_hash, name, role, role_id, department_id, organization_id, is_active)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                INSERT INTO users (id, email, password_hash, name, role, role_id, department, department_id, organization_id, is_active)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 RETURNING *
             )
             SELECT 
                 u.id, u.email, u.password_hash, u.name, 
                 u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
-                u.department_id, u.organization_id,
+                u.department, u.department_id, u.organization_id,
                 NULL::text as phone, NULL::text as avatar_url,
                 u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
                 u.created_at, u.updated_at
@@ -106,6 +106,7 @@ impl UserRepository {
         .bind(&user.name)
         .bind(&user.role) // Legacy string
         .bind(user.role_id)
+        .bind(&user.department)
         .bind(user.department_id)
         .bind(user.organization_id)
         .bind(user.is_active)
@@ -143,6 +144,7 @@ impl UserRepository {
         name: Option<String>,
         role_id: Option<Uuid>,
         role_code: Option<String>, // Legacy fallback
+        department: Option<String>,
         department_id: Option<Uuid>,
         is_active: Option<bool>,
     ) -> Result<User, sqlx::Error> {
@@ -154,8 +156,9 @@ impl UserRepository {
                     name = COALESCE($2, name),
                     role_id = COALESCE($3, role_id),
                     role = COALESCE($4, role),
-                    department_id = COALESCE($5, department_id),
-                    is_active = COALESCE($6, is_active),
+                    department = COALESCE($5, department),
+                    department_id = COALESCE($6, department_id),
+                    is_active = COALESCE($7, is_active),
                     updated_at = NOW()
                 WHERE id = $1
                 RETURNING *
@@ -163,7 +166,7 @@ impl UserRepository {
             SELECT 
                 u.id, u.email, u.password_hash, u.name, 
                 u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
-                u.department_id, u.organization_id,
+                u.department, u.department_id, u.organization_id,
                 u.phone, u.avatar_url,
                 u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
                 u.created_at, u.updated_at
@@ -175,6 +178,7 @@ impl UserRepository {
         .bind(name)
         .bind(role_id)
         .bind(role_code)
+        .bind(department)
         .bind(department_id)
         .bind(is_active)
         .fetch_one(&self.pool)
@@ -200,7 +204,7 @@ impl UserRepository {
             SELECT 
                 u.id, u.email, u.password_hash, u.name, 
                 u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
-                u.department_id, u.organization_id,
+                u.department, u.department_id, u.organization_id,
                 u.phone, u.avatar_url,
                 u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
                 u.created_at, u.updated_at
@@ -229,7 +233,7 @@ impl UserRepository {
             SELECT 
                 u.id, u.email, u.password_hash, u.name, 
                 u.role_id, COALESCE(r.code, u.role) as role_code, COALESCE(r.role_level, 5) as role_level,
-                u.department_id, u.organization_id,
+                u.department, u.department_id, u.organization_id,
                 u.phone, u.avatar_url,
                 u.is_active, false as email_verified, NULL::timestamptz as last_login_at,
                 u.created_at, u.updated_at

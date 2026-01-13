@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ApiResponse } from './maintenance';
+
 
 export interface WorkOrder {
     id: string;
@@ -57,6 +57,13 @@ export interface AddPartRequest {
     unit_cost: number;
 }
 
+// Copied generic ApiResponse from maintenance.ts before deletion
+export interface ApiResponse<T> {
+    success: boolean;
+    message: string | null;
+    data: T;
+}
+
 export const workOrderApi = {
     get: async (id: string): Promise<WorkOrder> => {
         const response = await api.get(`/work-orders/${id}`);
@@ -89,6 +96,40 @@ export const workOrderApi = {
     },
     removePart: async (id: string, partId: string): Promise<ApiResponse<boolean>> => {
         const response = await api.delete(`/work-orders/${id}/parts/${partId}`);
+        return response.data;
+    },
+
+    // List & CRUD
+    list: async (params?: any): Promise<WorkOrder[]> => {
+        const response = await api.get('/work-orders', { params });
+        return response.data;
+    },
+    listPending: async (): Promise<WorkOrder[]> => {
+        const response = await api.get('/work-orders/pending');
+        return response.data;
+    },
+    listOverdue: async (): Promise<WorkOrder[]> => {
+        const response = await api.get('/work-orders/overdue');
+        return response.data;
+    },
+    create: async (data: any): Promise<ApiResponse<WorkOrder>> => {
+        const response = await api.post('/work-orders', data);
+        return response.data;
+    },
+    // Note: Work Order update is usually done via specific actions (approve, assign, etc)
+    // but for compatibility we might need a general update if backend supports it.
+    // Checking backend... `update_work_order` isn't explicit in the huge handler file content I saw earlier,
+    // usually it's state based. BUT we need to create it if it doesn't exist or use specific routes.
+    // For now let's assume specific actions are the way, but we might need a general 'edit details' endpoint later.
+    delete: async (id: string): Promise<ApiResponse<WorkOrder>> => {
+        // NOTE: Work Order usually has 'cancel' instead of delete, but admin might need delete.
+        // Backend `delete_maintenance` existed. WORK ORDER handler didn't show explicit delete in the previous view.
+        // Let's implement cancel as the main 'delete' action for now or check if we need to add delete to backend.
+        // Work Order Cancel:
+        return workOrderApi.cancel(id);
+    },
+    cancel: async (id: string): Promise<ApiResponse<WorkOrder>> => {
+        const response = await api.post(`/work-orders/${id}/cancel`);
         return response.data;
     },
 

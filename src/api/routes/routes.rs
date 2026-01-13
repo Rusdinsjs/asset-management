@@ -24,7 +24,8 @@ pub fn create_router(state: AppState) -> Router {
             post(upload_handler::upload_file).layer(tower_http::limit::RequestBodyLimitLayer::new(
                 10 * 1024 * 1024,
             )),
-        );
+        )
+        .route("/ws", get(notification_ws::ws_handler));
 
     // Lookup routes
     let lookup_routes = Router::new()
@@ -111,6 +112,10 @@ pub fn create_router(state: AppState) -> Router {
         .route("/api/loans/overdue", get(list_overdue_loans))
         .route("/api/loans/:id", get(get_loan))
         .route("/api/loans/:id/approve", post(approve_loan))
+        .route("/api/loans/:id/checkout", post(checkout_loan))
+        .route("/api/loans/:id/return", post(checkin_loan))
+        .route("/api/loans/:id/reject", post(reject_loan))
+        .route("/api/users/:user_id/loans", get(list_my_loans))
         // Notifications
         .route("/api/users/:user_id/notifications", get(list_notifications))
         .route(
@@ -236,12 +241,14 @@ pub fn create_router(state: AppState) -> Router {
             "/api/lifecycle/states",
             get(lifecycle_handler::get_all_states),
         )
-        .merge(crate::api::routes::category_routes::category_routes())
+        .nest(
+            "/api/categories",
+            crate::api::routes::category_routes::category_routes(),
+        )
         .merge(crate::api::routes::conversion_routes::conversion_routes(
             state.clone(),
         ))
         //.merge(crate::api::routes::location_routes::location_routes()) // Commented out until confirmed
-        .merge(crate::api::routes::maintenance_routes::routes())
         .merge(crate::api::routes::approval_routes::approval_routes(
             state.clone(),
         ))
@@ -250,8 +257,10 @@ pub fn create_router(state: AppState) -> Router {
             crate::api::routes::mobile_routes::mobile_routes(state.clone()),
         )
         .merge(crate::api::routes::rental_routes::rental_routes())
+        .merge(crate::api::routes::client_routes::client_routes())
         .merge(crate::api::routes::timesheet_routes::timesheet_routes())
         .merge(crate::api::routes::billing_routes::billing_routes())
+        .merge(crate::api::routes::analytics_routes::routes())
         .layer(axum_middleware::from_fn(auth_middleware));
 
     Router::new()

@@ -9,7 +9,8 @@ use uuid::Uuid;
 
 use crate::application::dto::{
     ClientApproveTimesheetRequest, CreateClientContactRequest, CreateTimesheetRequest,
-    SubmitTimesheetRequest, TimesheetSummary, UpdateTimesheetRequest, VerifyTimesheetRequest,
+    SubmitTimesheetRequest, TimesheetDetailResponse, TimesheetSummary, UpdateTimesheetRequest,
+    VerifyTimesheetRequest,
 };
 use crate::domain::entities::{ClientContact, RentalTimesheet};
 use crate::domain::errors::{DomainError, DomainResult};
@@ -175,9 +176,14 @@ impl TimesheetService {
         timesheet.calculate_usage();
         timesheet.calculate_overtime(Decimal::from(8));
 
-        // TODO: Update in database (need to add update method to repository)
-
-        Ok(timesheet)
+        // Persist
+        self.timesheet_repo
+            .update_timesheet(&timesheet)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })
     }
 
     /// Submit timesheet for verification (Checker → Verifier)
@@ -310,6 +316,17 @@ impl TimesheetService {
     ) -> DomainResult<Vec<RentalTimesheet>> {
         self.timesheet_repo
             .list_timesheets_by_rental(rental_id, start_date, end_date)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })
+    }
+
+    /// List timesheets pending verification
+    pub async fn list_pending_verification(&self) -> DomainResult<Vec<TimesheetDetailResponse>> {
+        self.timesheet_repo
+            .list_pending_verification()
             .await
             .map_err(|e| DomainError::ExternalServiceError {
                 service: "database".to_string(),

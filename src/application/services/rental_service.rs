@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::application::dto::{
     ApproveRentalRequest, CreateClientRequest, CreateRentalRateRequest, CreateRentalRequest,
-    DispatchRentalRequest, RejectRentalRequest, ReturnRentalRequest,
+    DispatchRentalRequest, RejectRentalRequest, ReturnRentalRequest, UpdateRentalRateRequest,
 };
 use crate::domain::entities::{Client, Rental, RentalHandover, RentalRate};
 use crate::domain::errors::{DomainError, DomainResult};
@@ -206,6 +206,14 @@ impl RentalService {
             .update_status(rental.asset_id, "rented_out")
             .await;
 
+        // 4. Update asset location if provided
+        if let Some(loc_id) = request.location_id {
+            let _ = self
+                .asset_repo
+                .update_location(rental.asset_id, loc_id)
+                .await;
+        }
+
         self.get_by_id(id).await
     }
 
@@ -288,6 +296,14 @@ impl RentalService {
             .asset_repo
             .update_status(rental.asset_id, "in_inventory")
             .await;
+
+        // 5. Update asset location if provided
+        if let Some(loc_id) = request.location_id {
+            let _ = self
+                .asset_repo
+                .update_location(rental.asset_id, loc_id)
+                .await;
+        }
 
         self.get_by_id(id).await
     }
@@ -409,6 +425,29 @@ impl RentalService {
         rate.deposit_percentage = request.deposit_percentage;
         rate.late_fee_per_day = request.late_fee_per_day;
 
+        // Enhanced billing
+        if let Some(basis) = request.rate_basis {
+            rate.rate_basis = Some(basis);
+        }
+        if let Some(min_h) = request.minimum_hours {
+            rate.minimum_hours = Some(min_h);
+        }
+        if let Some(ot) = request.overtime_multiplier {
+            rate.overtime_multiplier = Some(ot);
+        }
+        if let Some(sb) = request.standby_multiplier {
+            rate.standby_multiplier = Some(sb);
+        }
+        if let Some(penalty) = request.breakdown_penalty_per_day {
+            rate.breakdown_penalty_per_day = Some(penalty);
+        }
+        if let Some(hpd) = request.hours_per_day {
+            rate.hours_per_day = Some(hpd);
+        }
+        if let Some(dpm) = request.days_per_month {
+            rate.days_per_month = Some(dpm);
+        }
+
         self.rental_repo
             .create_rate(&rate)
             .await
@@ -422,6 +461,94 @@ impl RentalService {
     pub async fn list_rates(&self) -> DomainResult<Vec<RentalRate>> {
         self.rental_repo
             .list_rates()
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })
+    }
+
+    /// Update rental rate
+    pub async fn update_rate(
+        &self,
+        id: Uuid,
+        request: UpdateRentalRateRequest,
+    ) -> DomainResult<RentalRate> {
+        let mut rate = self
+            .rental_repo
+            .find_rate_by_id(id)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?
+            .ok_or_else(|| DomainError::not_found("RentalRate", id))?;
+
+        if let Some(name) = request.name {
+            rate.name = name;
+        }
+        if let Some(cat_id) = request.category_id {
+            rate.category_id = Some(cat_id);
+        }
+        if let Some(asset_id) = request.asset_id {
+            rate.asset_id = Some(asset_id);
+        }
+        if let Some(rate_type) = request.rate_type {
+            rate.rate_type = rate_type;
+        }
+        if let Some(amount) = request.rate_amount {
+            rate.rate_amount = amount;
+        }
+        if let Some(cur) = request.currency {
+            rate.currency = Some(cur);
+        }
+        if let Some(min_dur) = request.minimum_duration {
+            rate.minimum_duration = Some(min_dur);
+        }
+        if let Some(dep) = request.deposit_percentage {
+            rate.deposit_percentage = Some(dep);
+        }
+        if let Some(fee) = request.late_fee_per_day {
+            rate.late_fee_per_day = Some(fee);
+        }
+        if let Some(active) = request.is_active {
+            rate.is_active = Some(active);
+        }
+        if let Some(basis) = request.rate_basis {
+            rate.rate_basis = Some(basis);
+        }
+        if let Some(min_h) = request.minimum_hours {
+            rate.minimum_hours = Some(min_h);
+        }
+        if let Some(ot) = request.overtime_multiplier {
+            rate.overtime_multiplier = Some(ot);
+        }
+        if let Some(sb) = request.standby_multiplier {
+            rate.standby_multiplier = Some(sb);
+        }
+        if let Some(penalty) = request.breakdown_penalty_per_day {
+            rate.breakdown_penalty_per_day = Some(penalty);
+        }
+        if let Some(hpd) = request.hours_per_day {
+            rate.hours_per_day = Some(hpd);
+        }
+        if let Some(dpm) = request.days_per_month {
+            rate.days_per_month = Some(dpm);
+        }
+
+        self.rental_repo
+            .update_rate(&rate)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })
+    }
+
+    /// Delete rental rate
+    pub async fn delete_rate(&self, id: Uuid) -> DomainResult<()> {
+        self.rental_repo
+            .delete_rate(id)
             .await
             .map_err(|e| DomainError::ExternalServiceError {
                 service: "database".to_string(),

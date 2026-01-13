@@ -1,38 +1,25 @@
 -- Migration: 020_create_asset_conversions.sql
--- Description: Create table for asset conversions
+-- Description: Create table for asset conversions (Note: already handled in migration 18, keeping for compatibility)
 
 CREATE TABLE IF NOT EXISTS asset_conversions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    request_number VARCHAR(50) UNIQUE NOT NULL, -- e.g., CNV-2024-001
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_number VARCHAR(50) UNIQUE NOT NULL,
     asset_id UUID NOT NULL REFERENCES assets(id),
     title VARCHAR(255) NOT NULL,
-    
-    -- Status Workflow
-    status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, approved, rejected, executed, cancelled
-    
-    -- Conversion Details
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
     from_category_id UUID REFERENCES categories(id),
     to_category_id UUID NOT NULL REFERENCES categories(id),
-    target_specifications JSONB, -- New specs snapshot
-    
-    -- Financials
+    target_specifications JSONB,
     conversion_cost DECIMAL(18, 2) DEFAULT 0,
-    cost_treatment VARCHAR(50) NOT NULL DEFAULT 'capitalize', -- capitalize, expense
-    
-    -- Meta
+    cost_treatment VARCHAR(50) NOT NULL DEFAULT 'capitalize',
     reason TEXT,
     notes TEXT,
-    
-    -- Actors
     requested_by UUID NOT NULL REFERENCES users(id),
     approved_by UUID REFERENCES users(id),
     executed_by UUID REFERENCES users(id),
-    
-    -- Timestamps
     request_date TIMESTAMPTZ DEFAULT NOW(),
     approval_date TIMESTAMPTZ,
     execution_date TIMESTAMPTZ,
-    
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

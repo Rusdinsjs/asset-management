@@ -148,6 +148,14 @@ pub async fn get_timesheet_summary(
     Ok(Json(summary))
 }
 
+/// List timesheets pending verification
+pub async fn list_pending_verification(
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<crate::application::dto::TimesheetDetailResponse>>> {
+    let timesheets = state.timesheet_service.list_pending_verification().await?;
+    Ok(Json(timesheets))
+}
+
 // ==================== CLIENT CONTACT HANDLERS ====================
 
 /// Create client contact (PIC)

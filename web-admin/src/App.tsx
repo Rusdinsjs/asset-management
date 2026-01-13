@@ -16,40 +16,50 @@ import { AuditMode } from './pages/AuditMode';
 import { AssetLifecycle } from './pages/AssetLifecycle';
 import { ConversionRequests } from './pages/ConversionRequests';
 import { Rentals } from './pages/rentals/Rentals';
+import { Clients } from './pages/Clients';
+import { RentalForm } from './pages/rentals/RentalForm';
+import { RentalDetail } from './pages/rentals/RentalDetail';
+import { Loans } from './pages/Loans';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <WebSocketProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        <Route element={<ProtectedRoute />}>
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/assets" element={<Assets />} />
-            <Route path="/assets/:id/lifecycle" element={<AssetLifecycle />} />
-            <Route path="/categories" element={<Categories />} />
-            <Route path="/work-orders" element={<WorkOrders />} />
-            <Route path="/work-orders/:id" element={<WorkOrderDetails />} />
-            <Route path="/approvals" element={<ApprovalCenter />} />
-            <Route path="/conversions" element={<ConversionRequests />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/users" element={
-              <PermissionGate requiredLevel={2}>
-                <Users />
-              </PermissionGate>
-            } />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/audit" element={<AuditMode />} />
-            <Route path="/rentals" element={<Rentals />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/assets" element={<Assets />} />
+              <Route path="/assets/:id/lifecycle" element={<AssetLifecycle />} />
+              <Route path="/categories" element={<Categories />} />
+              <Route path="/work-orders" element={<WorkOrders />} />
+              <Route path="/work-orders/:id" element={<WorkOrderDetails />} />
+              <Route path="/approvals" element={<ApprovalCenter />} />
+              <Route path="/conversions" element={<ConversionRequests />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/users" element={
+                <PermissionGate requiredLevel={2}>
+                  <Users />
+                </PermissionGate>
+              } />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/audit" element={<AuditMode />} />
+              <Route path="/rentals" element={<Rentals />} />
+              <Route path="/rentals/new" element={<RentalForm />} />
+              <Route path="/rentals/:id" element={<RentalDetail />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/loans" element={<Loans />} />
+            </Route>
           </Route>
-        </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </WebSocketProvider>
   );
 }
 
 export default App;
-

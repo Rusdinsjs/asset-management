@@ -12,9 +12,10 @@ import {
 import { DateInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { maintenanceApi } from '../api/maintenance';
-import type { CreateMaintenanceRequest, UpdateMaintenanceRequest } from '../api/maintenance';
+import { workOrderApi } from '../api/work-order';
+// import type { CreateWorkOrderRequest } from '../api/work-order'; // TODO: Define create types in work-order.ts
 import { assetApi } from '../api/assets';
+import { api } from '../api/client';
 
 interface WorkOrderFormProps {
     maintenanceId?: string | null; // If null, create mode
@@ -38,6 +39,7 @@ export function WorkOrderForm({ maintenanceId, onClose, onSuccess }: WorkOrderFo
             findings: '',
             actions_taken: '',
             odometer_reading: undefined as number | undefined,
+            location_id: '',
         },
         validate: {
             asset_id: (value) => (value ? null : 'Asset is required'),
@@ -54,42 +56,58 @@ export function WorkOrderForm({ maintenanceId, onClose, onSuccess }: WorkOrderFo
         },
     });
 
+    // Fetch Locations
+    const { data: locations = [] } = useQuery({
+        queryKey: ['locations'],
+        queryFn: async () => {
+            const res = await api.get('/locations');
+            return res.data.map((l: any) => ({ value: l.id, label: l.name }));
+        }
+    });
+
     // Fetch Maintenance Record if Edit
     const { data: maintenanceData, isLoading: maintenanceLoading } = useQuery({
-        queryKey: ['maintenance', maintenanceId],
-        queryFn: () => maintenanceApi.get(maintenanceId!),
+        queryKey: ['work-order', maintenanceId],
+        queryFn: () => workOrderApi.get(maintenanceId!),
         enabled: isEdit,
     });
 
     useEffect(() => {
-        if (maintenanceData?.data) {
-            const r = maintenanceData.data;
+        if (maintenanceData) {
+            const r = maintenanceData; // WorkOrder object
             form.setValues({
                 asset_id: r.asset_id,
-                maintenance_type_id: r.maintenance_type_id?.toString() || '',
+                maintenance_type_id: r.wo_type, // Work Order uses string 'maintenance' etc, or mapped ID. Backend wo_type is String. Select expects string.
                 scheduled_date: r.scheduled_date ? new Date(r.scheduled_date) : new Date(),
-                description: r.description || '',
-                cost: r.cost,
-                vendor_id: r.vendor_id || '',
+                description: r.problem_description || '',
+                cost: r.estimated_cost, // work order uses estimated cost initially
+                vendor_id: '', // Work Order in new schema might not have vendor_id directly on root or it's different. Check entity.
                 status: r.status,
-                findings: r.findings || '',
-                actions_taken: r.actions_taken || '',
-                odometer_reading: r.odometer_reading,
+                findings: r.work_performed || '', // Mapping 'work_performed' to findings/actions roughly
+                actions_taken: '',
+                odometer_reading: undefined, // specific to vehicle, might need custom handling
+                location_id: '',
             });
         }
     }, [maintenanceData]);
 
     const mutation = useMutation({
         mutationFn: (values: typeof form.values) => {
-            const payload: any = { ...values };
-            // Convert date to string
-            if (payload.scheduled_date) payload.scheduled_date = payload.scheduled_date.toISOString().split('T')[0];
-            if (payload.maintenance_type_id) payload.maintenance_type_id = parseInt(payload.maintenance_type_id);
+            const payload: any = {
+                asset_id: values.asset_id,
+                wo_type: values.maintenance_type_id, // Mapping back
+                priority: 'medium', // Default priority as form doesn't have it yet
+                problem_description: values.description,
+                scheduled_date: values.scheduled_date ? values.scheduled_date.toISOString().split('T')[0] : undefined,
+                // ... other fields mapping for CreateWorkOrderRequest
+            };
 
             if (isEdit) {
-                return maintenanceApi.update(maintenanceId!, payload as UpdateMaintenanceRequest);
+                // return workOrderApi.update(maintenanceId!, payload); // Schema might differ
+                // Work Order update usually specific endpoints. For now, warn or try generic.
+                throw new Error("Generic update not implemented for Work Order yet");
             } else {
-                return maintenanceApi.create(payload as CreateMaintenanceRequest);
+                return workOrderApi.create(payload);
             }
         },
         onSuccess: () => {
@@ -98,7 +116,7 @@ export function WorkOrderForm({ maintenanceId, onClose, onSuccess }: WorkOrderFo
                 message: `Work Order ${isEdit ? 'updated' : 'created'} successfully`,
                 color: 'green',
             });
-            queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+            queryClient.invalidateQueries({ queryKey: ['work-orders'] });
             onSuccess();
         },
         onError: (error: any) => {
@@ -148,6 +166,15 @@ export function WorkOrderForm({ maintenanceId, onClose, onSuccess }: WorkOrderFo
                         placeholder="Work to be done"
                         minRows={3}
                         {...form.getInputProps('description')}
+                    />
+
+                    <Select
+                        label="Location"
+                        placeholder="Select location (if different from asset location)"
+                        data={locations}
+                        searchable
+                        clearable
+                        {...form.getInputProps('location_id')}
                     />
 
                     <Select

@@ -2,11 +2,12 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-// Detect URL based on environment
-// Android Emulator uses 10.0.2.2 to access localhost
-// Detect URL based on environment
-// Android Emulator uses 10.0.2.2 to access localhost
-export const API_URL = 'http://192.168.1.4:8080/api';
+import Constants from 'expo-constants';
+
+const debuggerHost = Constants.expoConfig?.hostUri; // Get the IP address of the machine running Expo
+const localhost = debuggerHost?.split(':')[0] || '10.0.2.2'; // Fallback to Android Emulator localhost
+
+export const API_URL = `http://${localhost}:8080/api`;
 
 export const api = axios.create({
     baseURL: API_URL,

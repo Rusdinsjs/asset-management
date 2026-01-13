@@ -125,6 +125,28 @@ impl LoanService {
         self.get_by_id(id).await
     }
 
+    /// Reject loan request
+    pub async fn reject(&self, id: Uuid, reason: Option<String>) -> DomainResult<Loan> {
+        let loan = self.get_by_id(id).await?;
+
+        if loan.status != LoanStatus::Requested.as_str() {
+            return Err(DomainError::business_rule(
+                "loan_status",
+                "Can only reject loans with 'requested' status",
+            ));
+        }
+
+        self.loan_repo
+            .reject(id, reason.as_deref())
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            })?;
+
+        self.get_by_id(id).await
+    }
+
     /// Checkout loan
     pub async fn checkout(
         &self,

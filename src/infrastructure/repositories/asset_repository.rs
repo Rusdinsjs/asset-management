@@ -24,7 +24,7 @@ impl AssetRepository {
         sqlx::query_as::<_, Asset>(
             r#"
             SELECT 
-                id, asset_code, name, category_id, location_id, department_id, assigned_to, vendor_id,
+                id, asset_code, name, category_id, location_id, department_id, department, assigned_to, vendor_id,
                 is_rental, asset_class, status, condition_id,
                 serial_number, brand, model, year_manufacture,
                 specifications,
@@ -46,7 +46,7 @@ impl AssetRepository {
         sqlx::query_as::<_, Asset>(
             r#"
             SELECT 
-                id, asset_code, name, category_id, location_id, department_id, assigned_to, vendor_id,
+                id, asset_code, name, category_id, location_id, department_id, department, assigned_to, vendor_id,
                 is_rental, asset_class, status, condition_id,
                 serial_number, brand, model, year_manufacture,
                 specifications,
@@ -63,18 +63,27 @@ impl AssetRepository {
         .await
     }
 
-    /// List assets with pagination
-    pub async fn list(&self, limit: i64, offset: i64) -> Result<Vec<AssetSummary>, sqlx::Error> {
+    /// List assets with pagination and optional department filter
+    pub async fn list(
+        &self,
+        limit: i64,
+        offset: i64,
+        department: Option<&str>,
+    ) -> Result<Vec<AssetSummary>, sqlx::Error> {
         sqlx::query_as::<_, AssetSummary>(
             r#"
-            SELECT id, asset_code, name, status, asset_class, brand, purchase_price, category_id, location_id, model, serial_number
-            FROM assets
-            ORDER BY created_at DESC
+            SELECT a.id, a.asset_code, a.name, a.status, a.asset_class, a.brand, a.purchase_price, 
+                   a.category_id, a.location_id, l.name as location_name, a.department, a.model, a.serial_number
+            FROM assets a
+            LEFT JOIN locations l ON a.location_id = l.id
+            WHERE ($3::text IS NULL OR a.department = $3)
+            ORDER BY a.created_at DESC
             LIMIT $1 OFFSET $2
             "#,
         )
         .bind(limit)
         .bind(offset)
+        .bind(department)
         .fetch_all(&self.pool)
         .await
     }
@@ -84,7 +93,7 @@ impl AssetRepository {
         sqlx::query_as::<_, Asset>(
             r#"
             SELECT 
-                id, asset_code, name, category_id, location_id, department_id, assigned_to, vendor_id,
+                id, asset_code, name, category_id, location_id, department_id, department, assigned_to, vendor_id,
                 is_rental, asset_class, status, condition_id,
                 serial_number, brand, model, year_manufacture,
                 specifications,
@@ -114,26 +123,31 @@ impl AssetRepository {
         query: &str,
         category_id: Option<Uuid>,
         location_id: Option<Uuid>,
+        department: Option<&str>,
         status: Option<&str>,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<AssetSummary>, sqlx::Error> {
         sqlx::query_as::<_, AssetSummary>(
             r#"
-            SELECT id, asset_code, name, status, asset_class, brand, purchase_price, category_id, location_id, model, serial_number
-            FROM assets
+            SELECT a.id, a.asset_code, a.name, a.status, a.asset_class, a.brand, a.purchase_price, 
+                   a.category_id, a.location_id, l.name as location_name, a.department, a.model, a.serial_number
+            FROM assets a
+            LEFT JOIN locations l ON a.location_id = l.id
             WHERE 
-                ($1 = '' OR name ILIKE '%' || $1 || '%' OR asset_code ILIKE '%' || $1 || '%' OR serial_number ILIKE '%' || $1 || '%')
-                AND ($2::uuid IS NULL OR category_id = $2)
-                AND ($3::uuid IS NULL OR location_id = $3)
-                AND ($4::text IS NULL OR status = $4)
-            ORDER BY created_at DESC
-            LIMIT $5 OFFSET $6
+                ($1 = '' OR a.name ILIKE '%' || $1 || '%' OR a.asset_code ILIKE '%' || $1 || '%' OR a.serial_number ILIKE '%' || $1 || '%')
+                AND ($2::uuid IS NULL OR a.category_id = $2)
+                AND ($3::uuid IS NULL OR a.location_id = $3)
+                AND ($4::text IS NULL OR a.department = $4)
+                AND ($5::text IS NULL OR a.status = $5)
+            ORDER BY a.created_at DESC
+            LIMIT $6 OFFSET $7
             "#,
         )
         .bind(query)
         .bind(category_id)
         .bind(location_id)
+        .bind(department)
         .bind(status)
         .bind(limit)
         .bind(offset)
@@ -146,7 +160,7 @@ impl AssetRepository {
         sqlx::query_as::<_, Asset>(
             r#"
             INSERT INTO assets (
-                id, asset_code, name, category_id, location_id, department_id, assigned_to, vendor_id,
+                id, asset_code, name, category_id, location_id, department_id, department, assigned_to, vendor_id,
                 is_rental, asset_class, status, condition_id,
                 serial_number, brand, model, year_manufacture,
                 specifications,
@@ -154,7 +168,7 @@ impl AssetRepository {
                 residual_value, useful_life_months,
                 qr_code_url, notes
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
             RETURNING *
             "#,
         )
@@ -164,6 +178,7 @@ impl AssetRepository {
         .bind(asset.category_id)
         .bind(asset.location_id)
         .bind(asset.department_id)
+        .bind(&asset.department)
         .bind(asset.assigned_to)
         .bind(asset.vendor_id)
         .bind(asset.is_rental)
@@ -194,13 +209,13 @@ impl AssetRepository {
             r#"
             UPDATE assets SET
                 asset_code = $2, name = $3, category_id = $4, location_id = $5,
-                department_id = $6, assigned_to = $7, vendor_id = $8,
-                is_rental = $9, asset_class = $10, status = $11, condition_id = $12,
-                serial_number = $13, brand = $14, model = $15, year_manufacture = $16,
-                specifications = $17,
-                purchase_date = $18, purchase_price = $19, currency_id = $20, unit_id = $21, quantity = $22,
-                residual_value = $23, useful_life_months = $24,
-                qr_code_url = $25, notes = $26,
+                department_id = $6, department = $7, assigned_to = $8, vendor_id = $9,
+                is_rental = $10, asset_class = $11, status = $12, condition_id = $13,
+                serial_number = $14, brand = $15, model = $16, year_manufacture = $17,
+                specifications = $18,
+                purchase_date = $19, purchase_price = $20, currency_id = $21, unit_id = $22, quantity = $23,
+                residual_value = $24, useful_life_months = $25,
+                qr_code_url = $26, notes = $27,
                 updated_at = NOW()
             WHERE id = $1
             RETURNING *
@@ -212,6 +227,7 @@ impl AssetRepository {
         .bind(asset.category_id)
         .bind(asset.location_id)
         .bind(asset.department_id)
+        .bind(&asset.department)
         .bind(asset.assigned_to)
         .bind(asset.vendor_id)
         .bind(asset.is_rental)
@@ -243,6 +259,18 @@ impl AssetRepository {
             .bind(status)
             .execute(&self.pool)
             .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// Update asset location
+    pub async fn update_location(&self, id: Uuid, location_id: Uuid) -> Result<bool, sqlx::Error> {
+        let result =
+            sqlx::query("UPDATE assets SET location_id = $2, updated_at = NOW() WHERE id = $1")
+                .bind(id)
+                .bind(location_id)
+                .execute(&self.pool)
+                .await?;
 
         Ok(result.rows_affected() > 0)
     }

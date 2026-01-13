@@ -10,7 +10,7 @@ default-run = "asset-management"
 
 [dependencies]
 # Web Framework & Async
-axum = { version = "0.7", features = ["macros", "multipart"] }
+axum = { version = "0.7", features = ["macros", "multipart", "ws"] }
 tokio = { version = "1.0", features = ["full"] }
 tower-http = { version = "0.5", features = ["cors", "trace", "fs", "limit"] }
 
@@ -56,6 +56,11 @@ tokio-cron-scheduler = "0.15.1"
 
 # Validation (optional, for future use)
 # validator = { version = "0.18", features = ["derive"] }
+
+
+# Real-time / WebSockets
+# axum-tungstenite removed, relying on axum "ws" feature
+futures = "0.3"
 
 [dev-dependencies]
 http-body-util = "0.1.3"

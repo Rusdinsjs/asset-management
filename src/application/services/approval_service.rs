@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct ApprovalService {
-    repository: ApprovalRepository,
+    pub repository: ApprovalRepository,
 }
 
 impl ApprovalService {

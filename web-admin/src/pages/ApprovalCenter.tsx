@@ -35,6 +35,8 @@ import {
     IconUser,
     IconCalendar,
     IconInfoCircle,
+    IconTruck, // Added IconTruck
+    IconClockCheck, // Added IconClockCheck
 } from '@tabler/icons-react';
 import { approvalApi } from '../api/approval';
 import type { ApprovalRequest } from '../api/approval';
@@ -44,6 +46,9 @@ const resourceTypeConfig: Record<string, { label: string; icon: React.ReactNode;
     lifecycle_transition: { label: 'Lifecycle', icon: <IconRefresh size={16} />, color: 'violet' },
     work_order: { label: 'Work Order', icon: <IconTool size={16} />, color: 'blue' },
     asset: { label: 'Asset', icon: <IconClipboardList size={16} />, color: 'green' },
+    rental_request: { label: 'Rental Request', icon: <IconTruck size={16} />, color: 'orange' },
+    timesheet_verification: { label: 'Timesheet', icon: <IconClockCheck size={16} />, color: 'teal' },
+    loan: { label: 'Loan Request', icon: <IconArrowRight size={16} />, color: 'cyan' },
 };
 
 // State colors for lifecycle
@@ -97,6 +102,63 @@ function RequestDetails({ request }: { request: ApprovalRequest }) {
                 {data?.estimated_cost && (
                     <Text size="xs" c="dimmed">Est: Rp {Number(data.estimated_cost).toLocaleString()}</Text>
                 )}
+            </Stack>
+        );
+    }
+
+    if (request.resource_type === 'rental_request') {
+        return (
+            <Stack gap={4}>
+                <Text size="sm" fw={500}>{data?.client_name || 'Unknown Client'}</Text>
+                <Group gap="xs">
+                    <IconTruck size={14} color="gray" />
+                    <Text size="xs" c="dimmed">{data?.asset_name || 'Unknown Asset'}</Text>
+                </Group>
+                <Text size="xs" c="dimmed">
+                    {data?.start_date} - {data?.expected_end_date || 'N/A'}
+                </Text>
+            </Stack>
+        );
+    }
+
+    if (request.resource_type === 'timesheet_verification') {
+        return (
+            <Stack gap={4}>
+                <Text size="sm" fw={500}>{data?.rental_number || 'Unknown Rental'}</Text>
+                <Group gap="xs">
+                    <IconCalendar size={14} color="gray" />
+                    <Text size="xs" c="dimmed">Date: {data?.work_date}</Text>
+                </Group>
+                <Text size="xs" c="dimmed">
+                    Hours: {data?.operating_hours} hrs
+                </Text>
+            </Stack>
+        );
+    }
+
+    if (request.resource_type === 'asset') {
+        return (
+            <Stack gap={4}>
+                <Text size="sm" fw={500}>{data?.name || data?.asset_name || 'Asset'}</Text>
+                <Group gap="xs">
+                    <IconClipboardList size={14} color="gray" />
+                    <Text size="xs" c="dimmed">SN: {data?.serial_number || 'N/A'}</Text>
+                </Group>
+                <Badge size="xs" color="gray" variant="outline">{data?.category || 'Unknown Category'}</Badge>
+            </Stack>
+        );
+    }
+
+    if (request.resource_type === 'loan') {
+        return (
+            <Stack gap={4}>
+                <Group gap="xs">
+                    <IconArrowRight size={14} color="gray" />
+                    <Text size="xs" c="dimmed">Date: {data?.loan_date}</Text>
+                </Group>
+                <Text size="xs" c="dimmed">
+                    Return: {data?.return_date || 'N/A'}
+                </Text>
             </Stack>
         );
     }
@@ -218,7 +280,10 @@ export function ApprovalCenter() {
     // Stats
     const lifecycleCount = pendingRequests.filter(r => r.resource_type === 'lifecycle_transition').length;
     const workOrderCount = pendingRequests.filter(r => r.resource_type === 'work_order').length;
-    const otherCount = pendingRequests.filter(r => !['lifecycle_transition', 'work_order'].includes(r.resource_type)).length;
+    const rentalCount = pendingRequests.filter(r => r.resource_type === 'rental_request').length;
+    const timesheetCount = pendingRequests.filter(r => r.resource_type === 'timesheet_verification').length;
+    const assetCount = pendingRequests.filter(r => r.resource_type === 'asset').length;
+    const otherCount = pendingRequests.filter(r => !['lifecycle_transition', 'work_order', 'rental_request', 'timesheet_verification', 'asset'].includes(r.resource_type)).length;
 
     return (
         <Container size="xl">
@@ -231,7 +296,7 @@ export function ApprovalCenter() {
 
             {/* Stats Cards */}
             {activeTab === 'pending' && (
-                <SimpleGrid cols={{ base: 1, sm: 3 }} mb="lg">
+                <SimpleGrid cols={{ base: 1, sm: 6 }} mb="lg">
                     <StatCard
                         title="Lifecycle Transitions"
                         value={lifecycleCount}
@@ -243,6 +308,24 @@ export function ApprovalCenter() {
                         value={workOrderCount}
                         color="blue"
                         icon={<IconTool size={20} />}
+                    />
+                    <StatCard
+                        title="Rental Requests"
+                        value={rentalCount}
+                        color="orange"
+                        icon={<IconTruck size={20} />}
+                    />
+                    <StatCard
+                        title="Timesheets"
+                        value={timesheetCount}
+                        color="teal"
+                        icon={<IconClockCheck size={20} />}
+                    />
+                    <StatCard
+                        title="Assets"
+                        value={assetCount}
+                        color="green"
+                        icon={<IconClipboardList size={20} />}
                     />
                     <StatCard
                         title="Other"
@@ -273,6 +356,10 @@ export function ApprovalCenter() {
                         { value: 'all', label: 'All Types' },
                         { value: 'lifecycle_transition', label: 'Lifecycle' },
                         { value: 'work_order', label: 'Work Order' },
+                        { value: 'rental_request', label: 'Rental Request' },
+                        { value: 'timesheet_verification', label: 'Timesheet' },
+                        { value: 'asset', label: 'Asset' },
+                        { value: 'loan', label: 'Loan' },
                     ]}
                     w={180}
                     size="sm"

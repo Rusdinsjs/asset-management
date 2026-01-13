@@ -6,10 +6,10 @@ use tower_http::services::ServeDir;
 
 use crate::api::routes::create_router;
 use crate::application::services::{
-    ApprovalService, AssetService, AuditService, AuthService, BillingService, CategoryService,
-    ConversionService, DataService, LifecycleService, LoanService, MaintenanceService,
-    NotificationService, RbacService, RentalService, ReportService, SchedulerService,
-    SensorService, TimesheetService, UserService, WorkOrderService,
+    AnalyticsService, ApprovalService, AssetService, AuditService, AuthService, BillingService,
+    CategoryService, ClientService, ConversionService, DataService, LifecycleService, LoanService,
+    MaintenanceService, NotificationService, RbacService, RentalService, ReportService,
+    SchedulerService, SensorService, TimesheetService, UserService, WorkOrderService,
 };
 use crate::infrastructure::cache::{CacheOperations, RedisCache, RedisConfig};
 use crate::infrastructure::repositories::{
@@ -30,6 +30,7 @@ pub struct AppState {
     pub audit_service: AuditService,
     pub billing_service: BillingService,
     pub category_service: CategoryService,
+    pub client_service: ClientService,
     pub conversion_service: ConversionService,
     pub lifecycle_service: LifecycleService,
     pub loan_service: LoanService,
@@ -44,7 +45,9 @@ pub struct AppState {
     pub scheduler_service: SchedulerService,
     pub user_service: UserService,
     pub report_service: ReportService,
+    pub analytics_service: AnalyticsService,
     pub pool: PgPool,
+    pub ws_manager: Arc<crate::api::handlers::notification_ws::WebSocketManager>,
 }
 
 impl AppState {
@@ -85,7 +88,12 @@ impl AppState {
             asset_repo.clone(),
             approval_service.clone(),
         );
-        let work_order_service = WorkOrderService::new(work_order_repo, lifecycle_repo.clone());
+        let work_order_service = WorkOrderService::new(
+            work_order_repo,
+            lifecycle_repo.clone(),
+            asset_repo.clone(),
+            cache.clone(),
+        );
         let notification_service = NotificationService::new(notification_repo);
         let rbac_service = RbacService::new(rbac_repo.clone());
         // Approval service moved up
@@ -93,7 +101,7 @@ impl AppState {
         let conversion_service =
             ConversionService::new(conversion_repo.clone(), asset_repo.clone());
         let rental_service =
-            RentalService::new(rental_repo.clone(), client_repo, asset_repo.clone());
+            RentalService::new(rental_repo.clone(), client_repo.clone(), asset_repo.clone());
         let data_service = DataService::new(asset_repo.clone());
         let scheduler_service =
             SchedulerService::new(loan_service.clone(), maintenance_service.clone());
@@ -102,12 +110,15 @@ impl AppState {
         let lifecycle_service = LifecycleService::new(lifecycle_repo.clone());
         let timesheet_service = TimesheetService::new(timesheet_repo.clone(), rental_repo.clone());
         let billing_service = BillingService::new(timesheet_repo.clone(), rental_repo.clone());
+        let client_service = ClientService::new(client_repo.clone());
+        let analytics_service = AnalyticsService::new(pool.clone());
 
         Self {
             asset_service,
             audit_service,
             auth_service,
             category_service,
+            client_service,
             conversion_service,
             lifecycle_service,
             loan_service,
@@ -124,7 +135,9 @@ impl AppState {
             scheduler_service,
             user_service,
             report_service,
+            analytics_service,
             pool,
+            ws_manager: Arc::new(crate::api::handlers::notification_ws::WebSocketManager::new()),
         }
     }
 }

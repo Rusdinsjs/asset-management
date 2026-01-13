@@ -86,6 +86,29 @@ pub struct TimesheetSummary {
     pub pending_entries: i64,
 }
 
+/// Enhanced timesheet response with rental and asset info
+#[derive(Debug, Serialize)]
+pub struct TimesheetDetailResponse {
+    pub id: Uuid,
+    pub rental_id: Uuid,
+    pub rental_number: String,
+    pub asset_name: String,
+    pub client_name: String,
+    pub work_date: NaiveDate,
+    pub operating_hours: Decimal,
+    pub standby_hours: Decimal,
+    pub overtime_hours: Decimal,
+    pub breakdown_hours: Decimal,
+    pub hm_km_start: Option<Decimal>,
+    pub hm_km_end: Option<Decimal>,
+    pub hm_km_usage: Option<Decimal>,
+    pub operation_status: String,
+    pub work_description: Option<String>,
+    pub photos: Option<serde_json::Value>,
+    pub status: String,
+    pub checker_notes: Option<String>,
+}
+
 // =============================================================================
 // BILLING DTOs
 // =============================================================================
@@ -164,6 +187,7 @@ pub struct BillingSummaryResponse {
 
     pub status: String,
     pub invoice_number: Option<String>,
+    pub timesheets: Vec<crate::domain::entities::RentalTimesheet>,
 }
 
 // =============================================================================

@@ -277,16 +277,44 @@ impl BillingService {
     ) -> DomainResult<BillingSummaryResponse> {
         let billing = self.get_by_id(billing_id).await?;
 
-        // Get rental info
-        let rental = self
-            .rental_repo
-            .find_by_id(billing.rental_id)
+        // Get rental info with joins for names
+        let rental_info = sqlx::query!(
+            r#"SELECT 
+                r.rental_number, 
+                a.name as asset_name, 
+                c.name as client_name 
+            FROM rentals r
+            JOIN assets a ON r.asset_id = a.id
+            JOIN clients c ON r.client_id = c.id
+            WHERE r.id = $1"#,
+            billing.rental_id
+        )
+        .fetch_one(self.rental_repo.pool()) // Need access to pool
+        .await
+        .map_err(|e| DomainError::ExternalServiceError {
+            service: "database".to_string(),
+            message: e.to_string(),
+        })?;
+
+        // Get all approved timesheets for this period
+        let timesheets = self
+            .timesheet_repo
+            .list_timesheets_by_rental(
+                billing.rental_id,
+                Some(billing.period_start),
+                Some(billing.period_end),
+            )
             .await
             .map_err(|e| DomainError::ExternalServiceError {
                 service: "database".to_string(),
                 message: e.to_string(),
-            })?
-            .ok_or_else(|| DomainError::not_found("Rental", billing.rental_id))?;
+            })?;
+
+        // Filter only approved ones for billing summary
+        let approved_timesheets: Vec<crate::domain::entities::RentalTimesheet> = timesheets
+            .into_iter()
+            .filter(|ts| ts.status.as_deref() == Some("approved"))
+            .collect();
 
         Ok(BillingSummaryResponse {
             period: format!(
@@ -294,9 +322,9 @@ impl BillingService {
                 billing.period_start.format("%d %b %Y"),
                 billing.period_end.format("%d %b %Y")
             ),
-            rental_number: rental.rental_number,
-            client_name: String::new(), // TODO: Join with client
-            asset_name: String::new(),  // TODO: Join with asset
+            rental_number: rental_info.rental_number,
+            client_name: rental_info.client_name,
+            asset_name: rental_info.asset_name,
 
             total_operating_hours: billing.total_operating_hours.unwrap_or(Decimal::ZERO),
             total_standby_hours: billing.total_standby_hours.unwrap_or(Decimal::ZERO),
@@ -333,6 +361,7 @@ impl BillingService {
 
             status: billing.status.unwrap_or_else(|| "draft".to_string()),
             invoice_number: billing.invoice_number,
+            timesheets: approved_timesheets,
         })
     }
 }

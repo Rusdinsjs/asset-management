@@ -13,6 +13,9 @@ import {
     IconCheckbox,
     IconExchange,
     IconTruck,
+    IconHandGrab,
+    IconLayoutSidebarLeftCollapse,
+    IconLayoutSidebarRightCollapse,
 } from '@tabler/icons-react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -36,6 +39,8 @@ export function MainLayout() {
         { label: 'Categories', icon: IconCategory2, path: '/categories' },
         { label: 'Work Orders', icon: IconTool, path: '/work-orders' },
         { label: 'Rentals', icon: IconTruck, path: '/rentals' },
+        { label: 'Clients', icon: IconUsers, path: '/clients' },
+        { label: 'Loans', icon: IconHandGrab, path: '/loans' },
         { label: 'Conversions', icon: IconExchange, path: '/conversions' },
         { label: 'Approvals', icon: IconCheckbox, path: '/approvals' },
         { label: 'Reports', icon: IconChartBar, path: '/reports' },
@@ -44,11 +49,13 @@ export function MainLayout() {
         { label: 'Profile', icon: IconUser, path: '/profile' },
     ];
 
+    const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true);
+
     return (
         <AppShell
             header={{ height: 60 }}
             navbar={{
-                width: 300,
+                width: desktopOpened ? 300 : 80,
                 breakpoint: 'sm',
                 collapsed: { mobile: !opened },
             }}
@@ -75,24 +82,49 @@ export function MainLayout() {
                     return (
                         <NavLink
                             key={item.path}
-                            label={item.label}
-                            leftSection={<item.icon size="1rem" stroke={1.5} />}
+                            label={desktopOpened ? item.label : null}
+                            leftSection={<item.icon size="1.2rem" stroke={1.5} />}
                             active={location.pathname === item.path}
                             onClick={() => {
                                 navigate(item.path);
                                 if (window.innerWidth < 768) toggle();
+                            }}
+                            styles={{
+                                root: {
+                                    justifyContent: desktopOpened ? 'flex-start' : 'center',
+                                    borderRadius: 8,
+                                    marginBottom: 4,
+                                },
+                                section: {
+                                    marginRight: desktopOpened ? 12 : 0,
+                                }
                             }}
                         />
                     );
                 })}
 
                 <NavLink
-                    label="Logout"
-                    leftSection={<IconLogout size="1rem" stroke={1.5} />}
+                    label={desktopOpened ? "Collapse" : null}
+                    leftSection={desktopOpened ? <IconLayoutSidebarLeftCollapse size="1.2rem" /> : <IconLayoutSidebarRightCollapse size="1.2rem" />}
+                    onClick={toggleDesktop}
+                    mt="auto"
+                    variant="subtle"
+                    styles={{
+                        root: { justifyContent: desktopOpened ? 'flex-start' : 'center' },
+                        section: { marginRight: desktopOpened ? 12 : 0 }
+                    }}
+                />
+
+                <NavLink
+                    label={desktopOpened ? "Logout" : null}
+                    leftSection={<IconLogout size="1.2rem" stroke={1.5} />}
                     color="red"
                     variant="subtle"
-                    mt="auto"
                     onClick={handleLogout}
+                    styles={{
+                        root: { justifyContent: desktopOpened ? 'flex-start' : 'center' },
+                        section: { marginRight: desktopOpened ? 12 : 0 }
+                    }}
                 />
             </AppShell.Navbar>
 

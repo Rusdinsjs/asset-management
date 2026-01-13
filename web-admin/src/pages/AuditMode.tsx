@@ -7,10 +7,28 @@ import { notifications } from '@mantine/notifications';
 import { IconCheck, IconAlertCircle } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { auditApi } from '../api/audit';
+import { assetApi } from '../api/assets';
 
 export function AuditMode() {
     const queryClient = useQueryClient();
     const [assetInput, setAssetInput] = useState('');
+
+    // Fetch assets for simulation
+    const { data: assets } = useQuery({
+        queryKey: ['assets'],
+        queryFn: () => assetApi.list({ page: 1, per_page: 50 }),
+        enabled: true
+    });
+
+    const simulateScan = () => {
+        if (!assets?.data || assets.data.length === 0) {
+            notifications.show({ title: 'No Assets', message: 'No assets found to simulate scan.', color: 'yellow' });
+            return;
+        }
+        const randomAsset = assets.data[Math.floor(Math.random() * assets.data.length)];
+        setAssetInput(randomAsset.id);
+        notifications.show({ title: 'Simulated Scan', message: `Scanned: ${randomAsset.name ?? randomAsset.asset_code}`, color: 'blue' });
+    };
 
     // Fetch active session
     const { data: activeSession, isLoading: isLoadingSession } = useQuery({
@@ -149,6 +167,9 @@ export function AuditMode() {
                                 onChange={(e) => setAssetInput(e.currentTarget.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
                             />
+                            <Button variant="default" onClick={simulateScan}>
+                                Simulate QR
+                            </Button>
                             <Button
                                 onClick={handleSubmit}
                                 loading={submitMutation.isPending}

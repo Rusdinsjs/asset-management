@@ -2,7 +2,7 @@
 //!
 //! Data access layer for rental transactions and handovers.
 
-use chrono::NaiveDate;
+use chrono::{NaiveDate, Utc};
 use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -17,6 +17,10 @@ pub struct RentalRepository {
 impl RentalRepository {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
+    }
+
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
     }
 
     // ==================== RENTAL CRUD ====================
@@ -372,8 +376,10 @@ impl RentalRepository {
             INSERT INTO rental_rates (
                 id, name, category_id, asset_id, rate_type, rate_amount, currency,
                 minimum_duration, deposit_percentage, late_fee_per_day, is_active,
+                rate_basis, minimum_hours, overtime_multiplier, standby_multiplier,
+                breakdown_penalty_per_day, hours_per_day, days_per_month,
                 created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
             RETURNING *
             "#,
             rate.id,
@@ -387,6 +393,13 @@ impl RentalRepository {
             rate.deposit_percentage,
             rate.late_fee_per_day,
             rate.is_active,
+            rate.rate_basis,
+            rate.minimum_hours,
+            rate.overtime_multiplier,
+            rate.standby_multiplier,
+            rate.breakdown_penalty_per_day,
+            rate.hours_per_day,
+            rate.days_per_month,
             rate.created_at,
             rate.updated_at
         )
@@ -441,6 +454,55 @@ impl RentalRepository {
         )
         .fetch_optional(&self.pool)
         .await
+    }
+
+    /// Update rental rate
+    pub async fn update_rate(&self, rate: &RentalRate) -> Result<RentalRate, sqlx::Error> {
+        let now = Utc::now();
+        sqlx::query_as!(
+            RentalRate,
+            r#"UPDATE rental_rates SET
+                name = $2, rate_type = $3, rate_amount = $4, currency = $5,
+                minimum_duration = $6, deposit_percentage = $7, late_fee_per_day = $8,
+                rate_basis = $9, minimum_hours = $10, overtime_multiplier = $11,
+                standby_multiplier = $12, breakdown_penalty_per_day = $13,
+                hours_per_day = $14, days_per_month = $15, updated_at = $16,
+                category_id = $17, asset_id = $18
+            WHERE id = $1
+            RETURNING *"#,
+            rate.id,
+            rate.name,
+            rate.rate_type,
+            rate.rate_amount,
+            rate.currency,
+            rate.minimum_duration,
+            rate.deposit_percentage,
+            rate.late_fee_per_day,
+            rate.rate_basis,
+            rate.minimum_hours,
+            rate.overtime_multiplier,
+            rate.standby_multiplier,
+            rate.breakdown_penalty_per_day,
+            rate.hours_per_day,
+            rate.days_per_month,
+            now,
+            rate.category_id,
+            rate.asset_id
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
+    /// Delete rental rate (soft delete)
+    pub async fn delete_rate(&self, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query!(
+            r#"UPDATE rental_rates SET is_active = false, updated_at = $2 WHERE id = $1"#,
+            id,
+            Utc::now()
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     /// Count total rentals

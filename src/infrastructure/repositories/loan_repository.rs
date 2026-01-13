@@ -149,6 +149,21 @@ impl LoanRepository {
         Ok(result.rows_affected() > 0)
     }
 
+    pub async fn reject(&self, id: Uuid, reason: Option<&str>) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            r#"
+            UPDATE asset_loans 
+            SET status = 'rejected', damage_description = COALESCE($2, damage_description), updated_at = NOW() 
+            WHERE id = $1 AND status = 'requested'
+            "#,
+        )
+        .bind(id)
+        .bind(reason)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
     pub async fn checkout(
         &self,
         id: Uuid,

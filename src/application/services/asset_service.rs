@@ -53,14 +53,17 @@ impl AssetService {
         &self,
         page: i64,
         per_page: i64,
+        department: Option<&str>,
     ) -> DomainResult<PaginatedResponse<AssetSummary>> {
         let offset = (page - 1) * per_page;
-        let assets = self.repository.list(per_page, offset).await.map_err(|e| {
-            DomainError::ExternalServiceError {
+        let assets = self
+            .repository
+            .list(per_page, offset, department)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
                 service: "database".to_string(),
                 message: e.to_string(),
-            }
-        })?;
+            })?;
 
         let total =
             self.repository
@@ -127,6 +130,7 @@ impl AssetService {
                 params.query.as_deref().unwrap_or(""),
                 params.category_id,
                 params.location_id,
+                params.department.as_deref(),
                 params.status.as_deref(),
                 per_page,
                 offset,
@@ -198,6 +202,7 @@ impl AssetService {
 
         // Set optional fields
         asset.location_id = request.location_id;
+        asset.department = request.department;
         asset.department_id = request.department_id;
         asset.assigned_to = request.assigned_to;
         asset.vendor_id = request.vendor_id;
@@ -216,6 +221,9 @@ impl AssetService {
         asset.quantity = request.quantity;
         asset.residual_value = request.residual_value;
         asset.useful_life_months = request.useful_life_months;
+        if let Some(s) = request.status {
+            asset.status = s;
+        }
         asset.notes = request.notes;
 
         let created_asset = self.repository.create(&asset).await.map_err(|e| {
@@ -295,6 +303,9 @@ impl AssetService {
         }
         if let Some(loc) = request.location_id {
             asset.location_id = Some(loc);
+        }
+        if let Some(dept) = request.department {
+            asset.department = Some(dept);
         }
         if let Some(dept) = request.department_id {
             asset.department_id = Some(dept);

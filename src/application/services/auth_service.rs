@@ -76,7 +76,8 @@ impl AuthService {
             email: user.email.clone(),
             name: user.name.clone(),
             role: user.role.clone(),
-            role_level: user.role_level, // Added
+            role_level: user.role_level,
+            department: user.department.clone(),
             org: user.organization_id.map(|id| id.to_string()),
             permissions,
             exp: (Utc::now() + Duration::hours(24)).timestamp(),

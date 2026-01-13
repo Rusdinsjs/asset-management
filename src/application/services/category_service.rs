@@ -24,15 +24,13 @@ impl CategoryService {
     }
 
     /// Get all categories as a flat list
-    pub async fn list_all(&self) -> DomainResult<Vec<CategoryResponse>> {
-        let categories =
-            self.repository
-                .list()
-                .await
-                .map_err(|e| DomainError::ExternalServiceError {
-                    service: "database".to_string(),
-                    message: e.to_string(),
-                })?;
+    pub async fn list_all(&self, department: Option<&str>) -> DomainResult<Vec<CategoryResponse>> {
+        let categories = self.repository.list(department).await.map_err(|e| {
+            DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            }
+        })?;
 
         Ok(categories.into_iter().map(Self::to_response).collect())
     }
@@ -56,15 +54,13 @@ impl CategoryService {
     }
 
     /// Get categories as a hierarchical tree
-    pub async fn get_tree(&self) -> DomainResult<Vec<CategoryTreeNode>> {
-        let categories =
-            self.repository
-                .list()
-                .await
-                .map_err(|e| DomainError::ExternalServiceError {
-                    service: "database".to_string(),
-                    message: e.to_string(),
-                })?;
+    pub async fn get_tree(&self, department: Option<&str>) -> DomainResult<Vec<CategoryTreeNode>> {
+        let categories = self.repository.list(department).await.map_err(|e| {
+            DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            }
+        })?;
 
         // Build tree structure
         let root_categories: Vec<_> = categories
@@ -85,15 +81,16 @@ impl CategoryService {
     }
 
     /// Get categories grouped by main category (classification view)
-    pub async fn get_classification(&self) -> DomainResult<Vec<CategoryClassification>> {
-        let categories =
-            self.repository
-                .list()
-                .await
-                .map_err(|e| DomainError::ExternalServiceError {
-                    service: "database".to_string(),
-                    message: e.to_string(),
-                })?;
+    pub async fn get_classification(
+        &self,
+        department: Option<&str>,
+    ) -> DomainResult<Vec<CategoryClassification>> {
+        let categories = self.repository.list(department).await.map_err(|e| {
+            DomainError::ExternalServiceError {
+                service: "database".to_string(),
+                message: e.to_string(),
+            }
+        })?;
 
         // Get main categories (root level)
         let mut main_categories: Vec<_> = categories
@@ -150,6 +147,7 @@ impl CategoryService {
         let mut category = Category::new(request.code.clone(), request.name.clone());
 
         category.parent_id = request.parent_id;
+        category.department = request.department;
         category.description = request.description;
         category.main_category = request.main_category;
         category.sub_category_letter = request.sub_category_letter;
@@ -201,6 +199,9 @@ impl CategoryService {
         }
         if let Some(parent_id) = request.parent_id {
             category.parent_id = Some(parent_id);
+        }
+        if let Some(dept) = request.department {
+            category.department = Some(dept);
         }
         if let Some(description) = request.description {
             category.description = Some(description);
@@ -266,6 +267,7 @@ impl CategoryService {
             id: category.id,
             code: category.code.clone(),
             name: category.name.clone(),
+            department: category.department.clone(),
             description: category.description.clone(),
             main_category: category.main_category.clone(),
             sub_category_letter: category.sub_category_letter.clone(),
@@ -289,6 +291,7 @@ impl CategoryService {
             code: category.code,
             name: category.name,
             parent_id: category.parent_id,
+            department: category.department,
             description: category.description,
             main_category: category.main_category,
             sub_category_letter: category.sub_category_letter,

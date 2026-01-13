@@ -13,7 +13,7 @@ use crate::api::server::AppState;
 use crate::application::dto::{
     ApiResponse, ApproveRentalRequest, CreateClientRequest, CreateRentalRateRequest,
     CreateRentalRequest, DispatchRentalRequest, PaginationParams, RejectRentalRequest,
-    ReturnRentalRequest,
+    ReturnRentalRequest, UpdateRentalRateRequest,
 };
 use crate::domain::entities::{Client, Rental, RentalHandover, RentalRate, UserClaims};
 use crate::shared::errors::AppError;
@@ -208,4 +208,29 @@ pub async fn create_rental_rate(
             "Rental rate created",
         )),
     ))
+}
+
+/// Update a rental rate
+pub async fn update_rental_rate(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(payload): Json<UpdateRentalRateRequest>,
+) -> Result<Json<ApiResponse<RentalRate>>, AppError> {
+    let rate = state.rental_service.update_rate(id, payload).await?;
+    Ok(Json(ApiResponse::success_with_message(
+        rate,
+        "Rental rate updated",
+    )))
+}
+
+/// Delete a rental rate
+pub async fn delete_rental_rate(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<ApiResponse<()>>, AppError> {
+    state.rental_service.delete_rate(id).await?;
+    Ok(Json(ApiResponse::success_with_message(
+        (),
+        "Rental rate deleted",
+    )))
 }

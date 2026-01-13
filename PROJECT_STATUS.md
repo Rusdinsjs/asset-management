@@ -50,13 +50,31 @@ This document provides a high-level overview of the Asset Management System's cu
 - **Features:** Centralized hub for all requests (Lifecycle, Work Orders, etc.).
 - **UI:** Filter by type, Approve/Reject actions, History view.
 
-### 7. Dashboard (`src/api/handlers/dashboard_handler.rs`)
+- **Dashboard (`dashboard_handler.rs`):** High-level metrics (Total Assets, Asset Value, Pending Wo, etc.).
 
-- **Features:** High-level metrics (Total Assets, Asset Value, Pending Wo, etc.).
-- **UI:** Charts and Stat Cards.
+## 🟡 Advanced Rental & Client Module (Sharpened)
 
-## ⚪ Other Modules
+### 8. Client & Rate Management (`src/api/handlers/client_handler.rs`)
+- **Features:** Comprehensive Customer/Mitra database.
+- **Rates:** Specialized per-asset or per-category pricing templates.
+- **Frontend:** Dedicated Clients dashboard with quick search & contact management.
 
+### 9. Evidence-Based Rental Workflow (`src/api/handlers/timesheet_handler.rs`)
+- **Workflow:** 4-Step Validation (Operator HM -> Supervisor Photo Verification -> Client PIC Signature -> Admin Billing).
+- **Timesheet Reviewer:** Professional side-by-side view comparing field logs with photo evidence.
+- **Automated Billing:**
+  - Automated accumulation of operating, standby, and breakdown hours.
+  - Transparent calculation breakdown (Min 200 hours implementation).
+  - Billable hours audit log integrated into the billing verification UI.
+
+### 10. Mobile Field Sync (`mobile/`)
+- **Status:** **Integrated with Field Reporting**
+- **Features:**
+  - Hour Meter (HM) logging with required Photo Evidence.
+  - Offline-first support for remote project sites.
+  - Real-time status sync with Web Admin Reviewer.
+
+## ⚪ Remaining Modules
 - **Audits (`audit_handler.rs`):** Stock taking and asset verification features.
 - **Loans (`loan_handler.rs`):** Employee asset lending management.
 - **Reports (`report_handler.rs`):** PDF/Excel export capabilities.

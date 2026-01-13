@@ -114,6 +114,7 @@ impl UserService {
                 req.name,
                 role_id,
                 req.role_code,
+                req.department,
                 req.department_id,
                 req.is_active,
             )

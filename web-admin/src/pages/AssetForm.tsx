@@ -17,6 +17,7 @@ import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { IconCar, IconCoin, IconFileDescription, IconInfoCircle, IconDeviceFloppy, IconBuilding } from '@tabler/icons-react';
 import type { Asset, CreateAssetRequest } from '../api/assets';
+import { useAuthStore } from '../store/useAuthStore';
 
 interface Category {
     id: string;
@@ -36,6 +37,7 @@ interface AssetFormProps {
 }
 
 export function AssetForm({ initialValues, categories, locations, onSubmit, onCancel, isLoading }: AssetFormProps) {
+    const { user } = useAuthStore();
     const form = useForm({
         initialValues: {
             asset_code: initialValues?.asset_code || '',
@@ -43,6 +45,7 @@ export function AssetForm({ initialValues, categories, locations, onSubmit, onCa
             category_id: initialValues?.category_id || '',
             location_id: initialValues?.location_id || '',
             department_id: initialValues?.department_id || '',
+            department: initialValues?.department || (user?.department || ''),
             status: initialValues?.status || 'planning',
             condition_id: initialValues?.condition_id,
 
@@ -213,6 +216,14 @@ export function AssetForm({ initialValues, categories, locations, onSubmit, onCa
                                 </Grid.Col>
                                 <Grid.Col span={6}>
                                     <TextInput label="Model" {...form.getInputProps('model')} />
+                                </Grid.Col>
+                                <Grid.Col span={6}>
+                                    <TextInput
+                                        label="Department"
+                                        {...form.getInputProps('department')}
+                                        disabled={!!user?.department && user.role !== 'super_admin'}
+                                        description={!!user?.department && user.role !== 'super_admin' ? "Automatically assigned based on your profile" : undefined}
+                                    />
                                 </Grid.Col>
                                 <Grid.Col span={6}>
                                     <TextInput label="Serial Number" {...form.getInputProps('serial_number')} />

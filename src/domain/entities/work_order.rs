@@ -76,6 +76,7 @@ pub struct WorkOrder {
 
     pub wo_type: String,
     pub priority: Option<String>,
+    pub location_id: Option<Uuid>,
     pub status: String,
 
     // Scheduling
@@ -130,6 +131,7 @@ impl WorkOrder {
             asset_id,
             wo_type: wo_type.to_string(),
             priority: Some(WorkOrderPriority::Medium.as_str().to_string()),
+            location_id: None,
             status: WorkOrderStatus::Pending.as_str().to_string(),
             scheduled_date: None,
             due_date: None,

@@ -47,6 +47,10 @@ pub fn timesheet_routes() -> Router<AppState> {
             "/api/rentals/timesheets/summary",
             get(timesheet_handler::get_timesheet_summary),
         )
+        .route(
+            "/api/rentals/timesheets/pending",
+            get(timesheet_handler::list_pending_verification),
+        )
         // Client Contact (PIC)
         .route(
             "/api/rentals/clients/contacts",

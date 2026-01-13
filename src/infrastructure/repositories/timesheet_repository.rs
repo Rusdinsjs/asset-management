@@ -7,6 +7,7 @@ use rust_decimal::Decimal;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::application::dto::TimesheetDetailResponse;
 use crate::domain::entities::{ClientContact, RentalBillingPeriod, RentalTimesheet};
 
 #[derive(Clone)]
@@ -98,6 +99,44 @@ impl TimesheetRepository {
         .await
     }
 
+    /// Update timesheet record
+    pub async fn update_timesheet(
+        &self,
+        timesheet: &RentalTimesheet,
+    ) -> Result<RentalTimesheet, sqlx::Error> {
+        let now = Utc::now();
+        sqlx::query_as!(
+            RentalTimesheet,
+            r#"UPDATE rental_timesheets SET
+                start_time = $2, end_time = $3,
+                operating_hours = $4, standby_hours = $5, overtime_hours = $6, breakdown_hours = $7,
+                hm_km_start = $8, hm_km_end = $9, hm_km_usage = $10,
+                operation_status = $11, breakdown_reason = $12, work_description = $13, work_location = $14,
+                photos = $15, checker_notes = $16, updated_at = $17
+            WHERE id = $1
+            RETURNING *"#,
+            timesheet.id,
+            timesheet.start_time,
+            timesheet.end_time,
+            timesheet.operating_hours,
+            timesheet.standby_hours,
+            timesheet.overtime_hours,
+            timesheet.breakdown_hours,
+            timesheet.hm_km_start,
+            timesheet.hm_km_end,
+            timesheet.hm_km_usage,
+            timesheet.operation_status,
+            timesheet.breakdown_reason,
+            timesheet.work_description,
+            timesheet.work_location,
+            timesheet.photos,
+            timesheet.checker_notes,
+            now
+        )
+        .fetch_one(&self.pool)
+        .await
+    }
+
     /// Submit timesheet for verification
     pub async fn submit_timesheet(
         &self,
@@ -172,6 +211,31 @@ impl TimesheetRepository {
         .execute(&self.pool)
         .await?;
         Ok(())
+    }
+
+    /// List timesheets pending verification
+    pub async fn list_pending_verification(
+        &self,
+    ) -> Result<Vec<TimesheetDetailResponse>, sqlx::Error> {
+        sqlx::query_as!(
+            TimesheetDetailResponse,
+            r#"SELECT 
+                ts.id, ts.rental_id, r.rental_number, a.name as asset_name, c.name as client_name,
+                ts.work_date, ts.operating_hours as "operating_hours!", 
+                ts.standby_hours as "standby_hours!", 
+                ts.overtime_hours as "overtime_hours!", 
+                ts.breakdown_hours as "breakdown_hours!",
+                ts.hm_km_start, ts.hm_km_end, ts.hm_km_usage, ts.operation_status,
+                ts.work_description, ts.photos, ts.status as "status!", ts.checker_notes
+            FROM rental_timesheets ts
+            JOIN rentals r ON ts.rental_id = r.id
+            JOIN assets a ON r.asset_id = a.id
+            JOIN clients c ON r.client_id = c.id
+            WHERE ts.status = 'submitted'
+            ORDER BY ts.work_date ASC"#
+        )
+        .fetch_all(&self.pool)
+        .await
     }
 
     /// Sum timesheets for billing period

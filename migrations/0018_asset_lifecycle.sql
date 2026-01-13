@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS asset_lifecycle_history (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_lifecycle_history_asset ON asset_lifecycle_history(asset_id);
-CREATE INDEX idx_lifecycle_history_created ON asset_lifecycle_history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_history_asset ON asset_lifecycle_history(asset_id);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_history_created ON asset_lifecycle_history(created_at DESC);
 
 -- ============================================
 -- ASSET CONVERSIONS
@@ -28,38 +28,43 @@ CREATE INDEX idx_lifecycle_history_created ON asset_lifecycle_history(created_at
 
 CREATE TABLE IF NOT EXISTS asset_conversions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_number VARCHAR(50) UNIQUE NOT NULL, -- e.g., CNV-2024-001
     asset_id UUID NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
     
-    -- Type changes
+    -- Status Workflow
+    status VARCHAR(50) NOT NULL DEFAULT 'pending', -- pending, approved, rejected, executed, cancelled
+    
+    -- Conversion Details
     from_category_id UUID REFERENCES categories(id),
-    to_category_id UUID REFERENCES categories(id),
-    from_subtype VARCHAR(100),
-    to_subtype VARCHAR(100),
+    to_category_id UUID NOT NULL REFERENCES categories(id),
+    target_specifications JSONB, -- New specs snapshot
     
-    -- Conversion details
-    conversion_type VARCHAR(50) NOT NULL, -- 'function_change', 'upgrade', 'downgrade', 'customization', 'repurposing'
-    conversion_cost DECIMAL(18,2) DEFAULT 0,
-    old_specifications JSONB,
-    new_specifications JSONB,
-    justification TEXT NOT NULL,
+    -- Financials
+    conversion_cost DECIMAL(18, 2) DEFAULT 0,
+    cost_treatment VARCHAR(50) NOT NULL DEFAULT 'capitalize', -- capitalize, expense
     
-    -- Workflow
-    status VARCHAR(50) NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected', 'in_progress', 'completed', 'cancelled'
+    -- Meta
+    reason TEXT,
+    notes TEXT,
+    
+    -- Actors
     requested_by UUID NOT NULL REFERENCES users(id),
     approved_by UUID REFERENCES users(id),
-    approved_at TIMESTAMPTZ,
     executed_by UUID REFERENCES users(id),
-    executed_at TIMESTAMPTZ,
-    rejection_reason TEXT,
     
     -- Timestamps
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    request_date TIMESTAMPTZ DEFAULT NOW(),
+    approval_date TIMESTAMPTZ,
+    execution_date TIMESTAMPTZ,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_conversions_asset ON asset_conversions(asset_id);
-CREATE INDEX idx_conversions_status ON asset_conversions(status);
-CREATE INDEX idx_conversions_requested ON asset_conversions(requested_by);
+CREATE INDEX IF NOT EXISTS idx_conversions_asset ON asset_conversions(asset_id);
+CREATE INDEX IF NOT EXISTS idx_conversions_status ON asset_conversions(status);
+CREATE INDEX IF NOT EXISTS idx_conversions_request_no ON asset_conversions(request_number);
 
 -- ============================================
 -- ASSET SPECIFICATION HISTORY
@@ -82,8 +87,8 @@ CREATE TABLE IF NOT EXISTS asset_specification_history (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_spec_history_asset ON asset_specification_history(asset_id);
-CREATE INDEX idx_spec_history_conversion ON asset_specification_history(conversion_id);
+CREATE INDEX IF NOT EXISTS idx_spec_history_asset ON asset_specification_history(asset_id);
+CREATE INDEX IF NOT EXISTS idx_spec_history_conversion ON asset_specification_history(conversion_id);
 
 -- ============================================
 -- UPDATE TRIGGER for asset_conversions
@@ -97,6 +102,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_asset_conversions_updated_at ON asset_conversions;
 CREATE TRIGGER trigger_asset_conversions_updated_at
     BEFORE UPDATE ON asset_conversions
     FOR EACH ROW

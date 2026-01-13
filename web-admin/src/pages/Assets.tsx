@@ -14,15 +14,17 @@ import {
     Badge,
     Pagination,
     Text,
+    Modal,
 } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { IconSearch, IconPlus, IconEdit, IconTrash, IconRefresh, IconUpload } from '@tabler/icons-react';
+import { IconSearch, IconPlus, IconEdit, IconTrash, IconRefresh, IconUpload, IconChartBar } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { assetApi } from '../api/assets';
 import type { Asset, CreateAssetRequest } from '../api/assets';
 import { api } from '../api/client';
 import { AssetForm } from './AssetForm';
 import { ImportAssetsModal } from '../components/Assets/ImportAssetsModal';
+import { AssetROI } from '../components/Assets/AssetROI';
 import { useNavigate } from 'react-router-dom';
 
 // Helper to flatten category tree
@@ -47,6 +49,7 @@ export function Assets() {
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [roiAssetId, setRoiAssetId] = useState<string | null>(null);
     const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
 
     // Fetch Assets
@@ -183,6 +186,8 @@ export function Assets() {
                                 <Table.Th>Asset Code</Table.Th>
                                 <Table.Th>Name</Table.Th>
                                 <Table.Th>Category</Table.Th>
+                                <Table.Th>Location</Table.Th>
+                                <Table.Th>Department</Table.Th>
                                 <Table.Th>Brand/Model</Table.Th>
                                 <Table.Th>Status</Table.Th>
                                 <Table.Th>Actions</Table.Th>
@@ -198,7 +203,10 @@ export function Assets() {
                                         <Text size="sm">{asset.name}</Text>
                                     </Table.Td>
                                     <Table.Td>
-                                        <Text size="sm">{asset.category_name || asset.category_id}</Text>
+                                        <Text size="sm">{asset.location_name || '-'}</Text>
+                                    </Table.Td>
+                                    <Table.Td>
+                                        <Text size="sm">{asset.department || '-'}</Text>
                                     </Table.Td>
                                     <Table.Td>
                                         <Text size="sm">{asset.brand} {asset.model}</Text>
@@ -215,7 +223,15 @@ export function Assets() {
                                         <Group gap={4}>
                                             <ActionIcon
                                                 variant="subtle"
-                                                color="violet"
+                                                color="teal"
+                                                onClick={() => setRoiAssetId(asset.id)}
+                                                title="Asset ROI & Profitability"
+                                            >
+                                                <IconChartBar size={16} />
+                                            </ActionIcon>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                color="orange"
                                                 onClick={() => navigate(`/assets/${asset.id}/lifecycle`)}
                                                 title="Manage Lifecycle"
                                             >
@@ -278,6 +294,15 @@ export function Assets() {
                 categories={categories}
                 locations={locations}
             />
+
+            <Modal
+                opened={!!roiAssetId}
+                onClose={() => setRoiAssetId(null)}
+                title="Asset Profitability Analysis (ROI)"
+                size="1000px"
+            >
+                {roiAssetId && <AssetROI assetId={roiAssetId} />}
+            </Modal>
         </Stack >
     );
 }

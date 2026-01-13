@@ -1,10 +1,11 @@
 //! API Routes
 
+pub mod analytics_routes;
 pub mod approval_routes;
 pub mod billing_routes;
 pub mod category_routes;
+pub mod client_routes;
 pub mod conversion_routes;
-pub mod maintenance_routes;
 pub mod rental_routes;
 pub mod routes;
 pub mod timesheet_routes;

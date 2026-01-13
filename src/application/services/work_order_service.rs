@@ -8,7 +8,12 @@ use crate::domain::entities::{
     AssetState, ChecklistItem, WorkOrder, WorkOrderPart, WorkOrderStatus,
 };
 use crate::domain::errors::{DomainError, DomainResult};
-use crate::infrastructure::repositories::{LifecycleRepository, WorkOrderRepository};
+use crate::infrastructure::repositories::{
+    AssetRepository, LifecycleRepository, WorkOrderRepository,
+};
+
+use crate::infrastructure::cache::{CacheKey, CacheOperations};
+use std::sync::Arc;
 
 /// Create work order request
 #[derive(Debug, serde::Deserialize)]
@@ -23,19 +28,29 @@ pub struct CreateWorkOrderRequest {
     pub estimated_cost: Option<Decimal>,
     pub safety_requirements: Option<Vec<String>>,
     pub lockout_tagout_required: Option<bool>,
+    pub location_id: Option<Uuid>,
 }
 
 #[derive(Clone)]
 pub struct WorkOrderService {
     repository: WorkOrderRepository,
     lifecycle_repo: LifecycleRepository,
+    asset_repo: AssetRepository,
+    cache: Arc<dyn CacheOperations>,
 }
 
 impl WorkOrderService {
-    pub fn new(repository: WorkOrderRepository, lifecycle_repo: LifecycleRepository) -> Self {
+    pub fn new(
+        repository: WorkOrderRepository,
+        lifecycle_repo: LifecycleRepository,
+        asset_repo: AssetRepository,
+        cache: Arc<dyn CacheOperations>,
+    ) -> Self {
         Self {
             repository,
             lifecycle_repo,
+            asset_repo,
+            cache,
         }
     }
 
@@ -62,6 +77,7 @@ impl WorkOrderService {
         wo.estimated_cost = request.estimated_cost;
         wo.safety_requirements = request.safety_requirements;
         wo.lockout_tagout_required = request.lockout_tagout_required.unwrap_or(false);
+        wo.location_id = request.location_id;
         wo.created_by = created_by;
 
         self.repository
@@ -194,6 +210,11 @@ impl WorkOrderService {
                         .update_asset_status(wo.asset_id, target_state.as_str())
                         .await;
 
+                    // Update asset location if WO has one
+                    if let Some(loc_id) = wo.location_id {
+                        let _ = self.asset_repo.update_location(wo.asset_id, loc_id).await;
+                    }
+
                     // Record in history
                     let _ = self
                         .lifecycle_repo
@@ -206,6 +227,9 @@ impl WorkOrderService {
                             None,
                         )
                         .await;
+
+                    // Invalidate asset cache
+                    let _ = self.cache.delete(&CacheKey::asset(&wo.asset_id)).await;
                 }
             }
         }
@@ -246,10 +270,13 @@ impl WorkOrderService {
 
                 if current_state.can_transition_to(&target_state) {
                     // Update asset status
-                    let _ = self
+                    if let Err(e) = self
                         .lifecycle_repo
                         .update_asset_status(wo.asset_id, target_state.as_str())
-                        .await;
+                        .await
+                    {
+                        println!("ERROR: Failed to update asset status: {:?}", e);
+                    }
 
                     // Record in history
                     let _ = self
@@ -266,6 +293,9 @@ impl WorkOrderService {
                             None,
                         )
                         .await;
+
+                    // Invalidate asset cache
+                    let _ = self.cache.delete(&CacheKey::asset(&wo.asset_id)).await;
                 }
             }
         }

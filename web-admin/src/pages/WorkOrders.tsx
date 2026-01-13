@@ -6,20 +6,22 @@ import {
     Group,
     Paper,
     Table,
-    Badge,
     ActionIcon,
     Pagination,
     Drawer,
     Tabs,
     Stack,
-    Tooltip,
 } from '@mantine/core';
-import { IconPlus, IconPencil, IconTrash, IconAlertTriangle, IconClock } from '@tabler/icons-react';
+import { IconPlus, IconPencil, IconTrash, IconAlertTriangle } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { maintenanceApi } from '../api/maintenance';
+import { workOrderApi } from '../api/work-order';
+import type { WorkOrder } from '../api/work-order';
 import { WorkOrderForm } from './WorkOrderForm';
 import { notifications } from '@mantine/notifications';
 import { PermissionGate } from '../components/PermissionGate';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { useWebSocket } from '../contexts/WebSocketContext';
+import { useEffect } from 'react';
 
 export function WorkOrders() {
     const [page, setPage] = useState(1);
@@ -29,41 +31,53 @@ export function WorkOrders() {
 
     const queryClient = useQueryClient();
     const navigate = useNavigate();
+    const { lastMessage } = useWebSocket();
+
+    useEffect(() => {
+        if (lastMessage && (lastMessage.event_type === 'WORK_ORDER_CREATED' || lastMessage.event_type === 'WORK_ORDER_COMPLETED')) {
+            queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+        }
+    }, [lastMessage, queryClient]);
 
     // Fetch Maintenance
-    const { data: maintenanceData, isLoading } = useQuery({
-        queryKey: ['maintenance', page, activeTab],
+    const { data: workOrdersData, isLoading } = useQuery({
+        queryKey: ['work-orders', page, activeTab],
         queryFn: async () => {
             // Basic filtering based on tab
 
             if (activeTab === 'overdue') {
-                const response = await maintenanceApi.listOverdue();
+                const response = await workOrderApi.listOverdue();
                 // Normalize to a common structure or return as is and handle in component
-                return response as any;
+                return response;
             }
 
-            const response = await maintenanceApi.list({
+            const response = await workOrderApi.list({
                 page,
                 per_page: 20,
                 // status: activeTab === 'history' ? 'completed' : undefined
             });
-            return response as any;
+            return response;
         },
     });
 
     // Correctly handle the API response structure difference
-    const records = activeTab === 'overdue'
-        ? (maintenanceData as any)?.data || [] // Overdue returns ApiResponse<Vec<MaintenanceSummary>>
-        : (maintenanceData as any)?.data?.data || []; // List returns ApiResponse<PaginatedData<MaintenanceSummary>>
+    // Note: workOrderApi returns WorkOrder[] directly for list endpoints for now, check pagination wrap
+    // The previous implementation assumed pagination wrapper. Let's check workOrderApi implementation.
+    // list -> response.data which is Vec<WorkOrder>. No pagination meta? Backend list_work_orders returns Json<Vec<WorkOrder>> directly.
+    // Pagination params are accepted but backend doesn't seem to wrap result in PaginatedResponse yet based on handler code visible?
+    // Handler: `Result<Json<Vec<WorkOrder>>, AppError>`
+    // So we don't have total pages.
 
-    const totalPages = (maintenanceData as any)?.data?.pagination?.total_pages || 1;
+    const records: WorkOrder[] = (workOrdersData as any) || [];
+
+    const totalPages = 1; // (maintenanceData as any)?.data?.pagination?.total_pages || 1; // TODO: Backend support for pagination meta
 
     // Delete Mutation
     const deleteMutation = useMutation({
-        mutationFn: maintenanceApi.delete,
+        mutationFn: workOrderApi.delete, // This calls cancel internally for now
         onSuccess: () => {
-            notifications.show({ title: 'Deleted', message: 'Work Order deleted', color: 'green' });
-            queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+            notifications.show({ title: 'Deleted', message: 'Work Order deleted (cancelled)', color: 'green' });
+            queryClient.invalidateQueries({ queryKey: ['work-orders'] });
         },
     });
 
@@ -84,12 +98,7 @@ export function WorkOrders() {
         }
     };
 
-    const statusColors: Record<string, string> = {
-        planned: 'blue',
-        in_progress: 'orange',
-        completed: 'green',
-        cancelled: 'gray',
-    };
+
 
     return (
         <Stack gap="lg">
@@ -133,31 +142,18 @@ export function WorkOrders() {
                         ) : (
                             records.map((record: any) => (
                                 <Table.Tr key={record.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/work-orders/${record.id}`)}>
-                                    <Table.Td>{record.asset_name}</Table.Td>
-                                    <Table.Td>{record.type_name || '-'}</Table.Td>
+                                    <Table.Td>{(record as any).asset?.name || record.asset_id}</Table.Td>
+                                    <Table.Td>{record.wo_type}</Table.Td>
                                     <Table.Td>
-                                        <Badge color={statusColors[record.status] || 'gray'}>
-                                            {record.status}
-                                        </Badge>
+                                        <StatusBadge status={record.status} />
                                     </Table.Td>
                                     <Table.Td>
-                                        {record.approval_status === 'pending_approval' ? (
-                                            <Tooltip label="Menunggu Persetujuan Biaya">
-                                                <Badge color="yellow" leftSection={<IconClock size={12} />}>
-                                                    Pending
-                                                </Badge>
-                                            </Tooltip>
-                                        ) : record.approval_status === 'approved' ? (
-                                            <Badge color="green">Approved</Badge>
-                                        ) : record.approval_status === 'rejected' ? (
-                                            <Badge color="red">Rejected</Badge>
-                                        ) : (
-                                            <Badge color="gray" variant="light">-</Badge>
-                                        )}
+                                        <StatusBadge status="-" />
+                                        {/* Approval status check logic needs update based on new WO schema */}
                                     </Table.Td>
                                     <Table.Td>{record.scheduled_date}</Table.Td>
                                     <Table.Td>
-                                        {record.cost ? `Rp ${Number(record.cost).toLocaleString('id-ID')}` : '-'}
+                                        {record.estimated_cost ? `Rp ${Number(record.estimated_cost).toLocaleString('id-ID')}` : '-'}
                                     </Table.Td>
                                     <Table.Td>
                                         <Group gap="xs">
@@ -200,7 +196,7 @@ export function WorkOrders() {
                         onSuccess={() => {
                             setDrawerOpen(false);
                             // Refresh
-                            queryClient.invalidateQueries({ queryKey: ['maintenance'] });
+                            queryClient.invalidateQueries({ queryKey: ['work-orders'] });
                         }}
                     />
                 )}

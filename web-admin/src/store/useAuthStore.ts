@@ -13,6 +13,7 @@ export interface User {
     permissions: string[];
     phone?: string;
     avatar_url?: string;
+    department?: string;
 }
 
 interface AuthState {
@@ -30,6 +31,7 @@ interface AuthState {
 interface JwtClaims {
     permissions?: string[];
     role_level?: number;
+    department?: string;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -49,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
                             ...baseUser,
                             permissions,
                             role_level,
+                            department: decoded.department,
                         },
                     });
                 } catch (e) {

@@ -9,11 +9,13 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 use uuid::Uuid;
 
+use crate::api::handlers::notification_ws::NotificationMessage;
 use crate::api::server::AppState;
 use crate::application::dto::{ApiResponse, PaginationParams};
 use crate::application::services::CreateWorkOrderRequest;
 use crate::domain::entities::{UserClaims as Claims, WorkOrder};
 use crate::shared::errors::AppError;
+use serde_json::json;
 
 /// Role level constants
 const ROLE_MANAGER: i32 = 2;
@@ -88,6 +90,20 @@ pub async fn create_work_order(
         .work_order_service
         .create(payload, Some(user_id))
         .await?;
+
+    // Broadcast new work order event
+    state
+        .ws_manager
+        .broadcast(&NotificationMessage {
+            event_type: "WORK_ORDER_CREATED".to_string(),
+            payload: json!({
+                "id": order.id,
+                "asset_id": order.asset_id,
+                "status": order.status,
+                "created_by": user_id
+            }),
+        })
+        .await;
 
     Ok((
         StatusCode::CREATED,
@@ -195,11 +211,23 @@ pub async fn complete_work_order(
             "Work order must be assigned before completing".to_string(),
         ));
     }
-
     let order = state
         .work_order_service
         .complete(id, user_id, &payload.work_performed, payload.actual_cost)
         .await?;
+
+    // Broadcast work order completion
+    state
+        .ws_manager
+        .broadcast(&NotificationMessage {
+            event_type: "WORK_ORDER_COMPLETED".to_string(),
+            payload: json!({
+                "id": order.id,
+                "status": order.status,
+                "completed_by": user_id
+            }),
+        })
+        .await;
 
     Ok(Json(ApiResponse::success_with_message(
         order,

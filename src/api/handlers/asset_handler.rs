@@ -20,19 +20,32 @@ use axum::{extract::Extension, response::IntoResponse};
 
 pub async fn list_assets(
     State(state): State<AppState>,
+    Extension(claims): Extension<UserClaims>,
     Query(params): Query<PaginationParams>,
 ) -> Result<Json<PaginatedResponse<AssetSummary>>, AppError> {
+    let department_filter = if claims.role == "super_admin" {
+        None
+    } else {
+        claims.department.as_deref()
+    };
+
     let result = state
         .asset_service
-        .list(params.page(), params.per_page())
+        .list(params.page(), params.per_page(), department_filter)
         .await?;
     Ok(Json(result))
 }
 
 pub async fn search_assets(
     State(state): State<AppState>,
-    Query(params): Query<AssetSearchParams>,
+    Extension(claims): Extension<UserClaims>,
+    Query(mut params): Query<AssetSearchParams>,
 ) -> Result<Json<PaginatedResponse<AssetSummary>>, AppError> {
+    if claims.role != "super_admin" {
+        if let Some(dept) = &claims.department {
+            params.department = Some(dept.clone());
+        }
+    }
     let result = state.asset_service.search(params).await?;
     Ok(Json(result))
 }
@@ -48,8 +61,15 @@ pub async fn get_asset(
 pub async fn create_asset(
     State(state): State<AppState>,
     Extension(claims): Extension<UserClaims>,
-    Json(payload): Json<CreateAssetRequest>,
+    Json(mut payload): Json<CreateAssetRequest>,
 ) -> Result<impl IntoResponse, AppError> {
+    // Enforce department for restricted users
+    if claims.role != "super_admin" {
+        if let Some(dept) = &claims.department {
+            payload.department = Some(dept.clone());
+        }
+    }
+
     // Parse user_id from subject
     let user_id = Uuid::parse_str(&claims.sub)
         .map_err(|_| AppError::BadRequest("Invalid user ID in token".to_string()))?;

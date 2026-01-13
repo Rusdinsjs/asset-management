@@ -22,12 +22,14 @@ impl DataService {
     pub async fn export_assets_csv(&self) -> DomainResult<String> {
         // Fetch all assets (pagination free for export, or batched)
         // For simplicity, we'll fetch a large page
-        let assets = self.asset_repository.list(10000, 0).await.map_err(|e| {
-            DomainError::ExternalServiceError {
+        let assets = self
+            .asset_repository
+            .list(10000, 0, None)
+            .await
+            .map_err(|e| DomainError::ExternalServiceError {
                 service: "database".to_string(),
                 message: e.to_string(),
-            }
-        })?;
+            })?;
 
         let mut wtr = WriterBuilder::new().from_writer(vec![]);
 

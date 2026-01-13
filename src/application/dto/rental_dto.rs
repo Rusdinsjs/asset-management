@@ -40,6 +40,7 @@ pub struct DispatchRentalRequest {
     pub condition_rating: String,
     pub condition_notes: Option<String>,
     pub photos: Option<Vec<String>>,
+    pub location_id: Option<Uuid>,
 }
 
 /// Request for return (handover in)
@@ -51,6 +52,7 @@ pub struct ReturnRentalRequest {
     pub has_damage: bool,
     pub damage_description: Option<String>,
     pub damage_photos: Option<Vec<String>>,
+    pub location_id: Option<Uuid>,
 }
 
 /// Request to create a client
@@ -94,6 +96,39 @@ pub struct CreateRentalRateRequest {
     pub minimum_duration: Option<i32>,
     pub deposit_percentage: Option<Decimal>,
     pub late_fee_per_day: Option<Decimal>,
+
+    // Enhanced billing fields
+    pub rate_basis: Option<String>,
+    pub minimum_hours: Option<Decimal>,
+    pub overtime_multiplier: Option<Decimal>,
+    pub standby_multiplier: Option<Decimal>,
+    pub breakdown_penalty_per_day: Option<Decimal>,
+    pub hours_per_day: Option<Decimal>,
+    pub days_per_month: Option<i32>,
+}
+
+/// Request to update a rental rate
+#[derive(Debug, Clone, Deserialize)]
+pub struct UpdateRentalRateRequest {
+    pub name: Option<String>,
+    pub category_id: Option<Uuid>,
+    pub asset_id: Option<Uuid>,
+    pub rate_type: Option<String>,
+    pub rate_amount: Option<Decimal>,
+    pub currency: Option<String>,
+    pub minimum_duration: Option<i32>,
+    pub deposit_percentage: Option<Decimal>,
+    pub late_fee_per_day: Option<Decimal>,
+    pub is_active: Option<bool>,
+
+    // Enhanced billing fields
+    pub rate_basis: Option<String>,
+    pub minimum_hours: Option<Decimal>,
+    pub overtime_multiplier: Option<Decimal>,
+    pub standby_multiplier: Option<Decimal>,
+    pub breakdown_penalty_per_day: Option<Decimal>,
+    pub hours_per_day: Option<Decimal>,
+    pub days_per_month: Option<i32>,
 }
 
 /// Rental response with enriched data

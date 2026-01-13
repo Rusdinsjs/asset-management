@@ -77,6 +77,7 @@ pub struct User {
     #[sqlx(default)]
     pub role_level: i32, // Mapped from join
 
+    pub department: Option<String>,
     pub department_id: Option<Uuid>,
     pub organization_id: Option<Uuid>,
 
@@ -104,6 +105,7 @@ impl User {
             role_id: None,            // Needs to be set by service/repo default logic
             role: "user".to_string(), // Default (will be updated via DB default)
             role_level: 5,
+            department: None,
             department_id: None,
             organization_id: None,
             phone: None,
@@ -153,6 +155,7 @@ pub struct UserSummary {
     pub role: String,
     #[sqlx(default)]
     pub role_level: i32,
+    pub department: Option<String>,
     pub department_id: Option<Uuid>,
     pub is_active: bool,
 }
@@ -164,7 +167,8 @@ pub struct UserClaims {
     pub email: String,
     pub name: String,
     pub role: String,
-    pub role_level: i32,     // Added
+    pub role_level: i32,
+    pub department: Option<String>,
     pub org: Option<String>, // Organization ID
     pub permissions: Vec<String>,
     pub exp: i64,

@@ -15,6 +15,7 @@ pub struct Category {
     pub parent_id: Option<Uuid>,
     pub code: String,
     pub name: String,
+    pub department: Option<String>,
     pub description: Option<String>,
 
     // Depreciation settings per category
@@ -47,6 +48,7 @@ impl Category {
             parent_id: None,
             code,
             name,
+            department: None,
             description: None,
             depreciation_method: Some("straight_line".to_string()),
             depreciation_period: None,
