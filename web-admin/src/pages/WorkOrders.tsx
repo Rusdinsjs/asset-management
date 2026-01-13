@@ -1,37 +1,34 @@
-import { useState } from 'react';
+// WorkOrders Page - Pure Tailwind
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Title,
-    Button,
-    Group,
-    Paper,
-    Table,
-    ActionIcon,
-    Pagination,
-    Drawer,
-    Tabs,
-    Stack,
-} from '@mantine/core';
-import { IconPlus, IconPencil, IconTrash, IconAlertTriangle } from '@tabler/icons-react';
+import { Plus, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { workOrderApi } from '../api/work-order';
 import type { WorkOrder } from '../api/work-order';
-import { WorkOrderForm } from './WorkOrderForm';
-import { notifications } from '@mantine/notifications';
+import { WorkOrderFormTailwind } from '../components/WorkOrders/WorkOrderFormTailwind';
 import { PermissionGate } from '../components/PermissionGate';
-import { StatusBadge } from '../components/common/StatusBadge';
 import { useWebSocket } from '../contexts/WebSocketContext';
-import { useEffect } from 'react';
+import {
+    Button,
+    Card,
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd, TableEmpty,
+    StatusBadge,
+    ActionIcon,
+    Pagination,
+    Drawer,
+    useToast,
+} from '../components/ui';
 
 export function WorkOrders() {
     const [page, setPage] = useState(1);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<string | null>('active');
+    const [activeTab, setActiveTab] = useState('active');
 
     const queryClient = useQueryClient();
     const navigate = useNavigate();
     const { lastMessage } = useWebSocket();
+    const { success } = useToast();
 
     useEffect(() => {
         if (lastMessage && (lastMessage.event_type === 'WORK_ORDER_CREATED' || lastMessage.event_type === 'WORK_ORDER_COMPLETED')) {
@@ -39,44 +36,25 @@ export function WorkOrders() {
         }
     }, [lastMessage, queryClient]);
 
-    // Fetch Maintenance
+    // Fetch Work Orders
     const { data: workOrdersData, isLoading } = useQuery({
         queryKey: ['work-orders', page, activeTab],
         queryFn: async () => {
-            // Basic filtering based on tab
-
             if (activeTab === 'overdue') {
-                const response = await workOrderApi.listOverdue();
-                // Normalize to a common structure or return as is and handle in component
-                return response;
+                return await workOrderApi.listOverdue();
             }
-
-            const response = await workOrderApi.list({
-                page,
-                per_page: 20,
-                // status: activeTab === 'history' ? 'completed' : undefined
-            });
-            return response;
+            return await workOrderApi.list({ page, per_page: 20 });
         },
     });
 
-    // Correctly handle the API response structure difference
-    // Note: workOrderApi returns WorkOrder[] directly for list endpoints for now, check pagination wrap
-    // The previous implementation assumed pagination wrapper. Let's check workOrderApi implementation.
-    // list -> response.data which is Vec<WorkOrder>. No pagination meta? Backend list_work_orders returns Json<Vec<WorkOrder>> directly.
-    // Pagination params are accepted but backend doesn't seem to wrap result in PaginatedResponse yet based on handler code visible?
-    // Handler: `Result<Json<Vec<WorkOrder>>, AppError>`
-    // So we don't have total pages.
-
     const records: WorkOrder[] = (workOrdersData as any) || [];
-
-    const totalPages = 1; // (maintenanceData as any)?.data?.pagination?.total_pages || 1; // TODO: Backend support for pagination meta
+    const totalPages = 1; // TODO: Backend pagination support
 
     // Delete Mutation
     const deleteMutation = useMutation({
-        mutationFn: workOrderApi.delete, // This calls cancel internally for now
+        mutationFn: workOrderApi.delete,
         onSuccess: () => {
-            notifications.show({ title: 'Deleted', message: 'Work Order deleted (cancelled)', color: 'green' });
+            success('Work Order deleted (cancelled)', 'Deleted');
             queryClient.invalidateQueries({ queryKey: ['work-orders'] });
         },
     });
@@ -98,109 +76,149 @@ export function WorkOrders() {
         }
     };
 
-
+    // Tab content wrapper to handle active state
+    const TabButton = ({ value, children, icon }: { value: string; children: React.ReactNode; icon?: React.ReactNode }) => (
+        <button
+            onClick={() => setActiveTab(value)}
+            className={`
+                flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200
+                ${activeTab === value
+                    ? 'bg-cyan-500/20 text-cyan-400'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }
+            `}
+        >
+            {icon}
+            {children}
+        </button>
+    );
 
     return (
-        <Stack gap="lg">
-            <Group justify="space-between">
-                <Title order={2}>Work Orders</Title>
+        <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-white">Work Orders</h1>
                 <PermissionGate requiredLevel={3}>
-                    <Button leftSection={<IconPlus size={16} />} onClick={handleCreate}>
+                    <Button leftIcon={<Plus size={16} />} onClick={handleCreate}>
                         New Work Order
                     </Button>
                 </PermissionGate>
-            </Group>
+            </div>
 
-            <Paper p="md" withBorder>
-                <Tabs value={activeTab} onChange={setActiveTab} mb="md">
-                    <Tabs.List>
-                        <Tabs.Tab value="active">Active & Planned</Tabs.Tab>
-                        <Tabs.Tab value="overdue" leftSection={<IconAlertTriangle size={14} color="red" />}>
-                            Overdue
-                        </Tabs.Tab>
-                        <Tabs.Tab value="history">History</Tabs.Tab>
-                    </Tabs.List>
-                </Tabs>
+            <Card padding="lg">
+                {/* Tab Navigation */}
+                <div className="flex gap-1 p-1 bg-slate-900/50 border border-slate-800 rounded-xl mb-4 w-fit">
+                    <TabButton value="active">Active & Planned</TabButton>
+                    <TabButton value="overdue" icon={<AlertTriangle size={14} className="text-red-400" />}>
+                        Overdue
+                    </TabButton>
+                    <TabButton value="history">History</TabButton>
+                </div>
 
-                <Table striped highlightOnHover>
-                    <Table.Thead>
-                        <Table.Tr>
-                            <Table.Th>Asset</Table.Th>
-                            <Table.Th>Type</Table.Th>
-                            <Table.Th>Status</Table.Th>
-                            <Table.Th>Approval</Table.Th>
-                            <Table.Th>Scheduled</Table.Th>
-                            <Table.Th>Cost</Table.Th>
-                            <Table.Th>Actions</Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
+                {/* Table */}
+                <Table>
+                    <TableHead>
+                        <TableRow>
+                            <TableTh>Asset</TableTh>
+                            <TableTh>Type</TableTh>
+                            <TableTh>Status</TableTh>
+                            <TableTh>Approval</TableTh>
+                            <TableTh>Scheduled</TableTh>
+                            <TableTh>Cost</TableTh>
+                            <TableTh align="center">Actions</TableTh>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
                         {isLoading ? (
-                            <Table.Tr><Table.Td colSpan={6} align="center">Loading...</Table.Td></Table.Tr>
+                            <TableRow>
+                                <TableTd colSpan={7} align="center">
+                                    <div className="py-8 text-slate-400">Loading...</div>
+                                </TableTd>
+                            </TableRow>
                         ) : records.length === 0 ? (
-                            <Table.Tr><Table.Td colSpan={6} align="center">No records found</Table.Td></Table.Tr>
+                            <TableEmpty colSpan={7} message="No work orders found" />
                         ) : (
                             records.map((record: any) => (
-                                <Table.Tr key={record.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/work-orders/${record.id}`)}>
-                                    <Table.Td>{(record as any).asset?.name || record.asset_id}</Table.Td>
-                                    <Table.Td>{record.wo_type}</Table.Td>
-                                    <Table.Td>
+                                <TableRow
+                                    key={record.id}
+                                    onClick={() => navigate(`/work-orders/${record.id}`)}
+                                    className="cursor-pointer"
+                                >
+                                    <TableTd>
+                                        <span className="font-medium text-white">
+                                            {record.asset?.name || record.asset_id}
+                                        </span>
+                                    </TableTd>
+                                    <TableTd>{record.wo_type}</TableTd>
+                                    <TableTd>
                                         <StatusBadge status={record.status} />
-                                    </Table.Td>
-                                    <Table.Td>
+                                    </TableTd>
+                                    <TableTd>
                                         <StatusBadge status="-" />
-                                        {/* Approval status check logic needs update based on new WO schema */}
-                                    </Table.Td>
-                                    <Table.Td>{record.scheduled_date}</Table.Td>
-                                    <Table.Td>
-                                        {record.estimated_cost ? `Rp ${Number(record.estimated_cost).toLocaleString('id-ID')}` : '-'}
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Group gap="xs">
+                                    </TableTd>
+                                    <TableTd>{record.scheduled_date}</TableTd>
+                                    <TableTd>
+                                        {record.estimated_cost
+                                            ? `Rp ${Number(record.estimated_cost).toLocaleString('id-ID')}`
+                                            : '-'}
+                                    </TableTd>
+                                    <TableTd align="center">
+                                        <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                                             <PermissionGate requiredLevel={3}>
-                                                <ActionIcon variant="subtle" color="blue" onClick={(e) => { e.stopPropagation(); handleEdit(record.id); }}>
-                                                    <IconPencil size={16} />
+                                                <ActionIcon
+                                                    onClick={(e) => { e.stopPropagation(); handleEdit(record.id); }}
+                                                    title="Edit Work Order"
+                                                >
+                                                    <Edit size={16} />
                                                 </ActionIcon>
                                             </PermissionGate>
                                             <PermissionGate requiredLevel={2}>
-                                                <ActionIcon variant="subtle" color="red" onClick={(e) => handleDelete(record.id, e)}>
-                                                    <IconTrash size={16} />
+                                                <ActionIcon
+                                                    variant="danger"
+                                                    onClick={(e) => handleDelete(record.id, e)}
+                                                    title="Delete Work Order"
+                                                >
+                                                    <Trash2 size={16} />
                                                 </ActionIcon>
                                             </PermissionGate>
-                                        </Group>
-                                    </Table.Td>
-                                </Table.Tr>
+                                        </div>
+                                    </TableTd>
+                                </TableRow>
                             ))
                         )}
-                    </Table.Tbody>
+                    </TableBody>
                 </Table>
 
-                {activeTab !== 'overdue' && (
-                    <Group justify="center" mt="md">
-                        <Pagination total={totalPages} value={page} onChange={setPage} />
-                    </Group>
+                {/* Pagination */}
+                {activeTab !== 'overdue' && totalPages > 1 && (
+                    <div className="flex justify-center mt-4">
+                        <Pagination
+                            currentPage={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                        />
+                    </div>
                 )}
-            </Paper>
+            </Card>
 
+            {/* Work Order Form Drawer */}
             <Drawer
-                opened={drawerOpen}
+                isOpen={drawerOpen}
                 onClose={() => setDrawerOpen(false)}
                 title={selectedId ? "Edit Work Order" : "New Work Order"}
-                position="right"
-                size="md"
+                size="lg"
             >
                 {drawerOpen && (
-                    <WorkOrderForm
+                    <WorkOrderFormTailwind
                         maintenanceId={selectedId}
                         onClose={() => setDrawerOpen(false)}
                         onSuccess={() => {
                             setDrawerOpen(false);
-                            // Refresh
                             queryClient.invalidateQueries({ queryKey: ['work-orders'] });
                         }}
                     />
                 )}
             </Drawer>
-        </Stack>
+        </div>
     );
 }

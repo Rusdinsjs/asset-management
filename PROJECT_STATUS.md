@@ -8,119 +8,89 @@ This document provides a high-level overview of the Asset Management System's cu
 
 ## 📋 Changelog
 
-### 2026-01-13
+### 2026-01-13 (Frontend Architecture Overhaul)
 
-- **Location Module:** Full implementation (Backend Service, Handler, Repository, Frontend Page).
-  - CRUD operations for hierarchical locations (Building → Floor → Room).
-  - Integrated into sidebar navigation.
-  - Fixed SQLx column mapping (`type` → `location_type`).
-- **Database Auto-Migration:** Enabled `sqlx::migrate!()` in `main.rs` for automatic schema updates on startup.
-- **Bug Fixes:**
-  - Fixed 404 on `/api/locations` (uncommented routes).
-  - Fixed 400 on `/api/rentals/clients` (corrected endpoint to `/api/clients`).
-  - Fixed WebSocket connection race conditions in `WebSocketContext.tsx`.
-  - Fixed `ClientList.tsx` crash when API returns non-array response.
-- **User-Employee Integration:** Employees linked to user accounts now display correctly in Users table.
+- **100% Pure Tailwind CSS Migration:**
+  - Successfully migrated the entire `web-admin` application from Mantine UI to Pure Tailwind CSS.
+  - **Mantine Uninstalled:** Removed all `@mantine` dependencies, `postcss-preset-mantine`, and legacy theme files.
+  - **Custom UI Library:** Established a robust internal component library in `src/components/ui/` (Modal, Table, Toast, DateInput, etc.).
+- **Module UI Rewrites:**
+  - **Dashboard:** Modernized `StatCard`, `RecentActivity`, and `DashboardCharts` (using `recharts`).
+  - **Rentals:** Rebuilt `TimesheetReviewer` and `BillingReviewDetail` for evidence-based workflows.
+  - **Forms:** Migrated complex forms (`WorkOrderForm`, `AssetForm`) to use manual state management and native validation.
+- **Infrastructure Upgrades:**
+  - **Global Toast System:** Refactored notifications to support calls from API interceptors via Event Bus.
+  - **Performance:** Reduced bundle size by removing heavy component libraries.
+
+### 2026-01-13 (Backend & Locations)
+
+- **Location Module:** Full implementation (Building → Floor → Room hierarchy).
+- **Database:** Auto-migration enabled on startup.
+- **Fixes:** Resolved WebSocket race conditions and API endpoint mappings.
 
 ---
 
 ## 🟢 Core Modules (Stable/Complete)
 
 ### 1. Asset Management (`src/api/handlers/asset_handler.rs`)
+- **Features:** CRUD, QR Codes, Lifecycle tracking.
+- **Frontend:** Pure Tailwind Data Grid with filtering and Actions.
 
-- **Features:** CRUD operations for Assets.
-- **Fields:** Tag ID, Name, Category, Serial Number, Model, Purchase Info, etc.
-- **Frontend:** List view with filtering, Create/Edit forms, QR Code generation.
+### 2. Category Management
+- **Features:** Recursive Category Tree.
+- **Frontend:** Tailwind-based Tree View component.
 
-### 2. Category Management (`src/api/handlers/category_handler.rs`)
+### 3. Authentication & RBAC
+- **Features:** JWT Auth + 4-Level Permission System (Admin, Manager, Supervisor, Operator).
+- **Frontend:** Secure Layouts and Route Guards.
 
-- **Features:** Hierarchical categorization of assets.
-- **Frontend:** Tree/List view, Add/Edit categories.
+### 4. Lifecycle Management
+- **Features:** State machine transitions (Planning → Disposed).
+- **Frontend:** Drag-and-drop Kanban or Status-based workflow.
 
-### 3. Authentication & RBAC (`src/api/handlers/auth_handler.rs`)
+---
 
-- **Auth:** JWT-based authentication.
-- **RBAC:** 4-Level Permission System:
-  - **L1 (Admin):** Full System Access.
-  - **L2 (Manager):** Approvals (High Value), Reports, User Mgmt.
-  - **L3 (Supervisor):** Approvals (Standard), Assign WOs.
-  - **L4 (Operator):** View Assets, Create Requests/WOs.
+## 🟡 Advanced Modules (Feature Complete / Polishing)
 
-### 4. Lifecycle Management (`src/api/handlers/lifecycle_handler.rs`)
+### 5. Work Order System
+- **Status:** **Feature Complete**
+- **Details:** Preventive maintenance, repair tickets, cost tracking (Labor + Parts).
+- **UI:** Tabbed interfaces for Tasks and Parts management.
 
-- **State Machine:** Comprehensive lifecycle states (`planning` -> `procurement` -> ... -> `disposed`).
-- **Approval Workflow:**
-  - Transitions like `disposed` or `lost_stolen` trigger approval requests.
-  - Integrated with **Unified Approval Center**.
-- **History:** Full audit trail of status changes.
+### 6. Loans Module (Internal Lending)
+- **Status:** **Frontend Complete / Backend Integrated**
+- **Features:** Employee Checkout/Checkin flow with condition logging.
+- **UI:** Unified dashboard for Active, Overdue, and Pending requests.
 
-## 🟡 Work In Progress / Recently Completed
-
-### 5. Work Order System (`src/api/handlers/work_order_handler.rs`)
-
-- **Status:** **Feature Complete (Backend & Frontend)**
-- **Key Features:**
-  - **Integration:** Auto-updates Asset Lifecycle (`under_maintenance`, `under_repair`).
-  - **Details:** Manage maintenance Tasks (checklist) and Spare Parts.
-  - **Costing:** Auto-calculation of Labor + Parts cost.
-  - **Smart Actions:** Start/Complete based on assignment.
-
-### 6. Approvals (Unified) (`src/api/handlers/approval_handler.rs`)
-
-- **Features:** Centralized hub for all requests (Lifecycle, Work Orders, etc.).
-- **UI:** Filter by type, Approve/Reject actions, History view.
-
-- **Dashboard (`dashboard_handler.rs`):** High-level metrics (Total Assets, Asset Value, Pending Wo, etc.).
-
-## 🟡 Advanced Rental & Client Module (Sharpened)
-
-### 8. Client & Rate Management (`src/api/handlers/client_handler.rs`)
-
-- **Features:** Comprehensive Customer/Mitra database.
-- **Rates:** Specialized per-asset or per-category pricing templates.
-- **Frontend:** Dedicated Clients dashboard with quick search & contact management.
-
-### 9. Evidence-Based Rental Workflow (`src/api/handlers/timesheet_handler.rs`)
-
-- **Workflow:** 4-Step Validation (Operator HM -> Supervisor Photo Verification -> Client PIC Signature -> Admin Billing).
-- **Timesheet Reviewer:** Professional side-by-side view comparing field logs with photo evidence.
-- **Automated Billing:**
-  - Automated accumulation of operating, standby, and breakdown hours.
-  - Transparent calculation breakdown (Min 200 hours implementation).
-  - Billable hours audit log integrated into the billing verification UI.
-
-### 10. Mobile Field Sync (`mobile/`)
-
-- **Status:** **Integrated with Field Reporting**
+### 7. Rental & Client Management
+- **Status:** **High Fidelity UI**
 - **Features:**
-  - Hour Meter (HM) logging with required Photo Evidence.
-  - Offline-first support for remote project sites.
-  - Real-time status sync with Web Admin Reviewer.
+  - **Client & Rates:** Template-based pricing.
+  - **Timesheet Reviewer:** Split-screen evidence verification (Photo vs Log).
+  - **Billing:** Automated invoice generation base on hours (Op/St/Bk).
 
-## ⚪ Remaining Modules
+---
 
-- **Audits (`audit_handler.rs`):** Stock taking and asset verification features.
-- **Loans (`loan_handler.rs`):** Employee asset lending management.
-- **Reports (`report_handler.rs`):** PDF/Excel export capabilities.
+## ⚪ Mobile App (`mobile/`)
 
-### 8. Mobile App (`mobile/`)
+- **Status:** **Core Features Active**
+- **Capabilities:**
+  - Offline-first reporting.
+  - Photo evidence capture.
+  - QR Code scanning for asset lookup.
+  - Push Notifications (via WebSocket integration).
 
-- **Status:** **Feature Complete (Core)**
-- **Features:**
-  - Authentication (JWT).
-  - Dashboard (Active Rentals).
-  - Timesheet Input (With Photo Upload).
-  - History View.
-- **Tech Stack:** Expo, React Native Paper, Zustand, React Query.
+---
 
 ## 🛠 Tech Stack
 
 - **Backend:** Rust (Axum, SQLx, Tokio)
 - **Database:** PostgreSQL + Redis (Caching)
-- **Frontend:** React (Vite, Mantine, React Query)
+- **Frontend:** React (Vite, **Tailwind CSS v4**, React Query, Zustand)
 - **Infrastructure:** Docker Compose
 
-## 🔄 Handoff Notes for Agents
+## 🔄 Handoff Notes
 
-- **Lifecycle & WO Integration:** Logic resides in `WorkOrderService` calling `LifecycleRepository`.
-- **Workflow Docs:** Check `.agent/workflows/` for specific flow diagrams.
+- **Toast System:** Use `showToast()` from `src/components/ui/Toast` for non-component notifications.
+- **Components:** All UI elements reside in `src/components/ui`. Avoid introducing new CSS libraries.
+- **Workflow:** Check `.agent/workflows/` for architectural references.

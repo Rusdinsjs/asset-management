@@ -1,13 +1,20 @@
+// Locations Page - Pure Tailwind
 import { useEffect, useState } from 'react';
+import { Plus, Edit, Trash2, Search } from 'lucide-react';
+import { locationApi, type Location } from '../api/locations';
 import {
-    Title, Container, Table, Badge, Button, Group, Card, ActionIcon,
-    Modal, Select, TextInput, LoadingOverlay, Text, Paper, Stack,
-    NumberInput
-} from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { IconEdit, IconPlus, IconTrash, IconSearch } from '@tabler/icons-react';
-import { useDisclosure } from '@mantine/hooks'; // Fixed import
-import { locationApi, type Location } from '../api/locations'; // Fixed import
+    Button,
+    Card,
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd, TableEmpty,
+    Badge,
+    ActionIcon,
+    Modal,
+    Input,
+    Select,
+    NumberInput,
+    LoadingOverlay,
+    useToast,
+} from '../components/ui';
 
 const initialFormState = {
     code: '',
@@ -23,13 +30,14 @@ export function Locations() {
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
 
-    // Create/Edit State
-    const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false);
-    const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
+    const [modalOpen, setModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     const [editingLocation, setEditingLocation] = useState<Location | null>(null);
     const [formData, setFormData] = useState(initialFormState);
+
+    const { success, error: showError } = useToast();
 
     useEffect(() => {
         loadData();
@@ -42,7 +50,7 @@ export function Locations() {
             setLocations(data);
         } catch (error) {
             console.error(error);
-            notifications.show({ title: 'Error', message: 'Failed to load locations', color: 'red' });
+            showError('Failed to load locations', 'Error');
         } finally {
             setLoading(false);
         }
@@ -52,16 +60,12 @@ export function Locations() {
         setSubmitting(true);
         try {
             await locationApi.create(formData);
-            notifications.show({ title: 'Success', message: 'Location created', color: 'green' });
-            closeCreate();
+            success('Location created', 'Success');
+            setModalOpen(false);
             setFormData(initialFormState);
             loadData();
         } catch (e: any) {
-            notifications.show({
-                title: 'Error',
-                message: e.response?.data?.message || 'Failed to create location',
-                color: 'red'
-            });
+            showError(e.response?.data?.message || 'Failed to create location', 'Error');
         } finally {
             setSubmitting(false);
         }
@@ -72,15 +76,11 @@ export function Locations() {
         setSubmitting(true);
         try {
             await locationApi.update(editingLocation.id, formData);
-            notifications.show({ title: 'Success', message: 'Location updated', color: 'green' });
-            closeEdit();
+            success('Location updated', 'Success');
+            setModalOpen(false);
             loadData();
         } catch (e: any) {
-            notifications.show({
-                title: 'Error',
-                message: e.response?.data?.message || 'Failed to update location',
-                color: 'red'
-            });
+            showError(e.response?.data?.message || 'Failed to update location', 'Error');
         } finally {
             setSubmitting(false);
         }
@@ -90,15 +90,23 @@ export function Locations() {
         if (!window.confirm(`Are you sure you want to delete ${location.name}?`)) return;
         try {
             await locationApi.delete(location.id);
-            notifications.show({ title: 'Success', message: 'Location deleted', color: 'green' });
+            success('Location deleted', 'Success');
             loadData();
         } catch (e: any) {
-            notifications.show({ title: 'Error', message: 'Failed to delete location', color: 'red' });
+            showError('Failed to delete location', 'Error');
         }
+    };
+
+    const openCreateModal = () => {
+        setFormData(initialFormState);
+        setEditingLocation(null);
+        setIsEditing(false);
+        setModalOpen(true);
     };
 
     const openEditModal = (location: Location) => {
         setEditingLocation(location);
+        setIsEditing(true);
         setFormData({
             code: location.code,
             name: location.name,
@@ -107,18 +115,18 @@ export function Locations() {
             parent_id: location.parent_id || null,
             capacity: location.capacity || undefined,
         });
-        openEdit();
+        setModalOpen(true);
     };
 
-    const getTypeColor = (type: string) => {
+    const getTypeBadge = (type: string): 'info' | 'success' | 'warning' | 'default' => {
         switch (type.toLowerCase()) {
-            case 'country': return 'blue';
-            case 'city': return 'cyan';
-            case 'building': return 'teal';
-            case 'floor': return 'indigo';
-            case 'room': return 'violet';
-            case 'rack': return 'orange';
-            default: return 'gray';
+            case 'building':
+            case 'city': return 'info';
+            case 'floor':
+            case 'room': return 'success';
+            case 'rack':
+            case 'zone': return 'warning';
+            default: return 'default';
         }
     };
 
@@ -127,45 +135,14 @@ export function Locations() {
         l.code.toLowerCase().includes(search.toLowerCase())
     );
 
-    // Build parent options excluding self (if editing)
     const parentOptions = locations
         .filter(l => !editingLocation || l.id !== editingLocation.id)
         .map(l => ({ value: l.id, label: `${l.name} (${l.code})` }));
 
-    // Helper to get parent name
     const getParentName = (parentId?: string | null) => {
         if (!parentId) return '-';
         return locations.find(l => l.id === parentId)?.name || 'Unknown';
     };
-
-    const rows = filteredLocations.map((location) => (
-        <Table.Tr key={location.id}>
-            <Table.Td>
-                <Stack gap={0}>
-                    <Text fw={500}>{location.name}</Text>
-                    <Text size="xs" c="dimmed">{location.code}</Text>
-                </Stack>
-            </Table.Td>
-            <Table.Td>
-                <Badge color={getTypeColor(location.location_type)} variant="light">
-                    {location.location_type}
-                </Badge>
-            </Table.Td>
-            <Table.Td>{getParentName(location.parent_id)}</Table.Td>
-            <Table.Td>{location.address || '-'}</Table.Td>
-            <Table.Td>{location.capacity ? location.capacity : 'Unlimited'}</Table.Td>
-            <Table.Td>
-                <Group gap="xs">
-                    <ActionIcon variant="subtle" color="blue" onClick={() => openEditModal(location)}>
-                        <IconEdit size={16} />
-                    </ActionIcon>
-                    <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(location)}>
-                        <IconTrash size={16} />
-                    </ActionIcon>
-                </Group>
-            </Table.Td>
-        </Table.Tr>
-    ));
 
     const typeOptions = [
         { value: 'building', label: 'Building' },
@@ -177,68 +154,94 @@ export function Locations() {
     ];
 
     return (
-        <Container size="xl">
-            <Stack>
-                <Group justify="space-between">
-                    <Title order={2}>Locations</Title>
-                    <Button leftSection={<IconPlus size={16} />} onClick={() => {
-                        setFormData(initialFormState);
-                        setEditingLocation(null);
-                        openCreate();
-                    }}>Add Location</Button>
-                </Group>
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-white">Locations</h1>
+                <Button leftIcon={<Plus size={16} />} onClick={openCreateModal}>
+                    Add Location
+                </Button>
+            </div>
 
-                <Paper p="md" withBorder>
-                    <Group mb="md">
-                        <TextInput
+            <Card padding="lg">
+                {/* Search */}
+                <div className="mb-4">
+                    <div className="relative max-w-md">
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input
+                            type="text"
                             placeholder="Search by name or code..."
-                            leftSection={<IconSearch size={16} />}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            style={{ flex: 1 }}
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-950/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
                         />
-                    </Group>
+                    </div>
+                </div>
 
-                    <Card withBorder padding={0}>
-                        <LoadingOverlay visible={loading} />
-                        <Table highlightOnHover>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>Name / Code</Table.Th>
-                                    <Table.Th>Type</Table.Th>
-                                    <Table.Th>Parent Location</Table.Th>
-                                    <Table.Th>Address</Table.Th>
-                                    <Table.Th>Capacity</Table.Th>
-                                    <Table.Th>Actions</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {locations.length > 0 ? rows : (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={6} style={{ textAlign: 'center' }}>No locations found</Table.Td>
-                                    </Table.Tr>
-                                )}
-                            </Table.Tbody>
-                        </Table>
-                    </Card>
-                </Paper>
-            </Stack>
+                {/* Table */}
+                <div className="relative">
+                    <LoadingOverlay visible={loading} />
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableTh>Name / Code</TableTh>
+                                <TableTh>Type</TableTh>
+                                <TableTh>Parent Location</TableTh>
+                                <TableTh>Address</TableTh>
+                                <TableTh>Capacity</TableTh>
+                                <TableTh align="center">Actions</TableTh>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {filteredLocations.length > 0 ? filteredLocations.map((location) => (
+                                <TableRow key={location.id}>
+                                    <TableTd>
+                                        <div>
+                                            <p className="font-medium text-white">{location.name}</p>
+                                            <p className="text-xs text-slate-500">{location.code}</p>
+                                        </div>
+                                    </TableTd>
+                                    <TableTd>
+                                        <Badge variant={getTypeBadge(location.location_type)}>
+                                            {location.location_type}
+                                        </Badge>
+                                    </TableTd>
+                                    <TableTd>{getParentName(location.parent_id)}</TableTd>
+                                    <TableTd>{location.address || '-'}</TableTd>
+                                    <TableTd>{location.capacity ? location.capacity : 'Unlimited'}</TableTd>
+                                    <TableTd align="center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <ActionIcon onClick={() => openEditModal(location)} title="Edit">
+                                                <Edit size={16} />
+                                            </ActionIcon>
+                                            <ActionIcon variant="danger" onClick={() => handleDelete(location)} title="Delete">
+                                                <Trash2 size={16} />
+                                            </ActionIcon>
+                                        </div>
+                                    </TableTd>
+                                </TableRow>
+                            )) : (
+                                <TableEmpty colSpan={6} message="No locations found" />
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </Card>
 
-            {/* Form Modal (shared for create/edit) */}
+            {/* Create/Edit Modal */}
             <Modal
-                opened={createOpened || editOpened}
-                onClose={createOpened ? closeCreate : closeEdit}
-                title={createOpened ? "Add Location" : "Edit Location"}
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+                title={isEditing ? "Edit Location" : "Add Location"}
             >
-                <Stack>
-                    <TextInput
+                <div className="space-y-4">
+                    <Input
                         label="Code"
                         placeholder="e.g. BLD-01"
                         value={formData.code}
                         onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                         required
                     />
-                    <TextInput
+                    <Input
                         label="Name"
                         placeholder="e.g. Main Building"
                         value={formData.name}
@@ -247,21 +250,19 @@ export function Locations() {
                     />
                     <Select
                         label="Type"
-                        data={typeOptions}
                         value={formData.location_type}
                         onChange={(val) => setFormData({ ...formData, location_type: val || 'other' })}
+                        options={typeOptions}
                         required
                     />
                     <Select
                         label="Parent Location"
                         placeholder="Select parent (optional)"
-                        data={parentOptions}
-                        value={formData.parent_id}
-                        onChange={(val) => setFormData({ ...formData, parent_id: val })} // val is string | null
-                        searchable
-                        clearable
+                        value={formData.parent_id || ''}
+                        onChange={(val) => setFormData({ ...formData, parent_id: val || null })}
+                        options={parentOptions}
                     />
-                    <TextInput
+                    <Input
                         label="Address"
                         placeholder="Optional address"
                         value={formData.address}
@@ -269,15 +270,15 @@ export function Locations() {
                     />
                     <NumberInput
                         label="Capacity"
-                        placeholder="Max items (optional)"
+                        hint="Max items (optional)"
                         value={formData.capacity}
-                        onChange={(val) => setFormData({ ...formData, capacity: val === '' ? undefined : Number(val) })}
+                        onChange={(val) => setFormData({ ...formData, capacity: val })}
                     />
-                    <Button fullWidth onClick={createOpened ? handleCreate : handleUpdate} loading={submitting}>
-                        {createOpened ? "Save" : "Update"}
+                    <Button fullWidth onClick={isEditing ? handleUpdate : handleCreate} loading={submitting}>
+                        {isEditing ? "Update" : "Save"}
                     </Button>
-                </Stack>
+                </div>
             </Modal>
-        </Container>
+        </div>
     );
 }

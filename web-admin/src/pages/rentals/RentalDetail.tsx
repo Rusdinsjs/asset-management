@@ -1,58 +1,66 @@
+// Rental Detail Page - Pure Tailwind
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-    Stack, Title, Group, Button, Badge, Paper,
-    Text, Grid, Divider, Tabs, LoadingOverlay,
-    Modal, Textarea, NumberInput, Checkbox, Select
-} from '@mantine/core';
-import {
-    IconArrowLeft, IconTruck, IconCalendar, IconUser,
-    IconCheck, IconX, IconReceipt,
-    IconClock, IconClipboardList, IconTags
-} from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
-import { useDisclosure } from '@mantine/hooks';
+    ArrowLeft, Truck, Calendar, User,
+    Check, X, Receipt,
+    Clock, ClipboardList, Tags
+} from 'lucide-react';
 import { rentalApi } from '../../api/rental';
+import { api } from '../../api/client';
 import { TimesheetList } from '../../components/Rentals/TimesheetList';
 import { BillingHistory } from '../../components/Rentals/BillingHistory';
-import { api } from '../../api/client';
+import {
+    Button,
+    Card,
+    Badge,
+    Tabs, TabsList, TabsTrigger, TabsContent,
+    Modal,
+    Textarea,
+    NumberInput,
+    Checkbox,
+    Select,
+    LoadingOverlay,
+    useToast
+} from '../../components/ui';
 
 // Status Badge Helper
 const getStatusBadge = (status: string) => {
-    const colors: Record<string, string> = {
-        draft: 'gray',
-        requested: 'blue',
-        pending_approval: 'yellow',
-        approved: 'cyan',
-        rented_out: 'green',
-        returned: 'indigo',
-        completed: 'teal',
-        cancelled: 'red',
-        rejected: 'red',
+    const variants: Record<string, 'default' | 'info' | 'success' | 'warning' | 'danger'> = {
+        draft: 'default',
+        requested: 'info',
+        pending_approval: 'warning',
+        approved: 'info',
+        rented_out: 'success',
+        returned: 'default',
+        completed: 'success',
+        cancelled: 'danger',
+        rejected: 'danger',
     };
-    return <Badge color={colors[status] || 'gray'} size="lg" tt="capitalize">{status.replace('_', ' ')}</Badge>;
+    return <Badge variant={variants[status] || 'default'} className="capitalize">{status.replace('_', ' ')}</Badge>;
 };
 
 export function RentalDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { success } = useToast();
 
     // Modal controls
-    const [approveOpened, { open: openApprove, close: closeApprove }] = useDisclosure(false);
-    const [rejectOpened, { open: openReject, close: closeReject }] = useDisclosure(false);
-    const [dispatchOpened, { open: openDispatch, close: closeDispatch }] = useDisclosure(false);
-    const [returnOpened, { open: openReturn, close: closeReturn }] = useDisclosure(false);
+    const [approveOpened, setApproveOpened] = useState(false);
+    const [rejectOpened, setRejectOpened] = useState(false);
+    const [dispatchOpened, setDispatchOpened] = useState(false);
+    const [returnOpened, setReturnOpened] = useState(false);
 
     // Form states
     const [notes, setNotes] = useState('');
     const [rejectReason, setRejectReason] = useState('');
 
-    // Dispatch/Return form states (simplified for now)
+    // Dispatch/Return form states
     const [meterReading, setMeterReading] = useState<number | undefined>(undefined);
     const [hasDamage, setHasDamage] = useState(false);
-    const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+    const [selectedLocation, setSelectedLocation] = useState<string>('');
 
     // Fetch Locations
     const { data: locations = [] } = useQuery({
@@ -64,7 +72,7 @@ export function RentalDetail() {
     });
 
     // Fetch Rental Data
-    const { data: rental, isLoading, error } = useQuery({
+    const { data: rental, isLoading } = useQuery({
         queryKey: ['rental', id],
         queryFn: () => rentalApi.getRental(id!),
         enabled: !!id
@@ -74,32 +82,32 @@ export function RentalDetail() {
     const approveMutation = useMutation({
         mutationFn: () => rentalApi.approveRental(id!, notes),
         onSuccess: () => {
-            notifications.show({ title: 'Approved', message: 'Rental approved successfully', color: 'green' });
+            success('Rental approved successfully', 'Approved');
             queryClient.invalidateQueries({ queryKey: ['rental', id] });
-            closeApprove();
+            setApproveOpened(false);
         }
     });
 
     const rejectMutation = useMutation({
         mutationFn: () => rentalApi.rejectRental(id!, rejectReason),
         onSuccess: () => {
-            notifications.show({ title: 'Rejected', message: 'Rental rejected', color: 'red' });
+            success('Rental rejected', 'Rejected');
             queryClient.invalidateQueries({ queryKey: ['rental', id] });
-            closeReject();
+            setRejectOpened(false);
         }
     });
 
     const dispatchMutation = useMutation({
         mutationFn: () => rentalApi.dispatchRental(id!, {
-            driver_name: '', // Expand form later
+            driver_name: '',
             truck_plate: '',
             notes: notes,
-            location_id: selectedLocation
+            location_id: selectedLocation || null // API expects null or string?
         }),
         onSuccess: () => {
-            notifications.show({ title: 'Dispatched', message: 'Asset marked as dispatched', color: 'green' });
+            success('Asset marked as dispatched', 'Dispatched');
             queryClient.invalidateQueries({ queryKey: ['rental', id] });
-            closeDispatch();
+            setDispatchOpened(false);
         }
     });
 
@@ -108,202 +116,219 @@ export function RentalDetail() {
             return_date: new Date().toISOString().split('T')[0],
             meter_reading: meterReading || 0,
             notes: notes,
-            location_id: selectedLocation
+            location_id: selectedLocation || null
         }),
         onSuccess: () => {
-            notifications.show({ title: 'Returned', message: 'Asset marked as returned', color: 'green' });
+            success('Asset marked as returned', 'Returned');
             queryClient.invalidateQueries({ queryKey: ['rental', id] });
-            closeReturn();
+            setReturnOpened(false);
         }
     });
 
     if (isLoading) return <LoadingOverlay visible />;
-    if (error || !rental) return <Text c="red">Failed to load rental details</Text>;
+    // if (error || !rental) return <div className="text-red-400">Failed to load rental details</div>;
+
+    if (!rental) return <div className="text-red-400 p-8">Rental not found</div>;
 
     return (
-        <Stack gap="lg">
+        <div className="space-y-6 pb-20">
             {/* Header */}
-            <Group justify="space-between">
-                <Group>
-                    <Button variant="subtle" leftSection={<IconArrowLeft size={16} />} onClick={() => navigate('/rentals')}>
-                        Back
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" onClick={() => navigate('/rentals')}>
+                        <ArrowLeft size={20} />
                     </Button>
-                    <Title order={2}>Rental #{rental.rental_number}</Title>
-                    {getStatusBadge(rental.status)}
-                </Group>
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-white">Rental #{rental.rental_number}</h1>
+                        {getStatusBadge(rental.status)}
+                    </div>
+                </div>
 
-                <Group>
+                <div className="flex gap-2">
                     {/* Workflow Actions */}
                     {['requested', 'pending_approval'].includes(rental.status) && (
                         <>
-                            <Button color="red" variant="outline" leftSection={<IconX size={16} />} onClick={openReject}>Reject</Button>
-                            <Button color="green" leftSection={<IconCheck size={16} />} onClick={openApprove}>Approve</Button>
+                            <Button variant="danger" leftIcon={<X size={16} />} onClick={() => setRejectOpened(true)}>Reject</Button>
+                            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" leftIcon={<Check size={16} />} onClick={() => setApproveOpened(true)}>Approve</Button>
                         </>
                     )}
                     {rental.status === 'approved' && (
-                        <Button color="blue" leftSection={<IconTruck size={16} />} onClick={openDispatch}>Dispatch Asset</Button>
+                        <Button leftIcon={<Truck size={16} />} onClick={() => setDispatchOpened(true)}>Dispatch Asset</Button>
                     )}
                     {rental.status === 'rented_out' && (
-                        <Button color="orange" leftSection={<IconArrowLeft size={16} />} onClick={openReturn}>Register Return</Button>
+                        <Button className="bg-orange-600 hover:bg-orange-700 text-white" leftIcon={<ArrowLeft size={16} />} onClick={() => setReturnOpened(true)}>Register Return</Button>
                     )}
-                </Group>
-            </Group>
+                </div>
+            </div>
 
             {/* Info Cards */}
-            <Grid>
-                <Grid.Col span={{ base: 12, md: 8 }}>
-                    <Paper withBorder p="md">
-                        <Title order={4} mb="md">Details</Title>
-                        <Grid>
-                            <Grid.Col span={6}>
-                                <Stack gap="xs">
-                                    <Text size="sm" c="dimmed">Client</Text>
-                                    <Group gap="xs">
-                                        <IconUser size={18} color="gray" />
-                                        <Text fw={500}>{rental.client_name}</Text>
-                                    </Group>
-                                </Stack>
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                                <Stack gap="xs">
-                                    <Text size="sm" c="dimmed">Asset</Text>
-                                    <Group gap="xs">
-                                        <IconTruck size={18} color="gray" />
-                                        <Text fw={500}>{rental.asset_name}</Text>
-                                    </Group>
-                                </Stack>
-                            </Grid.Col>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div className="md:col-span-8">
+                    <Card padding="md">
+                        <h3 className="text-lg font-bold text-white mb-4">Details</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-1">
+                                <span className="text-sm text-slate-500">Client</span>
+                                <div className="flex items-center gap-2 text-white">
+                                    <User size={18} className="text-slate-500" />
+                                    <span className="font-medium">{rental.client_name}</span>
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <span className="text-sm text-slate-500">Asset</span>
+                                <div className="flex items-center gap-2 text-white">
+                                    <Truck size={18} className="text-slate-500" />
+                                    <span className="font-medium">{rental.asset_name}</span>
+                                </div>
+                            </div>
 
-                            <Grid.Col span={12}><Divider my="xs" /></Grid.Col>
+                            <div className="col-span-1 md:col-span-2 h-px bg-slate-800 my-2" />
 
-                            <Grid.Col span={6}>
-                                <Stack gap="xs">
-                                    <Text size="sm" c="dimmed">Start Date</Text>
-                                    <Group gap="xs">
-                                        <IconCalendar size={18} color="gray" />
-                                        <Text>{rental.start_date}</Text>
-                                    </Group>
-                                </Stack>
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                                <Stack gap="xs">
-                                    <Text size="sm" c="dimmed">Expected End</Text>
-                                    <Group gap="xs">
-                                        <IconCalendar size={18} color="gray" />
-                                        <Text>{rental.expected_end_date || 'N/A'}</Text>
-                                    </Group>
-                                </Stack>
-                            </Grid.Col>
-                        </Grid>
-                    </Paper>
-                </Grid.Col>
+                            <div className="space-y-1">
+                                <span className="text-sm text-slate-500">Start Date</span>
+                                <div className="flex items-center gap-2 text-white">
+                                    <Calendar size={18} className="text-slate-500" />
+                                    <span>{rental.start_date}</span>
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <span className="text-sm text-slate-500">Expected End</span>
+                                <div className="flex items-center gap-2 text-white">
+                                    <Calendar size={18} className="text-slate-500" />
+                                    <span>{rental.expected_end_date || 'N/A'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
 
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                    <Paper withBorder p="md" h="100%">
-                        <Title order={4} mb="md">Financials</Title>
-                        <Stack gap="md">
-                            <Group justify="space-between">
-                                <Text size="sm">Standard Rate</Text>
-                                <Text fw={600}>Rp {rental.daily_rate?.toLocaleString()}</Text>
-                            </Group>
+                <div className="md:col-span-4">
+                    <Card padding="md" className="h-full">
+                        <h3 className="text-lg font-bold text-white mb-4">Financials</h3>
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm text-slate-400">Standard Rate</span>
+                                <span className="text-lg font-bold text-white">Rp {rental.daily_rate?.toLocaleString()}</span>
+                            </div>
                             {rental.rate_name && (
-                                <Text size="xs" c="dimmed">Template: {rental.rate_name}</Text>
+                                <p className="text-xs text-slate-500">Template: {rental.rate_name}</p>
                             )}
-                            <Divider />
-                            {/* Placeholder for accumulated billing stats */}
-                            <Text size="sm" c="dimmed">Total Billed to Date</Text>
-                            <Text fw={700} size="xl">Rp 0</Text>
-                        </Stack>
-                    </Paper>
-                </Grid.Col>
-            </Grid>
+                            <div className="w-full h-px bg-slate-800" />
+                            <div>
+                                <span className="text-sm text-slate-500">Total Billed to Date</span>
+                                <p className="text-2xl font-bold text-white mt-1">Rp 0</p>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            </div>
 
             {/* Tabs for Sub-modules */}
-            <Tabs defaultValue="overview">
-                <Tabs.List>
-                    <Tabs.Tab value="overview" leftSection={<IconClipboardList size={14} />}>Overview</Tabs.Tab>
-                    <Tabs.Tab value="timesheets" leftSection={<IconClock size={14} />}>Timesheets</Tabs.Tab>
-                    <Tabs.Tab value="billing" leftSection={<IconReceipt size={14} />}>Billing History</Tabs.Tab>
-                    <Tabs.Tab value="handovers" leftSection={<IconTags size={14} />}>Handovers</Tabs.Tab>
-                </Tabs.List>
+            <Card padding="none" className="overflow-hidden">
+                <Tabs defaultValue="overview">
+                    <div className="px-4 pt-4 border-b border-slate-800">
+                        <TabsList>
+                            <TabsTrigger value="overview" icon={<ClipboardList size={14} />}>Overview</TabsTrigger>
+                            <TabsTrigger value="timesheets" icon={<Clock size={14} />}>Timesheets</TabsTrigger>
+                            <TabsTrigger value="billing" icon={<Receipt size={14} />}>Billing History</TabsTrigger>
+                            <TabsTrigger value="handovers" icon={<Tags size={14} />}>Handovers</TabsTrigger>
+                        </TabsList>
+                    </div>
 
-                <Tabs.Panel value="overview" pt="md">
-                    <Stack>
-                        <Text>Notes: {rental.notes || 'No notes'}</Text>
-                    </Stack>
-                </Tabs.Panel>
+                    <div className="bg-slate-900/50 min-h-[300px]">
+                        <TabsContent value="overview" className="p-6">
+                            <div className="space-y-2">
+                                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Notes</h4>
+                                <p className="text-white bg-slate-950 p-4 rounded-lg border border-slate-800">
+                                    {rental.notes || 'No notes available.'}
+                                </p>
+                            </div>
+                        </TabsContent>
 
-                <Tabs.Panel value="timesheets" pt="md">
-                    <TimesheetList rentalId={id} />
-                </Tabs.Panel>
+                        <TabsContent value="timesheets" className="p-6">
+                            <TimesheetList rentalId={id} />
+                        </TabsContent>
 
-                <Tabs.Panel value="billing" pt="md">
-                    {id && <BillingHistory rentalId={id} />}
-                </Tabs.Panel>
+                        <TabsContent value="billing" className="p-6">
+                            {id && <BillingHistory rentalId={id} />}
+                        </TabsContent>
 
-                <Tabs.Panel value="handovers" pt="md">
-                    <Stack>
-                        <Text c="dimmed" fs="italic">Handover logs (Dispatch/Return) are not yet available via API.</Text>
-                    </Stack>
-                </Tabs.Panel>
-            </Tabs>
+                        <TabsContent value="handovers" className="p-6">
+                            <div className="text-center py-8">
+                                <p className="text-slate-500 italic">Handover logs (Dispatch/Return) are not yet available via API.</p>
+                            </div>
+                        </TabsContent>
+                    </div>
+                </Tabs>
+            </Card>
 
             {/* MODALS */}
 
-            <Modal opened={approveOpened} onClose={closeApprove} title="Approve Rental Request">
-                <Stack>
-                    <Text size="sm">Are you sure you want to approve this rental request?</Text>
+            {/* Approve Modal */}
+            <Modal isOpen={approveOpened} onClose={() => setApproveOpened(false)} title="Approve Rental Request">
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-300">Are you sure you want to approve this rental request?</p>
                     <Textarea
                         label="Approval Notes (Optional)"
                         value={notes}
-                        onChange={(e) => setNotes(e.currentTarget.value)}
+                        onChange={(e) => setNotes(e.target.value)}
                     />
-                    <Button color="green" onClick={() => approveMutation.mutate()} loading={approveMutation.isPending}>
-                        Confirm Approval
-                    </Button>
-                </Stack>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="ghost" onClick={() => setApproveOpened(false)}>Cancel</Button>
+                        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => approveMutation.mutate()} loading={approveMutation.isPending}>
+                            Confirm Approval
+                        </Button>
+                    </div>
+                </div>
             </Modal>
 
-            <Modal opened={rejectOpened} onClose={closeReject} title="Reject Rental Request">
-                <Stack>
+            {/* Reject Modal */}
+            <Modal isOpen={rejectOpened} onClose={() => setRejectOpened(false)} title="Reject Rental Request">
+                <div className="space-y-4">
                     <Textarea
                         label="Reason for Rejection"
                         required
                         value={rejectReason}
-                        onChange={(e) => setRejectReason(e.currentTarget.value)}
+                        onChange={(e) => setRejectReason(e.target.value)}
                     />
-                    <Button color="red" onClick={() => rejectMutation.mutate()} loading={rejectMutation.isPending}>
-                        Reject Request
-                    </Button>
-                </Stack>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="ghost" onClick={() => setRejectOpened(false)}>Cancel</Button>
+                        <Button variant="danger" onClick={() => rejectMutation.mutate()} loading={rejectMutation.isPending}>
+                            Reject Request
+                        </Button>
+                    </div>
+                </div>
             </Modal>
 
-            <Modal opened={dispatchOpened} onClose={closeDispatch} title="Dispatch Asset">
-                <Stack>
-                    <Text size="sm">Confirm dispatch of asset to client.</Text>
+            {/* Dispatch Modal */}
+            <Modal isOpen={dispatchOpened} onClose={() => setDispatchOpened(false)} title="Dispatch Asset">
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-300">Confirm dispatch of asset to client.</p>
                     <Select
                         label="Destination Location"
                         placeholder="Select client site..."
-                        data={locations}
+                        options={locations}
                         value={selectedLocation}
                         onChange={setSelectedLocation}
-                        searchable
-                        clearable
                     />
                     <Textarea
                         label="Dispatch Notes"
                         placeholder="Condition notes, accessories included..."
                         value={notes}
-                        onChange={(e) => setNotes(e.currentTarget.value)}
+                        onChange={(e) => setNotes(e.target.value)}
                     />
-                    <Button onClick={() => dispatchMutation.mutate()} loading={dispatchMutation.isPending}>
-                        Confirm Dispatch
-                    </Button>
-                </Stack>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="ghost" onClick={() => setDispatchOpened(false)}>Cancel</Button>
+                        <Button onClick={() => dispatchMutation.mutate()} loading={dispatchMutation.isPending}>
+                            Confirm Dispatch
+                        </Button>
+                    </div>
+                </div>
             </Modal>
 
-            <Modal opened={returnOpened} onClose={closeReturn} title="Register Asset Return">
-                <Stack>
+            {/* Return Modal */}
+            <Modal isOpen={returnOpened} onClose={() => setReturnOpened(false)} title="Register Asset Return">
+                <div className="space-y-4">
                     <NumberInput
                         label="Final Meter Reading"
                         placeholder="HM / KM"
@@ -313,27 +338,28 @@ export function RentalDetail() {
                     <Checkbox
                         label="Has Damage?"
                         checked={hasDamage}
-                        onChange={(e) => setHasDamage(e.currentTarget.checked)}
+                        onChange={(checked: any) => setHasDamage(checked)}
                     />
                     <Textarea
                         label="Return Notes / Damage Description"
                         value={notes}
-                        onChange={(e) => setNotes(e.currentTarget.value)}
+                        onChange={(e) => setNotes(e.target.value)}
                     />
                     <Select
                         label="Return Location"
                         placeholder="Select warehouse/yard..."
-                        data={locations}
+                        options={locations}
                         value={selectedLocation}
                         onChange={setSelectedLocation}
-                        searchable
-                        clearable
                     />
-                    <Button color="orange" onClick={() => returnMutation.mutate()} loading={returnMutation.isPending}>
-                        Confirm Return
-                    </Button>
-                </Stack>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="ghost" onClick={() => setReturnOpened(false)}>Cancel</Button>
+                        <Button className="bg-orange-600 hover:bg-orange-700 text-white" onClick={() => returnMutation.mutate()} loading={returnMutation.isPending}>
+                            Confirm Return
+                        </Button>
+                    </div>
+                </div>
             </Modal>
-        </Stack>
+        </div>
     );
 }

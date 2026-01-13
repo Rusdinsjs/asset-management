@@ -1,13 +1,22 @@
+// BillingList Component - Pure Tailwind
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Table, Paper, Select, Badge, Button, Group, ActionIcon, Modal } from '@mantine/core';
-import { IconReceipt, IconEye } from '@tabler/icons-react';
+import { Receipt, Eye } from 'lucide-react';
 import { billingApi } from '../../api/timesheet';
 import { rentalApi } from '../../api/rental';
 import { BillingReviewDetail } from './BillingReviewDetail';
+import {
+    Table, TableHead, TableBody, TableRow, TableTh,
+    Select,
+    Button,
+    LoadingOverlay,
+    ActionIcon,
+    StatusBadge,
+    Modal
+} from '../ui';
 
 export function BillingList() {
-    const [selectedRental, setSelectedRental] = useState<string | null>(null);
+    const [selectedRental, setSelectedRental] = useState<string>('');
     const [viewingBillingId, setViewingBillingId] = useState<string | null>(null);
 
     const { data: rentals } = useQuery({
@@ -17,86 +26,87 @@ export function BillingList() {
 
     const rentalOptions = rentals?.map(r => ({ value: r.id, label: `${r.rental_number} - ${r.asset_name}` })) || [];
 
-    const { data: billingPeriods } = useQuery({
+    const { data: billingPeriods, isLoading } = useQuery({
         queryKey: ['billing', selectedRental],
         queryFn: () => selectedRental ? billingApi.listByRental(selectedRental) : Promise.resolve([]),
         enabled: !!selectedRental
     });
 
     return (
-        <>
-            <Paper p="md" shadow="sm" withBorder>
-                <Group mb="md" justify="space-between">
+        <div className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+                <div className="w-[300px]">
                     <Select
                         placeholder="Select Rental Asset"
-                        data={rentalOptions}
+                        options={rentalOptions}
                         value={selectedRental}
-                        onChange={setSelectedRental}
-                        searchable
-                        w={300}
+                        onChange={(val) => setSelectedRental(val)}
                     />
-                    <Button leftSection={<IconReceipt size={16} />} disabled={!selectedRental}>
-                        Generate New Billing Period
-                    </Button>
-                </Group>
+                </div>
+                <Button
+                    leftIcon={<Receipt size={16} />}
+                    disabled={!selectedRental}
+                >
+                    Generate New Billing Period
+                </Button>
+            </div>
+
+            <div className="relative min-h-[100px]">
+                <LoadingOverlay visible={isLoading} />
 
                 {selectedRental && (
-                    <Table verticalSpacing="sm">
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Period</Table.Th>
-                                <Table.Th>Total Amount</Table.Th>
-                                <Table.Th>Status</Table.Th>
-                                <Table.Th>Invoice No.</Table.Th>
-                                <Table.Th>Action</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableTh>Period</TableTh>
+                                <TableTh>Total Amount</TableTh>
+                                <TableTh>Status</TableTh>
+                                <TableTh>Invoice No.</TableTh>
+                                <TableTh className="text-right">Action</TableTh>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
                             {billingPeriods?.map((bP) => (
-                                <Table.Tr key={bP.id}>
-                                    <Table.Td>{bP.period_start} - {bP.period_end}</Table.Td>
-                                    <Table.Td>{bP.total_amount?.toLocaleString()}</Table.Td>
-                                    <Table.Td>
-                                        <Badge
-                                            color={
-                                                bP.status === 'invoiced' ? 'green' :
-                                                    bP.status === 'approved' ? 'blue' :
-                                                        bP.status === 'calculated' ? 'orange' : 'gray'
-                                            }
-                                        >
-                                            {bP.status}
-                                        </Badge>
-                                    </Table.Td>
-                                    <Table.Td>{bP.invoice_number || '-'}</Table.Td>
-                                    <Table.Td>
-                                        <ActionIcon
-                                            variant="light"
-                                            title="Verify Details"
-                                            onClick={() => setViewingBillingId(bP.id)}
-                                        >
-                                            <IconEye size={16} />
-                                        </ActionIcon>
-                                    </Table.Td>
-                                </Table.Tr>
+                                <TableRow key={bP.id}>
+                                    <td className="px-4 py-3 text-slate-200">{bP.period_start} - {bP.period_end}</td>
+                                    <td className="px-4 py-3 text-slate-200">{bP.total_amount?.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-slate-200">
+                                        <StatusBadge status={bP.status} />
+                                    </td>
+                                    <td className="px-4 py-3 text-slate-200">{bP.invoice_number || '-'}</td>
+                                    <td className="px-4 py-3 text-slate-200 text-right">
+                                        <div className="flex justify-end">
+                                            <ActionIcon
+                                                title="Verify Details"
+                                                onClick={() => setViewingBillingId(bP.id)}
+                                            >
+                                                <Eye size={16} />
+                                            </ActionIcon>
+                                        </div>
+                                    </td>
+                                </TableRow>
                             ))}
-                        </Table.Tbody>
+                        </TableBody>
                     </Table>
                 )}
-            </Paper>
+            </div>
 
+            {/* Modal for Billing Review */}
             <Modal
-                opened={!!viewingBillingId}
+                isOpen={!!viewingBillingId}
                 onClose={() => setViewingBillingId(null)}
-                size="70%"
                 title="Automated Billing Verification Detail"
+                size="lg"
             >
                 {viewingBillingId && (
-                    <BillingReviewDetail
-                        billingId={viewingBillingId}
-                        onClose={() => setViewingBillingId(null)}
-                    />
+                    <div className="text-slate-300">
+                        <BillingReviewDetail
+                            billingId={viewingBillingId}
+                            onClose={() => setViewingBillingId(null)}
+                        />
+                    </div>
                 )}
             </Modal>
-        </>
+        </div>
     );
 }

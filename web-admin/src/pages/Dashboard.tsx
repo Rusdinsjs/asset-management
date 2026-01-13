@@ -1,10 +1,83 @@
-import { SimpleGrid, LoadingOverlay, Grid, Paper, Text, Group, RingProgress, Center, ThemeIcon } from '@mantine/core';
+// Dashboard Page - Pure Tailwind
 import { useQuery } from '@tanstack/react-query';
-import { IconBox, IconTool, IconAlertTriangle, IconCurrencyDollar, IconClock, IconChecklist } from '@tabler/icons-react';
+import { Package, DollarSign, Wrench, AlertTriangle, Clock, ClipboardCheck } from 'lucide-react';
 import { api } from '../api/client';
-import { StatCard } from '../components/dashboard/StatCard';
-import { RecentActivity, type ActivityItem } from '../components/dashboard/RecentActivity';
-import { DashboardCharts } from '../components/dashboard/DashboardCharts';
+import { Card } from '../components/ui';
+import { PageLoading } from '../components/ui';
+
+// Stat Card Component
+interface StatCardProps {
+    label: string;
+    value: string | number;
+    icon: React.ElementType;
+    color: 'blue' | 'green' | 'orange' | 'red' | 'purple';
+    description?: string;
+}
+
+function StatCard({ label, value, icon: Icon, color, description }: StatCardProps) {
+    const colors = {
+        blue: 'from-blue-500 to-blue-600 shadow-blue-500/20',
+        green: 'from-emerald-500 to-emerald-600 shadow-emerald-500/20',
+        orange: 'from-amber-500 to-amber-600 shadow-amber-500/20',
+        red: 'from-red-500 to-red-600 shadow-red-500/20',
+        purple: 'from-purple-500 to-purple-600 shadow-purple-500/20',
+    };
+
+    return (
+        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 hover:border-slate-700 transition-colors">
+            <div className="flex items-start justify-between mb-3">
+                <div className={`p-3 rounded-xl bg-gradient-to-br ${colors[color]} shadow-lg`}>
+                    <Icon size={22} className="text-white" />
+                </div>
+            </div>
+            <p className="text-2xl font-bold text-white mb-1">{value}</p>
+            <p className="text-sm text-slate-400">{label}</p>
+            {description && (
+                <p className="text-xs text-slate-500 mt-2">{description}</p>
+            )}
+        </div>
+    );
+}
+
+// Ring Progress for Asset Availability
+function RingProgress({ percentage }: { percentage: number }) {
+    const circumference = 2 * Math.PI * 80;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+    return (
+        <div className="relative w-48 h-48">
+            <svg className="w-full h-full transform -rotate-90">
+                {/* Background circle */}
+                <circle
+                    cx="96"
+                    cy="96"
+                    r="80"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="16"
+                    className="text-slate-800"
+                />
+                {/* Progress circle */}
+                <circle
+                    cx="96"
+                    cy="96"
+                    r="80"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="16"
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    className="text-cyan-500 transition-all duration-500"
+                />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-bold text-white">{percentage}%</span>
+                <span className="text-sm text-slate-400">Available</span>
+            </div>
+        </div>
+    );
+}
 
 export function Dashboard() {
     // 1. Fetch Main Stats
@@ -21,7 +94,7 @@ export function Dashboard() {
         queryKey: ['dashboard-activity'],
         queryFn: async () => {
             const res = await api.get('/dashboard/activity');
-            return res.data as ActivityItem[];
+            return res.data as any[];
         },
     });
 
@@ -36,157 +109,170 @@ export function Dashboard() {
 
     const isLoading = statsLoading || activityLoading || financialsLoading;
 
-    if (isLoading) return <LoadingOverlay visible />;
+    if (isLoading) return <PageLoading />;
 
-    // Prepare Stat Cards
+    // Format currency
+    const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            maximumFractionDigits: 0
+        }).format(value);
+    };
+
+    // Calculate Asset Availability
+    const totalAssets = stats?.assets?.total || 1;
+    const availableAssets = stats?.assets?.by_status?.find((s: any) => s.status === 'available')?.count || 0;
+    const availablePercentage = Math.round((availableAssets / totalAssets) * 100);
+
+    // Stat items
     const statItems = [
         {
             label: 'Total Assets',
             value: stats?.assets?.total || 0,
-            icon: IconBox,
-            color: 'blue',
+            icon: Package,
+            color: 'blue' as const,
             description: `${stats?.assets?.by_status?.find((s: any) => s.status === 'available')?.count || 0} Available`
         },
         {
             label: 'Total Value',
-            value: new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(stats?.assets?.total_value || 0),
-            icon: IconCurrencyDollar,
-            color: 'green',
+            value: formatCurrency(stats?.assets?.total_value || 0),
+            icon: DollarSign,
+            color: 'green' as const,
             description: 'Asset Purchase Value'
         },
         {
             label: 'Active Work Orders',
             value: stats?.maintenance?.pending || 0,
-            icon: IconTool,
-            color: 'orange',
+            icon: Wrench,
+            color: 'orange' as const,
             description: `${stats?.maintenance?.overdue || 0} Overdue`
         },
         {
             label: 'Critical Alerts',
             value: stats?.alerts?.critical || 0,
-            icon: IconAlertTriangle,
-            color: 'red',
+            icon: AlertTriangle,
+            color: 'red' as const,
             description: `${stats?.alerts?.active || 0} Active Alerts`
         },
     ];
 
-    // Calculate Asset Availability for Chart
-    const totalAssets = stats?.assets?.total || 1; // avoid division by zero
-    const availableAssets = stats?.assets?.by_status?.find((s: any) => s.status === 'available')?.count || 0;
-    const availablePercentage = Math.round((availableAssets / totalAssets) * 100);
-
     return (
-        <div>
-            <Text size="xl" fw={700} mb="lg">Dashboard Overview</Text>
+        <div className="space-y-6">
+            <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
 
             {/* Top Stats Row */}
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg" mb="lg">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {statItems.map((item) => (
                     <StatCard key={item.label} {...item} />
                 ))}
-            </SimpleGrid>
+            </div>
 
-            {/* Charts Section */}
-            <DashboardCharts
-                categoryDistribution={stats?.category_distribution}
-                statusDistribution={stats?.assets?.by_status}
-            />
-
-            <Grid gutter="lg">
-                {/* Main Content Area - Left Column */}
-                <Grid.Col span={{ base: 12, md: 8 }}>
-
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Main Content Area - Left Column (2/3) */}
+                <div className="lg:col-span-2 space-y-6">
                     {/* Financial Snapshot */}
-                    <Paper withBorder p="md" radius="md" mb="lg">
-                        <Text size="lg" fw={600} mb="md">Financial Snapshot</Text>
-                        <SimpleGrid cols={{ base: 1, sm: 3 }}>
+                    <Card padding="lg">
+                        <h2 className="text-lg font-semibold text-white mb-4">Financial Snapshot</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                             <div>
-                                <Text c="dimmed" size="xs" tt="uppercase" fw={700}>Original Cost</Text>
-                                <Text fw={700} size="lg">
-                                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(financials?.total_original_cost || 0)}
-                                </Text>
+                                <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Original Cost</p>
+                                <p className="text-xl font-bold text-white">
+                                    {formatCurrency(financials?.total_original_cost || 0)}
+                                </p>
                             </div>
                             <div>
-                                <Text c="dimmed" size="xs" tt="uppercase" fw={700}>Est. Depreciation</Text>
-                                <Text fw={700} size="lg" c="red">
-                                    -{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(financials?.total_accumulated_depreciation || 0)}
-                                </Text>
+                                <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Est. Depreciation</p>
+                                <p className="text-xl font-bold text-red-400">
+                                    -{formatCurrency(financials?.total_accumulated_depreciation || 0)}
+                                </p>
                             </div>
                             <div>
-                                <Text c="dimmed" size="xs" tt="uppercase" fw={700}>Book Value</Text>
-                                <Text fw={700} size="lg" c="blue">
-                                    {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(financials?.total_book_value || 0)}
-                                </Text>
+                                <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Book Value</p>
+                                <p className="text-xl font-bold text-cyan-400">
+                                    {formatCurrency(financials?.total_book_value || 0)}
+                                </p>
                             </div>
-                        </SimpleGrid>
-                    </Paper>
+                        </div>
+                    </Card>
 
                     {/* Recent Activity */}
-                    <RecentActivity activities={activities || []} />
-                </Grid.Col>
-
-                {/* Sidebar - Right Column */}
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                    <Paper withBorder p="md" radius="md" mb="lg">
-                        <Text size="lg" fw={600} mb="xl">Asset Availability</Text>
-                        <Center>
-                            <RingProgress
-                                size={220}
-                                thickness={24}
-                                roundCaps
-                                sections={[
-                                    { value: availablePercentage, color: 'teal' },
-                                    { value: 100 - availablePercentage, color: 'gray.3' },
-                                ]}
-                                label={
-                                    <Center>
-                                        <div>
-                                            <Text ta="center" fz="xl" fw={700}>
-                                                {availablePercentage}%
-                                            </Text>
-                                            <Text ta="center" c="dimmed" size="xs">
-                                                Available
-                                            </Text>
+                    <Card padding="lg">
+                        <h2 className="text-lg font-semibold text-white mb-4">Recent Activity</h2>
+                        {activities && activities.length > 0 ? (
+                            <div className="space-y-3 max-h-80 overflow-y-auto">
+                                {activities.slice(0, 10).map((activity: any, idx: number) => (
+                                    <div
+                                        key={idx}
+                                        className="flex items-center gap-3 p-3 bg-slate-950/50 rounded-lg border border-slate-800"
+                                    >
+                                        <div className="w-2 h-2 rounded-full bg-cyan-500" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm text-white truncate">{activity.action}</p>
+                                            <p className="text-xs text-slate-500">{activity.entity_type}</p>
                                         </div>
-                                    </Center>
-                                }
-                            />
-                        </Center>
-                        <Group justify="center" mt="md">
-                            <Group gap={5}>
-                                <ThemeIcon color="teal" size={10} radius="xl"> </ThemeIcon>
-                                <Text size="sm" c="dimmed">Available</Text>
-                            </Group>
-                            <Group gap={5}>
-                                <ThemeIcon color="gray.3" size={10} radius="xl"> </ThemeIcon>
-                                <Text size="sm" c="dimmed">In Use / Others</Text>
-                            </Group>
-                        </Group>
-                    </Paper>
+                                        <span className="text-xs text-slate-500">
+                                            {new Date(activity.created_at).toLocaleDateString('id-ID')}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-500 text-center py-8">No recent activity</p>
+                        )}
+                    </Card>
+                </div>
+
+                {/* Sidebar - Right Column (1/3) */}
+                <div className="space-y-6">
+                    {/* Asset Availability */}
+                    <Card padding="lg">
+                        <h2 className="text-lg font-semibold text-white mb-6">Asset Availability</h2>
+                        <div className="flex justify-center">
+                            <RingProgress percentage={availablePercentage} />
+                        </div>
+                        <div className="flex justify-center gap-6 mt-4">
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full bg-cyan-500" />
+                                <span className="text-sm text-slate-400">Available</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded-full bg-slate-700" />
+                                <span className="text-sm text-slate-400">In Use / Others</span>
+                            </div>
+                        </div>
+                    </Card>
 
                     {/* Operational Stats */}
-                    <Paper withBorder p="md" radius="md">
-                        <Text size="lg" fw={600} mb="md">Operational Needs</Text>
-                        <Group mb="sm">
-                            <ThemeIcon color="grape" variant="light"><IconChecklist size={18} /></ThemeIcon>
-                            <Text flex={1} size="sm">Pending Loan Approvals</Text>
-                            <Text fw={700}>{stats?.loans?.pending_approval || 0}</Text>
-                        </Group>
-                        <Group mb="sm">
-                            <ThemeIcon color="orange" variant="light"><IconClock size={18} /></ThemeIcon>
-                            <Text flex={1} size="sm">Overdue Loans</Text>
-                            <Text fw={700} c="orange">{stats?.loans?.overdue || 0}</Text>
-                        </Group>
-                        <Group>
-                            <ThemeIcon color="red" variant="light"><IconTool size={18} /></ThemeIcon>
-                            <Text flex={1} size="sm">Overdue Maintenance</Text>
-                            <Text fw={700} c="red">{stats?.maintenance?.overdue || 0}</Text>
-                        </Group>
-                    </Paper>
-
-                </Grid.Col>
-            </Grid>
+                    <Card padding="lg">
+                        <h2 className="text-lg font-semibold text-white mb-4">Operational Needs</h2>
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-purple-500/20 rounded-lg">
+                                    <ClipboardCheck size={18} className="text-purple-400" />
+                                </div>
+                                <span className="flex-1 text-sm text-slate-300">Pending Loan Approvals</span>
+                                <span className="font-bold text-white">{stats?.loans?.pending_approval || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-amber-500/20 rounded-lg">
+                                    <Clock size={18} className="text-amber-400" />
+                                </div>
+                                <span className="flex-1 text-sm text-slate-300">Overdue Loans</span>
+                                <span className="font-bold text-amber-400">{stats?.loans?.overdue || 0}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-500/20 rounded-lg">
+                                    <Wrench size={18} className="text-red-400" />
+                                </div>
+                                <span className="flex-1 text-sm text-slate-300">Overdue Maintenance</span>
+                                <span className="font-bold text-red-400">{stats?.maintenance?.overdue || 0}</span>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            </div>
         </div>
     );
 }
-

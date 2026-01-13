@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { notifications } from '@mantine/notifications';
+import { showToast } from '../components/ui/Toast';
 import { useAuthStore } from '../store/useAuthStore';
 
 export const api = axios.create({
@@ -25,11 +25,7 @@ api.interceptors.response.use(
 
         if (error.response?.status === 401) {
             useAuthStore.getState().logout();
-            notifications.show({
-                title: 'Session Expired',
-                message: 'Please login again',
-                color: 'red',
-            });
+            showToast('Please login again', 'error', 'Session Expired');
         }
 
         return Promise.reject(error);

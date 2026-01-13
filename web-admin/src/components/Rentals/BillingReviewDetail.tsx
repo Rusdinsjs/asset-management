@@ -1,11 +1,11 @@
-import {
-    Paper, Stack, Group, Title, Text, Table, Badge,
-    Divider, Grid, Button, LoadingOverlay, ScrollArea, Center
-} from '@mantine/core';
+// BillingReviewDetail - Pure Tailwind
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { billingApi } from '../../api/timesheet';
-import { IconClock, IconAlertCircle, IconCheck, IconFileInvoice } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
+import { Clock, AlertCircle, Check, FileText } from 'lucide-react';
+import {
+    Button, Badge, Table, TableHead, TableBody, TableRow, TableTh, TableTd,
+    LoadingOverlay, Card, useToast
+} from '../ui';
 
 interface Props {
     billingId: string;
@@ -14,6 +14,8 @@ interface Props {
 
 export function BillingReviewDetail({ billingId, onClose }: Props) {
     const queryClient = useQueryClient();
+    const { success, error: showError } = useToast();
+
     const { data: summary, isLoading } = useQuery({
         queryKey: ['billing', 'summary', billingId],
         queryFn: () => billingApi.getSummary(billingId)
@@ -23,178 +25,184 @@ export function BillingReviewDetail({ billingId, onClose }: Props) {
         mutationFn: () => billingApi.calculate(billingId, {}),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['billing', 'summary', billingId] });
-            notifications.show({ title: 'Success', message: 'Billing recalculated based on latest timesheets', color: 'green' });
-        }
+            success('Billing recalculated based on latest timesheets', 'Success');
+        },
+        onError: (err: any) => showError(err.message || 'Calculation failed', 'Error')
     });
 
     const approveMutation = useMutation({
         mutationFn: () => billingApi.approve(billingId, 'Approved via dashboard'),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['billing', 'summary', billingId] });
-            notifications.show({ title: 'Success', message: 'Billing approved', color: 'green' });
-        }
+            success('Billing approved', 'Success');
+        },
+        onError: (err: any) => showError(err.message || 'Approval failed', 'Error')
     });
 
     const invoiceMutation = useMutation({
         mutationFn: () => billingApi.generateInvoice(billingId),
         onSuccess: (data: any) => {
             queryClient.invalidateQueries({ queryKey: ['billing', 'summary', billingId] });
-            notifications.show({
-                title: 'Success',
-                message: `Invoice ${data.invoice_number || ''} generated successfully`,
-                color: 'green'
-            });
-        }
+            success(`Invoice ${data.invoice_number || ''} generated successfully`, 'Success');
+        },
+        onError: (err: any) => showError(err.message || 'Generation failed', 'Error')
     });
 
-    if (isLoading) return <Paper p="xl" pos="relative"><LoadingOverlay visible /></Paper>;
-    if (!summary) return <Center h={200}><Text>No data found</Text></Center>;
+    if (isLoading) return <div className="h-48 relative"><LoadingOverlay visible /></div>;
+    if (!summary) return <div className="h-48 flex items-center justify-center text-slate-400">No data found</div>;
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'approved': return 'success';
+            case 'invoiced': return 'info';
+            case 'paid': return 'success';
+            case 'draft': return 'default';
+            default: return 'warning';
+        }
+    };
 
     return (
-        <Stack gap="md">
-            <Group justify="space-between">
-                <Stack gap={0}>
-                    <Title order={4}>Billing Period: {summary.period}</Title>
-                    <Text size="sm" c="dimmed">{summary.client_name} - {summary.asset_name} ({summary.rental_number})</Text>
-                </Stack>
-                <Badge size="xl" variant="dot">{summary.status}</Badge>
-            </Group>
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h4 className="text-lg font-semibold text-white">Billing Period: {summary.period}</h4>
+                    <p className="text-sm text-slate-500">{summary.client_name} - {summary.asset_name} ({summary.rental_number})</p>
+                </div>
+                <Badge variant={getStatusColor(summary.status)}>{summary.status}</Badge>
+            </div>
 
-            <Grid gutter="md">
-                <Grid.Col span={4}>
-                    <Paper p="md" withBorder>
-                        <Title order={6} mb="xs">Hours Breakdown</Title>
-                        <Stack gap="xs">
-                            <Group justify="space-between">
-                                <Text size="sm">Operating Hours</Text>
-                                <Text fw={500}>{summary.total_operating_hours}</Text>
-                            </Group>
-                            <Group justify="space-between">
-                                <Text size="sm">Overtime Hours</Text>
-                                <Text fw={500}>{summary.total_overtime_hours}</Text>
-                            </Group>
-                            <Group justify="space-between">
-                                <Text size="sm">Standby Hours</Text>
-                                <Text fw={500}>{summary.total_standby_hours}</Text>
-                            </Group>
-                            <Group justify="space-between">
-                                <Text size="sm">Breakdown Hours</Text>
-                                <Text fw={500} c="red">{summary.total_breakdown_hours}</Text>
-                            </Group>
-                            <Divider />
-                            <Group justify="space-between" bg="blue.0" p="xs" style={{ borderRadius: 4 }}>
-                                <Group gap="xs">
-                                    <Text size="sm" fw={700}>Billable Hours</Text>
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-4">
+                    <Card padding="md" className="h-full">
+                        <h6 className="font-semibold text-white mb-2">Hours Breakdown</h6>
+                        <div className="flex flex-col gap-2 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Operating Hours</span>
+                                <span className="font-medium text-white">{summary.total_operating_hours}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Overtime Hours</span>
+                                <span className="font-medium text-white">{summary.total_overtime_hours}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Standby Hours</span>
+                                <span className="font-medium text-white">{summary.total_standby_hours}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Breakdown Hours</span>
+                                <span className="font-medium text-red-400">{summary.total_breakdown_hours}</span>
+                            </div>
+                            <div className="border-t border-slate-800 my-1"></div>
+                            <div className="flex justify-between items-center bg-blue-500/10 p-2 rounded">
+                                <div className="flex gap-2 items-center">
+                                    <span className="font-bold text-white">Billable Hours</span>
                                     {summary.shortfall_hours > 0 && (
-                                        <Badge size="xs" color="orange">Min {summary.minimum_hours}</Badge>
+                                        <Badge variant="warning" className="text-xs">Min {summary.minimum_hours}</Badge>
                                     )}
-                                </Group>
-                                <Text fw={700} color="blue">{summary.billable_hours}</Text>
-                            </Group>
-                        </Stack>
-                    </Paper>
-                </Grid.Col>
+                                </div>
+                                <span className="font-bold text-blue-400">{summary.billable_hours}</span>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
 
-                <Grid.Col span={8}>
-                    <Paper p="md" withBorder>
-                        <Title order={6} mb="xs">Financial Breakdown</Title>
-                        <Grid>
-                            <Grid.Col span={6}>
-                                <Stack gap="xs">
-                                    <Group justify="space-between">
-                                        <Text size="sm">Base Amount ({summary.rate_basis})</Text>
-                                        <Text size="sm">{summary.base_amount.toLocaleString()}</Text>
-                                    </Group>
-                                    <Group justify="space-between">
-                                        <Text size="sm">Standby Amount</Text>
-                                        <Text size="sm">{summary.standby_amount.toLocaleString()}</Text>
-                                    </Group>
-                                    <Group justify="space-between">
-                                        <Text size="sm">Overtime Amount</Text>
-                                        <Text size="sm">{summary.overtime_amount.toLocaleString()}</Text>
-                                    </Group>
-                                    <Group justify="space-between">
-                                        <Text size="sm">Breakdown Penalty</Text>
-                                        <Text size="sm" c="red">{summary.breakdown_penalty_amount.toLocaleString()}</Text>
-                                    </Group>
-                                </Stack>
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                                <Stack gap="xs">
-                                    <Group justify="space-between">
-                                        <Text size="sm">Subtotal</Text>
-                                        <Text size="sm" fw={600}>{summary.subtotal.toLocaleString()}</Text>
-                                    </Group>
-                                    <Group justify="space-between">
-                                        <Text size="sm">Tax ({summary.tax_percentage}%)</Text>
-                                        <Text size="sm">{summary.tax_amount.toLocaleString()}</Text>
-                                    </Group>
-                                    <Divider />
-                                    <Group justify="space-between">
-                                        <Text fw={700} size="lg">Total Amount</Text>
-                                        <Text fw={700} size="lg" color="blue">Rp {summary.total_amount.toLocaleString()}</Text>
-                                    </Group>
-                                </Stack>
-                            </Grid.Col>
-                        </Grid>
-                    </Paper>
-                </Grid.Col>
-            </Grid>
+                <div className="md:col-span-8">
+                    <Card padding="md" className="h-full">
+                        <h6 className="font-semibold text-white mb-2">Financial Breakdown</h6>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
+                            <div className="flex flex-col gap-2">
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400">Base Amount ({summary.rate_basis})</span>
+                                    <span>{summary.base_amount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400">Standby Amount</span>
+                                    <span>{summary.standby_amount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400">Overtime Amount</span>
+                                    <span>{summary.overtime_amount.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400">Breakdown Penalty</span>
+                                    <span className="text-red-400">{summary.breakdown_penalty_amount.toLocaleString()}</span>
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400">Subtotal</span>
+                                    <span className="font-semibold text-white">{summary.subtotal.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-slate-400">Tax ({summary.tax_percentage}%)</span>
+                                    <span>{summary.tax_amount.toLocaleString()}</span>
+                                </div>
+                                <div className="border-t border-slate-800 my-1"></div>
+                                <div className="flex justify-between items-center text-lg">
+                                    <span className="font-bold text-white">Total Amount</span>
+                                    <span className="font-bold text-blue-400">Rp {summary.total_amount.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            </div>
 
-            <Paper p="md" withBorder>
-                <Group mb="sm">
-                    <IconClock size={18} />
-                    <Title order={6}>Timesheet Audit Log (Historical Accuracy)</Title>
-                </Group>
-                <ScrollArea h={300}>
-                    <Table verticalSpacing="xs">
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Date</Table.Th>
-                                <Table.Th>HM/KM Usage</Table.Th>
-                                <Table.Th>Op Hours</Table.Th>
-                                <Table.Th>Standby</Table.Th>
-                                <Table.Th>Overtime</Table.Th>
-                                <Table.Th>Status</Table.Th>
-                                <Table.Th>Work Desc</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
+            <Card padding="md">
+                <div className="flex items-center gap-2 mb-4">
+                    <Clock size={18} className="text-slate-400" />
+                    <h6 className="font-semibold text-white">Timesheet Audit Log (Historical Accuracy)</h6>
+                </div>
+                <div className="max-h-[300px] overflow-auto border border-slate-800 rounded-lg">
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableTh>Date</TableTh>
+                                <TableTh>HM/KM Usage</TableTh>
+                                <TableTh>Op Hours</TableTh>
+                                <TableTh>Standby</TableTh>
+                                <TableTh>Overtime</TableTh>
+                                <TableTh>Status</TableTh>
+                                <TableTh>Work Desc</TableTh>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
                             {summary.timesheets?.map((ts: any) => (
-                                <Table.Tr key={ts.id}>
-                                    <Table.Td>{ts.work_date}</Table.Td>
-                                    <Table.Td>{ts.hm_km_usage || '-'}</Table.Td>
-                                    <Table.Td>{ts.operating_hours}</Table.Td>
-                                    <Table.Td>{ts.standby_hours}</Table.Td>
-                                    <Table.Td>{ts.overtime_hours}</Table.Td>
-                                    <Table.Td>
-                                        <Badge size="xs" color="green">Approved</Badge>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Text size="xs" truncate maw={200}>{ts.work_description}</Text>
-                                    </Table.Td>
-                                </Table.Tr>
+                                <TableRow key={ts.id}>
+                                    <TableTd>{ts.work_date}</TableTd>
+                                    <TableTd>{ts.hm_km_usage || '-'}</TableTd>
+                                    <TableTd>{ts.operating_hours}</TableTd>
+                                    <TableTd>{ts.standby_hours}</TableTd>
+                                    <TableTd>{ts.overtime_hours}</TableTd>
+                                    <TableTd>
+                                        <Badge variant="success">Approved</Badge>
+                                    </TableTd>
+                                    <TableTd>
+                                        <div className="truncate max-w-[200px]" title={ts.work_description}>
+                                            {ts.work_description}
+                                        </div>
+                                    </TableTd>
+                                </TableRow>
                             ))}
                             {(!summary.timesheets || summary.timesheets.length === 0) && (
-                                <Table.Tr>
-                                    <Table.Td colSpan={7} align="center">
-                                        <Group gap="xs" justify="center" c="orange">
-                                            <IconAlertCircle size={16} />
-                                            <Text size="sm">No approved timesheets found for this period.</Text>
-                                        </Group>
-                                    </Table.Td>
-                                </Table.Tr>
+                                <TableRow>
+                                    <TableTd colSpan={7} className="text-center py-6 text-orange-400">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <AlertCircle size={16} />
+                                            <span>No approved timesheets found for this period.</span>
+                                        </div>
+                                    </TableTd>
+                                </TableRow>
                             )}
-                        </Table.Tbody>
+                        </TableBody>
                     </Table>
-                </ScrollArea>
-            </Paper>
+                </div>
+            </Card>
 
-            <Group justify="flex-end" mt="md">
-                <Button variant="outline" onClick={onClose}>Close</Button>
+            <div className="flex justify-end gap-2 pt-2">
+                <Button variant="ghost" onClick={onClose}>Close</Button>
                 {summary.status === 'draft' && (
                     <Button
-                        color="blue"
                         onClick={() => calculateMutation.mutate()}
                         loading={calculateMutation.isPending}
                     >
@@ -203,8 +211,8 @@ export function BillingReviewDetail({ billingId, onClose }: Props) {
                 )}
                 {summary.status === 'calculated' && (
                     <Button
-                        color="green"
-                        leftSection={<IconCheck size={16} />}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        leftIcon={<Check size={16} />}
                         onClick={() => approveMutation.mutate()}
                         loading={approveMutation.isPending}
                     >
@@ -213,15 +221,15 @@ export function BillingReviewDetail({ billingId, onClose }: Props) {
                 )}
                 {summary.status === 'approved' && (
                     <Button
-                        color="teal"
-                        leftSection={<IconFileInvoice size={16} />}
+                        className="bg-teal-600 hover:bg-teal-700 text-white"
+                        leftIcon={<FileText size={16} />}
                         onClick={() => invoiceMutation.mutate()}
                         loading={invoiceMutation.isPending}
                     >
                         Generate Invoice
                     </Button>
                 )}
-            </Group>
-        </Stack>
+            </div>
+        </div>
     );
 }

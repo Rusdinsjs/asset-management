@@ -1,8 +1,15 @@
+// RentalList Component - Pure Tailwind
 import { useQuery } from '@tanstack/react-query';
-import { Table, Paper, Badge, Group, ActionIcon, Button, Text, LoadingOverlay, Title } from '@mantine/core';
-import { IconEye, IconPlus } from '@tabler/icons-react';
-import { rentalApi } from '../../api/rental';
+import { Plus, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { rentalApi } from '../../api/rental';
+import {
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd, TableEmpty,
+    Button,
+    Badge,
+    LoadingOverlay,
+    ActionIcon
+} from '../ui';
 
 export function RentalList() {
     const navigate = useNavigate();
@@ -12,62 +19,63 @@ export function RentalList() {
     });
 
     return (
-        <Paper p="md" shadow="sm" withBorder>
-            <Group justify="space-between" mb="md">
-                <Title order={4}>Active Rentals</Title>
-                <Button leftSection={<IconPlus size={16} />} onClick={() => navigate('/rentals/new')}>
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Active Rentals</h2>
+                <Button leftIcon={<Plus size={16} />} onClick={() => navigate('/rentals/new')}>
                     New Rental
                 </Button>
-            </Group>
+            </div>
 
-            <LoadingOverlay visible={isLoading} />
+            <div className="relative min-h-[100px]">
+                <LoadingOverlay visible={isLoading} />
 
-            <Table verticalSpacing="sm" highlightOnHover>
-                <Table.Thead>
-                    <Table.Tr>
-                        <Table.Th>Rental No.</Table.Th>
-                        <Table.Th>Asset</Table.Th>
-                        <Table.Th>Client</Table.Th>
-                        <Table.Th>Period</Table.Th>
-                        <Table.Th>Status</Table.Th>
-                        <Table.Th>Rate</Table.Th>
-                        <Table.Th>Actions</Table.Th>
-                    </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                    {rentals?.map((rental) => (
-                        <Table.Tr key={rental.id}>
-                            <Table.Td>{rental.rental_number}</Table.Td>
-                            <Table.Td>{rental.asset_name}</Table.Td>
-                            <Table.Td>{rental.client_name}</Table.Td>
-                            <Table.Td>
-                                <Text size="sm">{rental.start_date}</Text>
-                                <Text size="xs" c="dimmed">{rental.end_date || 'Open'}</Text>
-                            </Table.Td>
-                            <Table.Td>
-                                <Badge color="blue">{rental.status}</Badge>
-                            </Table.Td>
-                            <Table.Td>
-                                {rental.daily_rate?.toLocaleString()} / day
-                            </Table.Td>
-                            <Table.Td>
-                                <ActionIcon
-                                    variant="subtle"
-                                    color="blue"
-                                    onClick={() => navigate(`/rentals/${rental.id}`)}
-                                >
-                                    <IconEye size={16} />
-                                </ActionIcon>
-                            </Table.Td>
-                        </Table.Tr>
-                    ))}
-                    {!rentals?.length && !isLoading && (
-                        <Table.Tr>
-                            <Table.Td colSpan={7} align="center">No active rentals found</Table.Td>
-                        </Table.Tr>
-                    )}
-                </Table.Tbody>
-            </Table>
-        </Paper>
+                <Table>
+                    <TableHead>
+                        <TableRow>
+                            <TableTh>Rental No.</TableTh>
+                            <TableTh>Asset</TableTh>
+                            <TableTh>Client</TableTh>
+                            <TableTh>Period</TableTh>
+                            <TableTh>Status</TableTh>
+                            <TableTh>Rate</TableTh>
+                            <TableTh className="text-right">Actions</TableTh>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {rentals && rentals.length > 0 ? (
+                            rentals.map((rental) => (
+                                <TableRow key={rental.id}>
+                                    <TableTd>{rental.rental_number}</TableTd>
+                                    <TableTd>{rental.asset_name}</TableTd>
+                                    <TableTd>{rental.client_name}</TableTd>
+                                    <TableTd>
+                                        <div className="flex flex-col">
+                                            <span className="text-white">{rental.start_date}</span>
+                                            <span className="text-xs text-slate-500">{rental.expected_end_date || 'Open'}</span>
+                                        </div>
+                                    </TableTd>
+                                    <TableTd>
+                                        <Badge variant="info">{rental.status}</Badge>
+                                    </TableTd>
+                                    <TableTd>
+                                        {rental.daily_rate?.toLocaleString()} / day
+                                    </TableTd>
+                                    <TableTd className="text-right">
+                                        <ActionIcon
+                                            onClick={() => navigate(`/rentals/${rental.id}`)}
+                                        >
+                                            <Eye size={16} />
+                                        </ActionIcon>
+                                    </TableTd>
+                                </TableRow>
+                            ))
+                        ) : (
+                            !isLoading && <TableEmpty colSpan={7} message="No active rentals found" />
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+        </div>
     );
 }

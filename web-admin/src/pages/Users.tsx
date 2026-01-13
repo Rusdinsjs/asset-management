@@ -1,10 +1,19 @@
-
+// Users Page - Pure Tailwind
 import { useEffect, useState } from 'react';
-import { Title, Container, Table, Badge, Button, Group, Card, ActionIcon, Modal, Select, TextInput, PasswordInput, Switch, LoadingOverlay, Text } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
-import { useDisclosure } from '@mantine/hooks';
+import { Edit, Trash2 } from 'lucide-react';
 import { usersApi, type UserSummary, type CreateUserRequest, type UpdateUserRequest } from '../api/users';
+import {
+    Button,
+    Card,
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd, TableEmpty,
+    Badge,
+    ActionIcon,
+    Modal,
+    Input,
+    Select,
+    LoadingOverlay,
+    useToast,
+} from '../components/ui';
 
 interface Role {
     id: string;
@@ -25,14 +34,15 @@ export function Users() {
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Create/Edit State
-    const [createOpened, { open: openCreate, close: closeCreate }] = useDisclosure(false);
-    const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
+    const [createOpened, setCreateOpened] = useState(false);
+    const [editOpened, setEditOpened] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     const [editingUser, setEditingUser] = useState<UserSummary | null>(null);
     const [formData, setFormData] = useState<CreateUserRequest>(initialFormState);
     const [editFormData, setEditFormData] = useState<UpdateUserRequest>({});
+
+    const { success, error: showError } = useToast();
 
     useEffect(() => {
         loadData();
@@ -57,7 +67,7 @@ export function Users() {
             }
         } catch (error) {
             console.error(error);
-            notifications.show({ title: 'Error', message: 'Failed to load data', color: 'red' });
+            showError('Failed to load data', 'Error');
         } finally {
             setLoading(false);
         }
@@ -67,12 +77,12 @@ export function Users() {
         setSubmitting(true);
         try {
             await usersApi.create(formData);
-            notifications.show({ title: 'Success', message: 'User created', color: 'green' });
-            closeCreate();
+            success('User created', 'Success');
+            setCreateOpened(false);
             setFormData(initialFormState);
             loadData();
         } catch (e: any) {
-            notifications.show({ title: 'Error', message: e.response?.data?.message || 'Failed to create user', color: 'red' });
+            showError(e.response?.data?.message || 'Failed to create user', 'Error');
         } finally {
             setSubmitting(false);
         }
@@ -83,11 +93,11 @@ export function Users() {
         setSubmitting(true);
         try {
             await usersApi.update(editingUser.id, editFormData);
-            notifications.show({ title: 'Success', message: 'User updated', color: 'green' });
-            closeEdit();
+            success('User updated', 'Success');
+            setEditOpened(false);
             loadData();
         } catch (e: any) {
-            notifications.show({ title: 'Error', message: e.response?.data?.message || 'Failed to update user', color: 'red' });
+            showError(e.response?.data?.message || 'Failed to update user', 'Error');
         } finally {
             setSubmitting(false);
         }
@@ -97,10 +107,10 @@ export function Users() {
         if (!window.confirm(`Are you sure you want to delete ${user.name}?`)) return;
         try {
             await usersApi.delete(user.id);
-            notifications.show({ title: 'Success', message: 'User deleted', color: 'green' });
+            success('User deleted', 'Success');
             loadData();
         } catch (e: any) {
-            notifications.show({ title: 'Error', message: 'Failed to delete user', color: 'red' });
+            showError('Failed to delete user', 'Error');
         }
     };
 
@@ -110,17 +120,16 @@ export function Users() {
             name: user.name,
             role_code: user.role_code,
             is_active: user.is_active,
-            // password left undefined (optional)
         });
-        openEdit();
+        setEditOpened(true);
     };
 
-    const getRoleParams = (level: number) => {
-        if (level === 1) return { color: 'red', label: 'Super Admin' };
-        if (level === 2) return { color: 'orange', label: 'Manager' };
-        if (level === 3) return { color: 'yellow', label: 'Supervisor' };
-        if (level === 4) return { color: 'blue', label: 'Admin/Specialist' };
-        return { color: 'gray', label: 'User/Viewer' };
+    const getRoleBadge = (level: number) => {
+        if (level === 1) return 'danger';
+        if (level === 2) return 'warning';
+        if (level === 3) return 'warning';
+        if (level === 4) return 'info';
+        return 'default';
     };
 
     const getAccessScope = (roleCode: string) => {
@@ -139,161 +148,159 @@ export function Users() {
         }
     };
 
-    const rows = users.map((user) => {
-        const badgeParams = getRoleParams(user.role_level);
-        return (
-            <Table.Tr key={user.id}>
-                <Table.Td>{user.name}</Table.Td>
-                <Table.Td>{user.email}</Table.Td>
-                <Table.Td>
-                    <Group gap="xs">
-                        <Badge color={badgeParams.color} variant="light">
-                            {user.role_code}
-                        </Badge>
-                        {/* Show level as a small detail or separate badge if needed, strictly asking for 'Access' now */}
-                    </Group>
-                </Table.Td>
-                <Table.Td>
-                    <span style={{ fontSize: '0.9em', color: '#666' }}>
-                        {getAccessScope(user.role_code)}
-                    </span>
-                </Table.Td>
-                <Table.Td>
-                    <Badge color={user.is_active ? 'green' : 'red'} variant="filled">
-                        {user.is_active ? 'Allowed' : 'Denied'}
-                    </Badge>
-                </Table.Td>
-                <Table.Td>
-                    <span style={{ fontSize: '0.9em', color: user.employee_name ? '#333' : '#999' }}>
-                        {user.employee_name ? (
-                            <>
-                                {user.employee_name}
-                                <br />
-                                <Text span c="dimmed" size="xs">{user.employee_nik && `(NIK: ${user.employee_nik})`}</Text>
-                            </>
-                        ) : (
-                            <Text fs="italic" size="xs" c="dimmed">Not Linked</Text>
-                        )}
-                    </span>
-                </Table.Td>
-                <Table.Td>
-                    <Group gap="xs">
-                        <ActionIcon variant="subtle" color="blue" onClick={() => openEditModal(user)}>
-                            <IconEdit size={16} />
-                        </ActionIcon>
-                        {user.role_level > 1 && ( // Prevent deleting Super Admins easily (simple check)
-                            <ActionIcon variant="subtle" color="red" onClick={() => handleDelete(user)}>
-                                <IconTrash size={16} />
-                            </ActionIcon>
-                        )}
-                    </Group>
-                </Table.Td>
-            </Table.Tr>
-        );
-    });
-
     const roleOptions = roles.map(r => ({ value: r.code, label: `${r.name} (L${r.role_level})` }));
 
     return (
-        <Container size="xl">
-            <Group justify="space-between" mb="md">
-                <Title order={2}>User Management</Title>
-                {/* User creation is now handled in Employees page */}
-            </Group>
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-white">User Management</h1>
+            </div>
 
-            <Card withBorder>
-                <LoadingOverlay visible={loading} />
-                <Table>
-                    <Table.Thead>
-                        <Table.Tr>
-                            <Table.Th>Name</Table.Th>
-                            <Table.Th>Email</Table.Th>
-                            <Table.Th>Role</Table.Th>
-                            <Table.Th>Access Scope</Table.Th>
-                            <Table.Th>Login Status</Table.Th>
-                            <Table.Th>Linked Employee</Table.Th>
-                            <Table.Th>Action</Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                        {users.length > 0 ? rows : (
-                            <Table.Tr>
-                                <Table.Td colSpan={6} style={{ textAlign: 'center' }}>No users found</Table.Td>
-                            </Table.Tr>
-                        )}
-                    </Table.Tbody>
-                </Table>
+            <Card padding="lg">
+                <div className="relative">
+                    <LoadingOverlay visible={loading} />
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableTh>Name</TableTh>
+                                <TableTh>Email</TableTh>
+                                <TableTh>Role</TableTh>
+                                <TableTh>Access Scope</TableTh>
+                                <TableTh>Login Status</TableTh>
+                                <TableTh>Linked Employee</TableTh>
+                                <TableTh align="center">Action</TableTh>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {users.length > 0 ? users.map((user) => (
+                                <TableRow key={user.id}>
+                                    <TableTd>
+                                        <span className="font-medium text-white">{user.name}</span>
+                                    </TableTd>
+                                    <TableTd>{user.email}</TableTd>
+                                    <TableTd>
+                                        <Badge variant={getRoleBadge(user.role_level)}>
+                                            {user.role_code}
+                                        </Badge>
+                                    </TableTd>
+                                    <TableTd>
+                                        <span className="text-sm text-slate-400">
+                                            {getAccessScope(user.role_code)}
+                                        </span>
+                                    </TableTd>
+                                    <TableTd>
+                                        <Badge variant={user.is_active ? 'success' : 'danger'}>
+                                            {user.is_active ? 'Allowed' : 'Denied'}
+                                        </Badge>
+                                    </TableTd>
+                                    <TableTd>
+                                        {user.employee_name ? (
+                                            <div>
+                                                <p className="text-sm text-white">{user.employee_name}</p>
+                                                {user.employee_nik && (
+                                                    <p className="text-xs text-slate-500">NIK: {user.employee_nik}</p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-xs text-slate-500 italic">Not Linked</span>
+                                        )}
+                                    </TableTd>
+                                    <TableTd align="center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <ActionIcon onClick={() => openEditModal(user)} title="Edit User">
+                                                <Edit size={16} />
+                                            </ActionIcon>
+                                            {user.role_level > 1 && (
+                                                <ActionIcon variant="danger" onClick={() => handleDelete(user)} title="Delete User">
+                                                    <Trash2 size={16} />
+                                                </ActionIcon>
+                                            )}
+                                        </div>
+                                    </TableTd>
+                                </TableRow>
+                            )) : (
+                                <TableEmpty colSpan={7} message="No users found" />
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </Card>
 
             {/* Create Modal */}
-            <Modal opened={createOpened} onClose={closeCreate} title="Create New User">
-                <TextInput
-                    label="Name"
-                    placeholder="Full Name"
-                    mb="sm"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                />
-                <TextInput
-                    label="Email"
-                    placeholder="email@example.com"
-                    mb="sm"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                />
-                <PasswordInput
-                    label="Password"
-                    placeholder="WeakPassword123"
-                    mb="sm"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    required
-                />
-                <Select
-                    label="Role"
-                    placeholder="Select Role"
-                    data={roleOptions}
-                    value={formData.role_code}
-                    onChange={(val) => setFormData({ ...formData, role_code: val || 'user' })}
-                    mb="md"
-                    searchable
-                />
-                <Button fullWidth onClick={handleCreate} loading={submitting}>Create User</Button>
+            <Modal isOpen={createOpened} onClose={() => setCreateOpened(false)} title="Create New User">
+                <div className="space-y-4">
+                    <Input
+                        label="Name"
+                        placeholder="Full Name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        required
+                    />
+                    <Input
+                        label="Email"
+                        placeholder="email@example.com"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                    />
+                    <Input
+                        label="Password"
+                        placeholder="Password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        required
+                    />
+                    <Select
+                        label="Role"
+                        placeholder="Select Role"
+                        value={formData.role_code}
+                        onChange={(val) => setFormData({ ...formData, role_code: val })}
+                        options={roleOptions}
+                    />
+                    <Button fullWidth onClick={handleCreate} loading={submitting}>
+                        Create User
+                    </Button>
+                </div>
             </Modal>
 
             {/* Edit Modal */}
-            <Modal opened={editOpened} onClose={closeEdit} title="Edit User">
-                <TextInput
-                    label="Name"
-                    mb="sm"
-                    value={editFormData.name || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                />
-                <Select
-                    label="Role"
-                    data={roleOptions}
-                    value={editFormData.role_code || ''}
-                    onChange={(val) => setEditFormData({ ...editFormData, role_code: val || undefined })}
-                    mb="sm"
-                    searchable
-                />
-                <PasswordInput
-                    label="New Password (Optional)"
-                    placeholder="Leave blank to keep current"
-                    mb="sm"
-                    value={editFormData.password || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value || undefined })}
-                />
-                <Switch
-                    label="Active Account"
-                    checked={editFormData.is_active ?? true}
-                    onChange={(e) => setEditFormData({ ...editFormData, is_active: e.currentTarget.checked })}
-                    mb="md"
-                />
-                <Button fullWidth onClick={handleUpdate} loading={submitting}>Save Changes</Button>
+            <Modal isOpen={editOpened} onClose={() => setEditOpened(false)} title="Edit User">
+                <div className="space-y-4">
+                    <Input
+                        label="Name"
+                        value={editFormData.name || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    />
+                    <Select
+                        label="Role"
+                        value={editFormData.role_code || ''}
+                        onChange={(val) => setEditFormData({ ...editFormData, role_code: val })}
+                        options={roleOptions}
+                    />
+                    <Input
+                        label="New Password (Optional)"
+                        placeholder="Leave blank to keep current"
+                        type="password"
+                        value={editFormData.password || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value || undefined })}
+                    />
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            id="is_active"
+                            checked={editFormData.is_active ?? true}
+                            onChange={(e) => setEditFormData({ ...editFormData, is_active: e.target.checked })}
+                            className="w-4 h-4 rounded border-slate-600 bg-slate-950 text-cyan-500 focus:ring-cyan-500"
+                        />
+                        <label htmlFor="is_active" className="text-sm text-slate-300">Active Account</label>
+                    </div>
+                    <Button fullWidth onClick={handleUpdate} loading={submitting}>
+                        Save Changes
+                    </Button>
+                </div>
             </Modal>
-        </Container>
+        </div>
     );
 }

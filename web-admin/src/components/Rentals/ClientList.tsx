@@ -1,43 +1,53 @@
+// ClientList Component - Pure Tailwind
 import { useQuery } from '@tanstack/react-query';
-import { Table, Paper, Button, Group, Title } from '@mantine/core';
-import { IconPlus } from '@tabler/icons-react';
+import { Plus } from 'lucide-react';
 import { rentalApi } from '../../api/rental';
+import {
+    Table, TableHead, TableBody, TableRow, TableTh, TableEmpty,
+    Button
+} from '../ui';
 
 export function ClientList() {
-    const { data: clients } = useQuery({
+    const { data: clients, isLoading } = useQuery({
         queryKey: ['rental-clients'],
         queryFn: rentalApi.listClients
     });
 
     return (
-        <Paper p="md" shadow="sm" withBorder>
-            <Group justify="space-between" mb="md">
-                <Title order={4}>Clients</Title>
-                <Button leftSection={<IconPlus size={16} />}>
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-white">Clients</h2>
+                <Button leftIcon={<Plus size={16} />}>
                     Add Client
                 </Button>
-            </Group>
+            </div>
 
-            <Table verticalSpacing="sm">
-                <Table.Thead>
-                    <Table.Tr>
-                        <Table.Th>Name</Table.Th>
-                        <Table.Th>Code</Table.Th>
-                        <Table.Th>Email</Table.Th>
-                        <Table.Th>Phone</Table.Th>
-                    </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                    {Array.isArray(clients) && clients.map((client) => (
-                        <Table.Tr key={client.id}>
-                            <Table.Td>{client.name}</Table.Td>
-                            <Table.Td>{client.code}</Table.Td>
-                            <Table.Td>{client.email}</Table.Td>
-                            <Table.Td>{client.phone}</Table.Td>
-                        </Table.Tr>
-                    ))}
-                </Table.Tbody>
-            </Table>
-        </Paper>
+            <div className="relative min-h-[100px]">
+                <Table>
+                    <TableHead>
+                        <TableRow>
+                            <TableTh>Name</TableTh>
+                            <TableTh>Code</TableTh>
+                            <TableTh>Email</TableTh>
+                            <TableTh>Phone</TableTh>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {Array.isArray(clients) && clients.length > 0 ? (
+                            clients.map((client) => (
+                                <TableRow key={client.id}>
+                                    <td className="px-4 py-3 text-slate-200">{client.name}</td>
+                                    <td className="px-4 py-3 text-slate-200">{client.code}</td>
+                                    <td className="px-4 py-3 text-slate-200">{client.email}</td>
+                                    <td className="px-4 py-3 text-slate-200">{client.phone}</td>
+                                </TableRow>
+                            ))
+                        ) : (
+                            !isLoading && <TableEmpty colSpan={4} message="No clients found" />
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+        </div>
     );
 }

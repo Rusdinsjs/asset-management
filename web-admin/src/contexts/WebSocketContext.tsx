@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import { notifications } from '@mantine/notifications';
+import { useToast } from '../components/ui';
 
 interface NotificationMessage {
     event_type: string;
@@ -19,6 +19,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [lastMessage, setLastMessage] = useState<NotificationMessage | null>(null);
     const ws = useRef<WebSocket | null>(null);
     const reconnectTimeout = useRef<number | undefined>(undefined);
+    const { info } = useToast();
 
     const connect = useCallback(() => {
         // Use window.location.hostname to support network access
@@ -90,11 +91,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const handleGlobalNotification = (msg: NotificationMessage) => {
         // Example global toast for critical events
         if (msg.event_type === 'WORK_ORDER_COMPLETED') {
-            notifications.show({
-                title: 'Work Order Completed',
-                message: `WO #${msg.payload.id} was completed`,
-                color: 'blue',
-            });
+            info(`WO #${msg.payload.id} was completed`, 'Work Order Completed');
         }
     };
 

@@ -1,16 +1,20 @@
+// AuditMode Page - Pure Tailwind
 import { useState } from 'react';
-import {
-    Container, Title, Paper, Text, Button, Group, Stack,
-    TextInput, RingProgress, Center, Loader, Alert
-} from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { IconCheck, IconAlertCircle } from '@tabler/icons-react';
+import { Check, AlertCircle, QrCode } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { auditApi } from '../api/audit';
 import { assetApi } from '../api/assets';
+import {
+    Button,
+    Card,
+    Input,
+    Spinner,
+    useToast,
+} from '../components/ui';
 
 export function AuditMode() {
     const queryClient = useQueryClient();
+    const { success, error: showError, info } = useToast();
     const [assetInput, setAssetInput] = useState('');
 
     // Fetch assets for simulation
@@ -22,12 +26,12 @@ export function AuditMode() {
 
     const simulateScan = () => {
         if (!assets?.data || assets.data.length === 0) {
-            notifications.show({ title: 'No Assets', message: 'No assets found to simulate scan.', color: 'yellow' });
+            info('No assets found to simulate scan.', 'No Assets');
             return;
         }
         const randomAsset = assets.data[Math.floor(Math.random() * assets.data.length)];
         setAssetInput(randomAsset.id);
-        notifications.show({ title: 'Simulated Scan', message: `Scanned: ${randomAsset.name ?? randomAsset.asset_code}`, color: 'blue' });
+        info(`Scanned: ${randomAsset.name ?? randomAsset.asset_code}`, 'Simulated Scan');
     };
 
     // Fetch active session
@@ -50,10 +54,10 @@ export function AuditMode() {
         mutationFn: auditApi.startSession,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['audit-session'] });
-            notifications.show({ title: 'Audit Started', message: 'New audit session initialized.', color: 'green' });
+            success('New audit session initialized.', 'Audit Started');
         },
         onError: (err: any) => {
-            notifications.show({ title: 'Error', message: err.response?.data?.message || 'Failed to start audit', color: 'red' });
+            showError(err.response?.data?.message || 'Failed to start audit', 'Error');
         }
     });
 
@@ -61,7 +65,7 @@ export function AuditMode() {
         mutationFn: auditApi.closeSession,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['audit-session'] });
-            notifications.show({ title: 'Audit Closed', message: 'Audit session finalized.', color: 'blue' });
+            info('Audit session finalized.', 'Audit Closed');
         }
     });
 
@@ -71,10 +75,10 @@ export function AuditMode() {
         onSuccess: () => {
             setAssetInput('');
             queryClient.invalidateQueries({ queryKey: ['audit-progress'] });
-            notifications.show({ title: 'Recorded', message: 'Asset audit record saved.', color: 'green' });
+            success('Asset audit record saved.', 'Recorded');
         },
         onError: (err: any) => {
-            notifications.show({ title: 'Error', message: err.response?.data?.message || 'Failed to submit record', color: 'red' });
+            showError(err.response?.data?.message || 'Failed to submit record', 'Error');
         }
     });
 
@@ -94,15 +98,22 @@ export function AuditMode() {
         submitMutation.mutate({ assetId: assetInput, status: 'found' });
     };
 
-    if (isLoadingSession) return <Center h={300}><Loader /></Center>;
+    if (isLoadingSession) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <Spinner size="lg" />
+            </div>
+        );
+    }
 
+    // No active session - show start button
     if (!activeSession) {
         return (
-            <Container size="sm" py="xl">
-                <Paper p="xl" radius="md" withBorder ta="center">
-                    <Stack align="center" gap="lg">
-                        <Title order={2}>Asset Audit</Title>
-                        <Text c="dimmed">No active audit session found.</Text>
+            <div className="max-w-md mx-auto py-12">
+                <Card padding="lg" className="text-center">
+                    <div className="space-y-6">
+                        <h2 className="text-2xl font-bold text-white">Asset Audit</h2>
+                        <p className="text-slate-400">No active audit session found.</p>
                         <Button
                             size="lg"
                             onClick={handleStart}
@@ -110,80 +121,123 @@ export function AuditMode() {
                         >
                             Start New Session
                         </Button>
-                    </Stack>
-                </Paper>
-            </Container>
+                    </div>
+                </Card>
+            </div>
         );
     }
 
     const progressValue = progress ? Math.round((progress.audited / progress.total) * 100) : 0;
+    const remaining = (progress?.total || 0) - (progress?.audited || 0);
 
     return (
-        <Container size="md" py="xl">
-            <Stack gap="lg">
-                <Group justify="space-between" align="center">
-                    <div>
-                        <Title order={2}>Audit in Progress</Title>
-                        <Text c="dimmed" size="sm">Started: {new Date(activeSession.created_at).toLocaleString()}</Text>
+        <div className="max-w-2xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-white">Audit in Progress</h1>
+                    <p className="text-sm text-slate-400">
+                        Started: {new Date(activeSession.created_at).toLocaleString()}
+                    </p>
+                </div>
+                <Button
+                    variant="danger"
+                    onClick={handleClose}
+                    loading={closeMutation.isPending}
+                >
+                    Close Session
+                </Button>
+            </div>
+
+            {/* Progress Card */}
+            <Card padding="lg">
+                <div className="flex items-center justify-center gap-8">
+                    {/* Ring Progress */}
+                    <div className="relative w-40 h-40">
+                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                            {/* Background circle */}
+                            <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="12"
+                                className="text-slate-800"
+                            />
+                            {/* Progress circle */}
+                            <circle
+                                cx="50"
+                                cy="50"
+                                r="42"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="12"
+                                strokeLinecap="round"
+                                strokeDasharray={`${progressValue * 2.64} 264`}
+                                className="text-cyan-500 transition-all duration-500"
+                            />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className="text-2xl font-bold text-white">{progressValue}%</span>
+                            <span className="text-xs text-slate-400">Completed</span>
+                        </div>
                     </div>
-                    <Button color="red" variant="light" onClick={handleClose} loading={closeMutation.isPending}>
-                        Close Session
-                    </Button>
-                </Group>
 
-                <Paper p="md" radius="md" withBorder>
-                    <Group justify="center" gap="xl">
-                        <RingProgress
-                            size={160}
-                            thickness={16}
-                            roundCaps
-                            sections={[{ value: progressValue, color: 'blue' }]}
-                            label={
-                                <Center>
-                                    <Stack gap={0} align="center">
-                                        <Text fw={700} size="xl">{progressValue}%</Text>
-                                        <Text size="xs" c="dimmed">Completed</Text>
-                                    </Stack>
-                                </Center>
-                            }
-                        />
-                        <Stack gap="xs">
-                            <Text size="sm">Total Assets: <Text span fw={700}>{progress?.total || 0}</Text></Text>
-                            <Text size="sm">Audited: <Text span fw={700} c="blue">{progress?.audited || 0}</Text></Text>
-                            <Text size="sm">Remaining: <Text span fw={700} c="orange">{(progress?.total || 0) - (progress?.audited || 0)}</Text></Text>
-                        </Stack>
-                    </Group>
-                </Paper>
+                    {/* Stats */}
+                    <div className="space-y-2">
+                        <p className="text-sm text-slate-300">
+                            Total Assets: <span className="font-bold text-white">{progress?.total || 0}</span>
+                        </p>
+                        <p className="text-sm text-slate-300">
+                            Audited: <span className="font-bold text-cyan-400">{progress?.audited || 0}</span>
+                        </p>
+                        <p className="text-sm text-slate-300">
+                            Remaining: <span className="font-bold text-amber-400">{remaining}</span>
+                        </p>
+                    </div>
+                </div>
+            </Card>
 
-                <Paper p="lg" radius="md" withBorder>
-                    <Stack>
-                        <Title order={4}>Scan / Input Asset ID</Title>
-                        <Group align="flex-end">
-                            <TextInput
+            {/* Scan Input Card */}
+            <Card padding="lg">
+                <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-white">Scan / Input Asset ID</h3>
+
+                    <div className="flex items-end gap-3">
+                        <div className="flex-1">
+                            <Input
                                 label="Asset ID / UUID"
                                 placeholder="Enter asset UUID..."
-                                style={{ flex: 1 }}
                                 value={assetInput}
-                                onChange={(e) => setAssetInput(e.currentTarget.value)}
+                                onChange={(e) => setAssetInput(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(); }}
                             />
-                            <Button variant="default" onClick={simulateScan}>
-                                Simulate QR
-                            </Button>
-                            <Button
-                                onClick={handleSubmit}
-                                loading={submitMutation.isPending}
-                                leftSection={<IconCheck size={18} />}
-                            >
-                                Submit Found
-                            </Button>
-                        </Group>
-                        <Alert icon={<IconAlertCircle size={16} />} title="Note" color="blue" variant="light">
-                            Enter the Asset UUID to mark it as found. In a real mobile app, this would use the camera scanner.
-                        </Alert>
-                    </Stack>
-                </Paper>
-            </Stack>
-        </Container>
+                        </div>
+                        <Button variant="outline" onClick={simulateScan} leftIcon={<QrCode size={16} />}>
+                            Simulate QR
+                        </Button>
+                        <Button
+                            onClick={handleSubmit}
+                            loading={submitMutation.isPending}
+                            leftIcon={<Check size={18} />}
+                        >
+                            Submit Found
+                        </Button>
+                    </div>
+
+                    {/* Info Alert */}
+                    <div className="flex items-start gap-3 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-xl">
+                        <AlertCircle size={20} className="text-cyan-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-medium text-cyan-400">Note</p>
+                            <p className="text-sm text-slate-300">
+                                Enter the Asset UUID to mark it as found. In a real mobile app, this would use the camera scanner.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+        </div>
     );
 }

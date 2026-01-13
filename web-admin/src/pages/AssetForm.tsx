@@ -1,23 +1,14 @@
-import { useMemo } from 'react';
+// AssetForm - Pure Tailwind
+import { useMemo, useState } from 'react';
 import {
-    TextInput,
-    NumberInput,
-    Select,
-    Button,
-    Group,
-    Stack,
-    Tabs,
-    Textarea,
-    Grid,
-    Title,
-    Text,
-    Box
-} from '@mantine/core';
-import { DateInput } from '@mantine/dates';
-import { useForm } from '@mantine/form';
-import { IconCar, IconCoin, IconFileDescription, IconInfoCircle, IconDeviceFloppy, IconBuilding } from '@tabler/icons-react';
+    Car, Coins, FileText, Info, Save, Building,
+} from 'lucide-react';
 import type { Asset, CreateAssetRequest } from '../api/assets';
 import { useAuthStore } from '../store/useAuthStore';
+import {
+    Button, Input, Select, NumberInput, DateInput, Textarea,
+    Tabs, TabsList, TabsTrigger, TabsContent
+} from '../components/ui';
 
 interface Category {
     id: string;
@@ -38,65 +29,60 @@ interface AssetFormProps {
 
 export function AssetForm({ initialValues, categories, locations, onSubmit, onCancel, isLoading }: AssetFormProps) {
     const { user } = useAuthStore();
-    const form = useForm({
-        initialValues: {
-            asset_code: initialValues?.asset_code || '',
-            name: initialValues?.name || '',
-            category_id: initialValues?.category_id || '',
-            location_id: initialValues?.location_id || '',
-            department_id: initialValues?.department_id || '',
-            department: initialValues?.department || (user?.department || ''),
-            status: initialValues?.status || 'planning',
-            condition_id: initialValues?.condition_id,
 
-            serial_number: initialValues?.serial_number || '',
-            brand: initialValues?.brand || '',
-            model: initialValues?.model || '',
-            year_manufacture: initialValues?.year_manufacture,
+    const [form, setForm] = useState({
+        asset_code: initialValues?.asset_code || '',
+        name: initialValues?.name || '',
+        category_id: initialValues?.category_id || '',
+        location_id: initialValues?.location_id || '',
+        department_id: initialValues?.department_id || '',
+        status: initialValues?.status || 'planning',
+        condition_id: initialValues?.condition_id,
 
-            // Financial
-            purchase_date: initialValues?.purchase_date ? new Date(initialValues.purchase_date) : null,
-            purchase_price: initialValues?.purchase_price,
-            residual_value: initialValues?.residual_value,
-            useful_life_months: initialValues?.useful_life_months,
+        serial_number: initialValues?.serial_number || '',
+        brand: initialValues?.brand || '',
+        model: initialValues?.model || '',
+        year_manufacture: initialValues?.year_manufacture,
 
-            notes: initialValues?.notes || '',
+        // Financial
+        purchase_date: initialValues?.purchase_date ? new Date(initialValues.purchase_date) : null,
+        purchase_price: initialValues?.purchase_price,
+        residual_value: initialValues?.residual_value,
+        useful_life_months: initialValues?.useful_life_months,
 
-            // Vehicle Details (Nested)
-            vehicle_details: {
-                license_plate: initialValues?.vehicle_details?.license_plate || '',
-                brand: initialValues?.vehicle_details?.brand || '',
-                model: initialValues?.vehicle_details?.model || '',
-                color: initialValues?.vehicle_details?.color || '',
-                vin: initialValues?.vehicle_details?.vin || '',
-                engine_number: initialValues?.vehicle_details?.engine_number || '',
-                bpkb_number: initialValues?.vehicle_details?.bpkb_number || '',
-                stnk_expiry: initialValues?.vehicle_details?.stnk_expiry ? new Date(initialValues.vehicle_details.stnk_expiry) : null,
-                kir_expiry: initialValues?.vehicle_details?.kir_expiry ? new Date(initialValues.vehicle_details.kir_expiry) : null,
-                tax_expiry: initialValues?.vehicle_details?.tax_expiry ? new Date(initialValues.vehicle_details.tax_expiry) : null,
-                fuel_type: initialValues?.vehicle_details?.fuel_type || '',
-                transmission: initialValues?.vehicle_details?.transmission || '',
-                capacity: initialValues?.vehicle_details?.capacity || '',
-                odometer_last: initialValues?.vehicle_details?.odometer_last,
-            },
+        notes: initialValues?.notes || '',
 
-            // Building/Land Details (Mapped to specifications)
-            building_details: {
-                address: initialValues?.specifications?.address || '',
-                city: initialValues?.specifications?.city || '',
-                land_area: initialValues?.specifications?.land_area,
-                building_area: initialValues?.specifications?.building_area,
-                certificate_number: initialValues?.specifications?.certificate_number || '',
-                pbb_number: initialValues?.specifications?.pbb_number || '', // NOP
-                certificate_expiry: initialValues?.specifications?.certificate_expiry ? new Date(initialValues.specifications.certificate_expiry) : null,
-            }
+        // Vehicle Details
+        vehicle_details: {
+            license_plate: initialValues?.vehicle_details?.license_plate || '',
+            brand: initialValues?.vehicle_details?.brand || '',
+            model: initialValues?.vehicle_details?.model || '',
+            color: initialValues?.vehicle_details?.color || '',
+            vin: initialValues?.vehicle_details?.vin || '',
+            engine_number: initialValues?.vehicle_details?.engine_number || '',
+            bpkb_number: initialValues?.vehicle_details?.bpkb_number || '',
+            stnk_expiry: initialValues?.vehicle_details?.stnk_expiry ? new Date(initialValues.vehicle_details.stnk_expiry) : null,
+            kir_expiry: initialValues?.vehicle_details?.kir_expiry ? new Date(initialValues.vehicle_details.kir_expiry) : null,
+            tax_expiry: initialValues?.vehicle_details?.tax_expiry ? new Date(initialValues.vehicle_details.tax_expiry) : null,
+            fuel_type: initialValues?.vehicle_details?.fuel_type || '',
+            transmission: initialValues?.vehicle_details?.transmission || '',
+            capacity: initialValues?.vehicle_details?.capacity || '',
+            odometer_last: initialValues?.vehicle_details?.odometer_last,
         },
-        validate: {
-            asset_code: (value) => (value ? null : 'Code is required'),
-            name: (value) => (value ? null : 'Name is required'),
-            category_id: (value) => (value ? null : 'Category is required'),
+
+        // Building Details
+        building_details: {
+            address: initialValues?.specifications?.address || '',
+            city: initialValues?.specifications?.city || '',
+            land_area: initialValues?.specifications?.land_area,
+            building_area: initialValues?.specifications?.building_area,
+            certificate_number: initialValues?.specifications?.certificate_number || '',
+            pbb_number: initialValues?.specifications?.pbb_number || '',
+            certificate_expiry: initialValues?.specifications?.certificate_expiry ? new Date(initialValues.specifications.certificate_expiry) : null,
         }
     });
+
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const categoryOptions = useMemo(() => {
         return categories.map(c => ({
@@ -107,8 +93,7 @@ export function AssetForm({ initialValues, categories, locations, onSubmit, onCa
         }));
     }, [categories]);
 
-    // Check classification
-    const selectedCategory = categoryOptions.find(c => c.value === form.values.category_id);
+    const selectedCategory = categoryOptions.find(c => c.value === form.category_id);
 
     const isVehicle = useMemo(() => {
         if (!selectedCategory) return false;
@@ -123,237 +108,205 @@ export function AssetForm({ initialValues, categories, locations, onSubmit, onCa
         return code.includes('BANGUNAN') || code.includes('TANAH') || code.includes('INFRA');
     }, [selectedCategory]);
 
-    const handleSubmit = (values: typeof form.values) => {
+    const updateForm = (key: string, value: any) => {
+        setForm(prev => ({ ...prev, [key]: value }));
+        if (errors[key]) setErrors(prev => ({ ...prev, [key]: '' }));
+    };
+
+    const updateVehicle = (key: string, value: any) => {
+        setForm(prev => ({ ...prev, vehicle_details: { ...prev.vehicle_details, [key]: value } }));
+    };
+
+    const updateBuilding = (key: string, value: any) => {
+        setForm(prev => ({ ...prev, building_details: { ...prev.building_details, [key]: value } }));
+    };
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!form.asset_code) newErrors.asset_code = 'Code is required';
+        if (!form.name) newErrors.name = 'Name is required';
+        if (!form.category_id) newErrors.category_id = 'Category is required';
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!validate()) return;
+
         const payload: any = {
-            ...values,
-            purchase_date: values.purchase_date?.toISOString().split('T')[0],
+            ...form,
+            purchase_date: form.purchase_date?.toISOString().split('T')[0],
         };
 
-        // Handle Vehicle Logic
         if (isVehicle) {
             payload.vehicle_details = {
-                ...values.vehicle_details,
-                stnk_expiry: values.vehicle_details.stnk_expiry?.toISOString().split('T')[0],
-                kir_expiry: values.vehicle_details.kir_expiry?.toISOString().split('T')[0],
-                tax_expiry: values.vehicle_details.tax_expiry?.toISOString().split('T')[0]
+                ...form.vehicle_details,
+                stnk_expiry: form.vehicle_details.stnk_expiry?.toISOString().split('T')[0],
+                kir_expiry: form.vehicle_details.kir_expiry?.toISOString().split('T')[0],
+                tax_expiry: form.vehicle_details.tax_expiry?.toISOString().split('T')[0]
             };
         } else {
             delete payload.vehicle_details;
         }
 
-        // Handle Building Logic (Pack into specifications)
         if (isBuilding) {
             payload.specifications = {
                 ...initialValues?.specifications,
-                address: values.building_details.address,
-                city: values.building_details.city,
-                land_area: values.building_details.land_area,
-                building_area: values.building_details.building_area,
-                certificate_number: values.building_details.certificate_number,
-                pbb_number: values.building_details.pbb_number,
-                certificate_expiry: values.building_details.certificate_expiry?.toISOString().split('T')[0]
+                address: form.building_details.address,
+                city: form.building_details.city,
+                land_area: form.building_details.land_area,
+                building_area: form.building_details.building_area,
+                certificate_number: form.building_details.certificate_number,
+                pbb_number: form.building_details.pbb_number,
+                certificate_expiry: form.building_details.certificate_expiry?.toISOString().split('T')[0]
             };
         }
 
-        delete payload.building_details; // Clean up aux field
+        delete payload.building_details;
         if (!payload.location_id) delete payload.location_id;
 
         onSubmit(payload);
     };
 
     return (
-        <form onSubmit={form.onSubmit(handleSubmit)}>
+        <form onSubmit={handleSubmit} className="space-y-6">
             <Tabs defaultValue="general">
-                <Tabs.List>
-                    <Tabs.Tab value="general" leftSection={<IconInfoCircle size={14} />}>General</Tabs.Tab>
-                    <Tabs.Tab
+                <TabsList className="mb-6">
+                    <TabsTrigger value="general" icon={<Info size={14} />}>General</TabsTrigger>
+                    <TabsTrigger
                         value="details"
-                        leftSection={isVehicle ? <IconCar size={14} /> : isBuilding ? <IconBuilding size={14} /> : <IconFileDescription size={14} />}
+                        icon={isVehicle ? <Car size={14} /> : isBuilding ? <Building size={14} /> : <FileText size={14} />}
                     >
                         {isVehicle ? 'Vehicle Details' : isBuilding ? 'Property Details' : 'Specifications'}
-                    </Tabs.Tab>
-                    <Tabs.Tab value="financial" leftSection={<IconCoin size={14} />}>Financial</Tabs.Tab>
-                    <Tabs.Tab value="docs" leftSection={<IconFileDescription size={14} />}>Docs</Tabs.Tab>
-                </Tabs.List>
+                    </TabsTrigger>
+                    <TabsTrigger value="financial" icon={<Coins size={14} />}>Financial</TabsTrigger>
+                    <TabsTrigger value="docs" icon={<FileText size={14} />}>Docs</TabsTrigger>
+                </TabsList>
 
-                <Box mt="md">
-                    {/* GENERAL TAB */}
-                    <Tabs.Panel value="general">
-                        <Stack gap="md">
-                            <Grid>
-                                <Grid.Col span={6}>
-                                    <TextInput label="Asset Code" {...form.getInputProps('asset_code')} withAsterisk />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
+                <TabsContent value="general">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input label="Asset Code" value={form.asset_code} onChange={e => updateForm('asset_code', e.target.value)} required error={errors.asset_code} />
+                        <Select
+                            label="Status"
+                            options={['planning', 'active', 'maintenance', 'disposed', 'sold'].map(s => ({ value: s, label: s }))}
+                            value={form.status}
+                            onChange={val => updateForm('status', val)}
+                        />
+                        <div className="col-span-1 md:col-span-2">
+                            <Input label="Asset Name" value={form.name} onChange={e => updateForm('name', e.target.value)} required error={errors.name} />
+                        </div>
+                        <Select
+                            label="Category"
+                            options={categoryOptions}
+                            value={form.category_id}
+                            onChange={val => updateForm('category_id', val)}
+                            required
+                            error={errors.category_id}
+                        />
+                        <Select
+                            label="Location"
+                            options={locations.map(l => ({ value: l.id, label: l.name }))}
+                            value={form.location_id}
+                            onChange={val => updateForm('location_id', val)}
+                        />
+                        <Input label="Brand" value={form.brand} onChange={e => updateForm('brand', e.target.value)} />
+                        <Input label="Model" value={form.model} onChange={e => updateForm('model', e.target.value)} />
+                        <Input
+                            label="Department"
+                            value={form.department_id}
+                            onChange={e => updateForm('department_id', e.target.value)}
+                            disabled={!!user?.department && user.role !== 'super_admin'}
+                        />
+                        <Input label="Serial Number" value={form.serial_number} onChange={e => updateForm('serial_number', e.target.value)} />
+                        <NumberInput label="Year Manufacture" value={form.year_manufacture} onChange={val => updateForm('year_manufacture', val)} />
+                    </div>
+                    <div className="mt-4">
+                        <Textarea label="Notes" value={form.notes} onChange={e => updateForm('notes', e.target.value)} />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="details">
+                    <div className="space-y-4">
+                        {isVehicle && (
+                            <>
+                                <h3 className="text-lg font-medium text-white mb-4">Vehicle Information</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <Input label="License Plate" value={form.vehicle_details.license_plate} onChange={e => updateVehicle('license_plate', e.target.value)} />
+                                    <Input label="VIN" value={form.vehicle_details.vin} onChange={e => updateVehicle('vin', e.target.value)} />
+                                    <Input label="Engine Number" value={form.vehicle_details.engine_number} onChange={e => updateVehicle('engine_number', e.target.value)} />
+                                    <Input label="Color" value={form.vehicle_details.color} onChange={e => updateVehicle('color', e.target.value)} />
+                                    <Input label="BPKB Number" value={form.vehicle_details.bpkb_number} onChange={e => updateVehicle('bpkb_number', e.target.value)} />
+                                    <NumberInput label="Odometer" value={form.vehicle_details.odometer_last} onChange={val => updateVehicle('odometer_last', val)} />
+
+                                    <DateInput label="STNK Expiry" value={form.vehicle_details.stnk_expiry} onChange={val => updateVehicle('stnk_expiry', val)} />
+                                    <DateInput label="KIR Expiry" value={form.vehicle_details.kir_expiry} onChange={val => updateVehicle('kir_expiry', val)} />
+                                    <DateInput label="Tax Expiry" value={form.vehicle_details.tax_expiry} onChange={val => updateVehicle('tax_expiry', val)} />
+
                                     <Select
-                                        label="Status"
-                                        data={['planning', 'active', 'maintenance', 'disposed', 'sold']}
-                                        {...form.getInputProps('status')}
+                                        label="Fuel Type"
+                                        options={['Petrol', 'Diesel', 'Electric', 'Hybrid'].map(s => ({ value: s, label: s }))}
+                                        value={form.vehicle_details.fuel_type}
+                                        onChange={val => updateVehicle('fuel_type', val)}
                                     />
-                                </Grid.Col>
-                                <Grid.Col span={12}>
-                                    <TextInput label="Asset Name" {...form.getInputProps('name')} withAsterisk />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
                                     <Select
-                                        label="Category"
-                                        data={categoryOptions}
-                                        searchable
-                                        {...form.getInputProps('category_id')}
-                                        withAsterisk
+                                        label="Transmission"
+                                        options={['Manual', 'Automatic'].map(s => ({ value: s, label: s }))}
+                                        value={form.vehicle_details.transmission}
+                                        onChange={val => updateVehicle('transmission', val)}
                                     />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <Select
-                                        label="Location"
-                                        data={locations.map(l => ({ value: l.id, label: l.name }))}
-                                        searchable
-                                        {...form.getInputProps('location_id')}
-                                    />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <TextInput label="Brand" {...form.getInputProps('brand')} />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <TextInput label="Model" {...form.getInputProps('model')} />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <TextInput
-                                        label="Department"
-                                        {...form.getInputProps('department')}
-                                        disabled={!!user?.department && user.role !== 'super_admin'}
-                                        description={!!user?.department && user.role !== 'super_admin' ? "Automatically assigned based on your profile" : undefined}
-                                    />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <TextInput label="Serial Number" {...form.getInputProps('serial_number')} />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <NumberInput label="Year Manufacture" {...form.getInputProps('year_manufacture')} />
-                                </Grid.Col>
-                            </Grid>
-                            <Textarea label="Notes" {...form.getInputProps('notes')} minRows={2} />
-                        </Stack>
-                    </Tabs.Panel>
+                                    <Input label="Capacity (CC/Ton)" value={form.vehicle_details.capacity} onChange={e => updateVehicle('capacity', e.target.value)} />
+                                </div>
+                            </>
+                        )}
 
-                    {/* DETAILS TAB */}
-                    <Tabs.Panel value="details">
-                        <Stack gap="md">
-                            {isVehicle && (
-                                <>
-                                    <Title order={5}>Vehicle Information</Title>
-                                    <Grid>
-                                        <Grid.Col span={6}>
-                                            <TextInput label="License Plate (No Polisi)" {...form.getInputProps('vehicle_details.license_plate')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <TextInput label="VIN (Chassis No)" {...form.getInputProps('vehicle_details.vin')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <TextInput label="Engine Number" {...form.getInputProps('vehicle_details.engine_number')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <TextInput label="Color" {...form.getInputProps('vehicle_details.color')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <TextInput label="BPKB Number" {...form.getInputProps('vehicle_details.bpkb_number')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <NumberInput label="Odometer" {...form.getInputProps('vehicle_details.odometer_last')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={4}>
-                                            <DateInput label="STNK Expiry" {...form.getInputProps('vehicle_details.stnk_expiry')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={4}>
-                                            <DateInput label="KIR Expiry" {...form.getInputProps('vehicle_details.kir_expiry')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={4}>
-                                            <DateInput label="Tax Expiry" {...form.getInputProps('vehicle_details.tax_expiry')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={4}>
-                                            <Select label="Fuel Type" data={['Petrol', 'Diesel', 'Electric', 'Hybrid']} {...form.getInputProps('vehicle_details.fuel_type')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={4}>
-                                            <Select label="Transmission" data={['Manual', 'Automatic']} {...form.getInputProps('vehicle_details.transmission')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={4}>
-                                            <TextInput label="Capacity (CC/Ton)" {...form.getInputProps('vehicle_details.capacity')} />
-                                        </Grid.Col>
-                                    </Grid>
-                                </>
-                            )}
+                        {isBuilding && (
+                            <>
+                                <h3 className="text-lg font-medium text-white mb-4">Property / Land Information</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="col-span-1 md:col-span-2">
+                                        <Input label="Address" value={form.building_details.address} onChange={e => updateBuilding('address', e.target.value)} />
+                                    </div>
+                                    <Input label="City / Region" value={form.building_details.city} onChange={e => updateBuilding('city', e.target.value)} />
+                                    <Input label="Certificate Number (SHM/HGB)" value={form.building_details.certificate_number} onChange={e => updateBuilding('certificate_number', e.target.value)} />
+                                    <NumberInput label="Land Area (m²)" value={form.building_details.land_area} onChange={val => updateBuilding('land_area', val)} />
+                                    <NumberInput label="Building Area (m²)" value={form.building_details.building_area} onChange={val => updateBuilding('building_area', val)} />
+                                    <Input label="PBB Number (NOP)" value={form.building_details.pbb_number} onChange={e => updateBuilding('pbb_number', e.target.value)} />
+                                    <DateInput label="Certificate Expiry" value={form.building_details.certificate_expiry} onChange={val => updateBuilding('certificate_expiry', val)} />
+                                </div>
+                            </>
+                        )}
 
-                            {isBuilding && (
-                                <>
-                                    <Title order={5}>Property / Land Information</Title>
-                                    <Grid>
-                                        <Grid.Col span={12}>
-                                            <TextInput label="Address" {...form.getInputProps('building_details.address')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <TextInput label="City / Region" {...form.getInputProps('building_details.city')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <TextInput label="Certificate Number (SHM/HGB)" {...form.getInputProps('building_details.certificate_number')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <NumberInput label="Land Area (m²)" {...form.getInputProps('building_details.land_area')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <NumberInput label="Building Area (m²)" {...form.getInputProps('building_details.building_area')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <TextInput label="PBB Number (NOP)" {...form.getInputProps('building_details.pbb_number')} />
-                                        </Grid.Col>
-                                        <Grid.Col span={6}>
-                                            <DateInput label="Certificate Expiry" {...form.getInputProps('building_details.certificate_expiry')} />
-                                        </Grid.Col>
-                                    </Grid>
-                                </>
-                            )}
+                        {!isVehicle && !isBuilding && (
+                            <div className="text-center py-10 text-slate-500">
+                                No specific details configuration for this category.
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
 
-                            {!isVehicle && !isBuilding && (
-                                <Text c="dimmed" ta="center" py="xl">
-                                    No specific details configuration for this category.
-                                    (Generic specifications support coming soon)
-                                </Text>
-                            )}
-                        </Stack>
-                    </Tabs.Panel>
+                <TabsContent value="financial">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <DateInput label="Purchase Date" value={form.purchase_date} onChange={val => updateForm('purchase_date', val)} />
+                        <NumberInput label="Purchase Price" prefix="Rp " value={form.purchase_price} onChange={val => updateForm('purchase_price', val)} />
+                        <NumberInput label="Residual Value" prefix="Rp " value={form.residual_value} onChange={val => updateForm('residual_value', val)} />
+                        <NumberInput label="Useful Life (Months)" value={form.useful_life_months} onChange={val => updateForm('useful_life_months', val)} />
+                    </div>
+                </TabsContent>
 
-                    {/* FINANCIAL TAB */}
-                    <Tabs.Panel value="financial">
-                        <Stack gap="md">
-                            <Grid>
-                                <Grid.Col span={6}>
-                                    <DateInput label="Purchase Date" {...form.getInputProps('purchase_date')} />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <NumberInput label="Purchase Price" prefix="Rp " thousandSeparator {...form.getInputProps('purchase_price')} />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <NumberInput label="Residual Value" prefix="Rp " thousandSeparator {...form.getInputProps('residual_value')} />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <NumberInput label="Useful Life (Months)" {...form.getInputProps('useful_life_months')} />
-                                </Grid.Col>
-                            </Grid>
-                        </Stack>
-                    </Tabs.Panel>
-
-                    {/* DOCS TAB */}
-                    <Tabs.Panel value="docs">
-                        <Text c="dimmed" ta="center" py="xl">Document Management (Insurance, etc.) will be available after saving.</Text>
-                    </Tabs.Panel>
-                </Box>
+                <TabsContent value="docs">
+                    <div className="text-center py-10 text-slate-500">
+                        Document Management will be available after saving.
+                    </div>
+                </TabsContent>
             </Tabs>
 
-            <Group justify="flex-end" mt="xl">
-                <Button variant="default" onClick={onCancel}>Cancel</Button>
-                <Button type="submit" loading={isLoading} leftSection={<IconDeviceFloppy size={16} />}>
+            <div className="flex justify-end gap-3 pt-6 border-t border-slate-800">
+                <Button variant="ghost" type="button" onClick={onCancel}>Cancel</Button>
+                <Button type="submit" loading={isLoading} leftIcon={<Save size={16} />}>
                     Save Asset
                 </Button>
-            </Group>
+            </div>
         </form>
     );
 }

@@ -1,108 +1,91 @@
+// AssetLifecycle Page - Pure Tailwind
 import { useState } from 'react';
-import {
-    Title,
-    Paper,
-    Stack,
-    Group,
-    Text,
-    Badge,
-    Button,
-    Timeline,
-    Modal,
-    Textarea,
-    LoadingOverlay,
-    Card,
-    SimpleGrid,
-    ThemeIcon,
-    Divider,
-    Alert,
-    Tooltip,
-    Tabs,
-} from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
-import { notifications } from '@mantine/notifications';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-    IconArrowRight,
-    IconCheck,
-    IconClock,
-    IconAlertTriangle,
-    IconPackage,
-    IconTruck,
-    IconTool,
-    IconTrash,
-    IconArchive,
-    IconRefresh,
-    IconLock,
-    IconInfoCircle,
-    IconHistory,
-    IconExchange,
-} from '@tabler/icons-react';
-import { useParams, useNavigate } from 'react-router-dom';
+    ArrowRight, Check, Clock, AlertTriangle, Package, Truck,
+    Wrench, Trash2, Archive, RefreshCw, Lock, Info, History, ArrowLeftRight
+} from 'lucide-react';
 import { lifecycleApi } from '../api/lifecycle';
 import type { LifecycleHistory } from '../api/lifecycle';
 import { useAuthStore } from '../store/useAuthStore';
 import { AssetConversionModal } from '../components/Assets/AssetConversionModal';
 import { ConversionHistory } from '../components/Assets/ConversionHistory';
+import {
+    Button,
+    Card,
+    Badge,
+    Modal,
+    Textarea,
+    LoadingOverlay,
+    Tabs, TabsList, TabsTrigger, TabsContent,
+    Timeline, TimelineItem,
+    useToast
+} from '../components/ui';
 
 // State icon mapping
 const stateIcons: Record<string, React.ReactNode> = {
-    planning: <IconClock size={16} />,
-    procurement: <IconTruck size={16} />,
-    received: <IconPackage size={16} />,
-    in_inventory: <IconPackage size={16} />,
-    deployed: <IconCheck size={16} />,
-    under_maintenance: <IconTool size={16} />,
-    under_repair: <IconTool size={16} />,
-    under_conversion: <IconRefresh size={16} />,
-    retired: <IconAlertTriangle size={16} />,
-    disposed: <IconTrash size={16} />,
-    lost_stolen: <IconAlertTriangle size={16} />,
-    archived: <IconArchive size={16} />,
+    planning: <Clock size={16} />,
+    procurement: <Truck size={16} />,
+    received: <Package size={16} />,
+    in_inventory: <Package size={16} />,
+    deployed: <Check size={16} />,
+    under_maintenance: <Wrench size={16} />,
+    under_repair: <Wrench size={16} />,
+    under_conversion: <RefreshCw size={16} />,
+    retired: <AlertTriangle size={16} />,
+    disposed: <Trash2 size={16} />,
+    lost_stolen: <AlertTriangle size={16} />,
+    archived: <Archive size={16} />,
 };
 
-// Mantine color mapping
-const stateColors: Record<string, string> = {
-    planning: 'gray',
-    procurement: 'blue',
-    received: 'cyan',
-    in_inventory: 'green',
-    deployed: 'teal',
-    under_maintenance: 'yellow',
-    under_repair: 'orange',
-    under_conversion: 'violet',
-    retired: 'gray',
-    disposed: 'dark',
-    lost_stolen: 'red',
-    archived: 'gray',
+// Map state to Badge variants
+const getBadgeVariant = (state: string): 'default' | 'info' | 'success' | 'warning' | 'danger' => {
+    switch (state) {
+        case 'in_inventory':
+        case 'deployed':
+            return 'success';
+        case 'procurement':
+        case 'received':
+        case 'under_conversion':
+            return 'info';
+        case 'under_maintenance':
+        case 'under_repair':
+            return 'warning';
+        case 'lost_stolen':
+            return 'danger';
+        default:
+            return 'default';
+    }
 };
 
 // Permission requirements for each transition
 const transitionPermissions: Record<string, number> = {
     // Role levels: 1=SuperAdmin, 2=Manager, 3=Supervisor, 4=Operator, 5=Viewer
-    'planning': 4,           // Operator can start planning
-    'procurement': 3,        // Supervisor can move to procurement
-    'received': 4,           // Operator can mark as received
-    'in_inventory': 4,       // Operator can add to inventory
-    'deployed': 3,           // Supervisor can deploy
-    'under_maintenance': 4,  // Operator can send to maintenance
-    'under_repair': 4,       // Operator can send to repair
-    'under_conversion': 2,   // Manager required for conversion
-    'retired': 2,            // Manager required to retire
-    'disposed': 2,           // Manager required to dispose
-    'lost_stolen': 3,        // Supervisor can report lost/stolen
-    'archived': 2,           // Manager required to archive
+    'planning': 4,
+    'procurement': 3,
+    'received': 4,
+    'in_inventory': 4,
+    'deployed': 3,
+    'under_maintenance': 4,
+    'under_repair': 4,
+    'under_conversion': 2,
+    'retired': 2,
+    'disposed': 2,
+    'lost_stolen': 3,
+    'archived': 2,
 };
 
 export function AssetLifecycle() {
     const { id: assetId } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const [opened, { open, close }] = useDisclosure(false);
-    const [conversionModalOpened, { open: openConversionModal, close: closeConversionModal }] = useDisclosure(false);
+    const { success, error: showError, info } = useToast();
+
+    const [transitionModalOpen, setTransitionModalOpen] = useState(false);
+    const [conversionModalOpen, setConversionModalOpen] = useState(false);
     const [selectedState, setSelectedState] = useState<string | null>(null);
     const [reason, setReason] = useState('');
-    const [activeTab, setActiveTab] = useState<string | null>('lifecycle');
 
     // Get user permissions
     const { user, hasRoleLevel } = useAuthStore();
@@ -141,50 +124,34 @@ export function AssetLifecycle() {
         enabled: !!assetId,
     });
 
-    // Transition mutation using request-transition (with approval workflow)
+    // Transition mutation
     const transitionMutation = useMutation({
         mutationFn: () => lifecycleApi.requestTransition(assetId!, selectedState!, reason || undefined),
         onSuccess: (response) => {
             if (response.result_type === 'Executed') {
-                notifications.show({
-                    title: 'Success',
-                    message: 'Asset status updated successfully',
-                    color: 'green',
-                });
+                success('Asset status updated successfully', 'Success');
             } else {
-                notifications.show({
-                    title: 'Approval Request Created',
-                    message: response.message || 'Your transition request has been submitted for approval',
-                    color: 'blue',
-                });
+                info(response.message || 'Your transition request has been submitted for approval', 'Approval Request Created');
             }
             queryClient.invalidateQueries({ queryKey: ['current-status', assetId] });
             queryClient.invalidateQueries({ queryKey: ['valid-transitions-with-approval', assetId] });
             queryClient.invalidateQueries({ queryKey: ['lifecycle-history', assetId] });
-            close();
+            setTransitionModalOpen(false);
             setSelectedState(null);
             setReason('');
         },
         onError: (error: Error) => {
-            notifications.show({
-                title: 'Error',
-                message: error.message || 'Failed to update status',
-                color: 'red',
-            });
+            showError(error.message || 'Failed to update status', 'Error');
         },
     });
 
     const handleCardClick = (stateValue: string) => {
         if (!canTransition(stateValue)) {
-            notifications.show({
-                title: 'Permission Denied',
-                message: 'You do not have permission to perform this transition',
-                color: 'red',
-            });
+            showError('You do not have permission to perform this transition', 'Permission Denied');
             return;
         }
         setSelectedState(stateValue);
-        open();
+        setTransitionModalOpen(true);
     };
 
     const handleTransition = () => {
@@ -192,7 +159,6 @@ export function AssetLifecycle() {
         transitionMutation.mutate();
     };
 
-    // Use actual status from database
     const getCurrentState = (): string => {
         if (currentStatus) {
             return currentStatus.value;
@@ -217,267 +183,234 @@ export function AssetLifecycle() {
     };
 
     if (!assetId) {
-        return <Text>Asset ID is required</Text>;
+        return <p className="text-center py-12 text-slate-400">Asset ID is required</p>;
     }
 
     const hasError = statesError || transitionsError;
+    const currentState = getCurrentState();
 
     return (
-        <Stack gap="lg">
-            <Group justify="space-between">
-                <Title order={2}>Asset Management</Title>
-                <Group>
-                    <Badge color="blue" variant="light">
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+                <h1 className="text-2xl font-bold text-white">Asset Management</h1>
+                <div className="flex items-center gap-3">
+                    <div className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm font-medium">
                         Your Role: {getRoleName(userRoleLevel)}
-                    </Badge>
-                    <Button variant="light" onClick={() => navigate(-1)}>
+                    </div>
+                    <Button variant="outline" onClick={() => navigate(-1)}>
                         Back
                     </Button>
-                </Group>
-            </Group>
+                </div>
+            </div>
 
-            <Tabs value={activeTab} onChange={setActiveTab} radius="md">
-                <Tabs.List>
-                    <Tabs.Tab value="lifecycle" leftSection={<IconHistory size={16} />}>
-                        Lifecycle
-                    </Tabs.Tab>
-                    <Tabs.Tab value="conversions" leftSection={<IconExchange size={16} />}>
-                        Conversions
-                    </Tabs.Tab>
-                </Tabs.List>
+            <Tabs defaultValue="lifecycle">
+                <Card padding="none">
+                    <TabsList className="px-4 pt-4">
+                        <TabsTrigger value="lifecycle" icon={<History size={16} />}>Lifecycle</TabsTrigger>
+                        <TabsTrigger value="conversions" icon={<ArrowLeftRight size={16} />}>Conversions</TabsTrigger>
+                    </TabsList>
 
-                <Tabs.Panel value="lifecycle" pt="md">
-                    <Stack gap="lg">
-                        {hasError && (
-                            <Alert icon={<IconInfoCircle size={16} />} color="red" title="Error loading data">
-                                {String(statesError || transitionsError)}
-                            </Alert>
-                        )}
+                    <TabsContent value="lifecycle" className="p-6">
+                        <div className="space-y-6">
+                            {hasError && (
+                                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+                                    <Info size={16} />
+                                    <span>Error loading data: {String(statesError || transitionsError)}</span>
+                                </div>
+                            )}
 
-                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-                            {/* Current State and Transitions */}
-                            <Paper withBorder p="md" radius="md" pos="relative">
-                                <LoadingOverlay visible={loadingTransitions || loadingStates} />
-                                <Stack>
-                                    <Text size="lg" fw={600}>Current Status</Text>
-                                    <Group>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Current State & Transitions */}
+                                <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 relative">
+                                    <LoadingOverlay visible={loadingTransitions || loadingStates} />
+
+                                    <h2 className="text-lg font-bold text-white mb-4">Current Status</h2>
+                                    <div className="mb-8">
                                         <Badge
-                                            size="xl"
-                                            color={stateColors[getCurrentState()] || 'gray'}
-                                            leftSection={stateIcons[getCurrentState()]}
+                                            variant={getBadgeVariant(currentState)}
+                                            className="text-lg px-4 py-2"
                                         >
-                                            {getStateLabel(getCurrentState())}
+                                            <div className="flex items-center gap-2">
+                                                {stateIcons[currentState]}
+                                                {getStateLabel(currentState)}
+                                            </div>
                                         </Badge>
-                                    </Group>
+                                    </div>
 
-                                    <Divider my="sm" />
+                                    <div className="w-full h-px bg-slate-800 my-6" />
 
-                                    <Text size="lg" fw={600}>Available Transitions</Text>
+                                    <h2 className="text-lg font-bold text-white mb-4">Available Transitions</h2>
                                     {validTransitions && validTransitions.length > 0 ? (
-                                        <SimpleGrid cols={2}>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                             {validTransitions.map((state) => {
                                                 const hasPermission = canTransition(state.value);
                                                 const requiredLevel = state.approval_level || (transitionPermissions[state.value] ?? 2);
                                                 const needsApproval = state.requires_approval;
 
+
                                                 return (
-                                                    <Tooltip
+                                                    <button
                                                         key={state.value}
-                                                        label={
-                                                            !hasPermission
-                                                                ? `Requires ${getRoleName(requiredLevel)} or higher`
-                                                                : needsApproval
-                                                                    ? `Requires ${getRoleName(requiredLevel)} approval`
-                                                                    : 'Click to transition (no approval needed)'
-                                                        }
-                                                        position="top"
+                                                        onClick={() => handleCardClick(state.value)}
+                                                        disabled={!hasPermission}
+                                                        className={`
+                                                            flex items-center gap-3 p-3 rounded-lg border text-left transition-all
+                                                            ${hasPermission
+                                                                ? 'border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800'
+                                                                : 'border-slate-800 opacity-50 cursor-not-allowed'
+                                                            }
+                                                        `}
+                                                        title={!hasPermission ? `Requires ${getRoleName(requiredLevel)}` : ''}
                                                     >
-                                                        <Card
-                                                            withBorder
-                                                            padding="sm"
-                                                            radius="md"
-                                                            style={{
-                                                                cursor: hasPermission ? 'pointer' : 'not-allowed',
-                                                                opacity: hasPermission ? 1 : 0.6,
-                                                            }}
-                                                            onClick={() => handleCardClick(state.value)}
-                                                        >
-                                                            <Group>
-                                                                <ThemeIcon
-                                                                    color={hasPermission ? (stateColors[state.value] || 'gray') : 'gray'}
-                                                                    size="lg"
-                                                                    radius="md"
-                                                                >
-                                                                    {hasPermission
-                                                                        ? (stateIcons[state.value] || <IconArrowRight size={16} />)
-                                                                        : <IconLock size={16} />
-                                                                    }
-                                                                </ThemeIcon>
-                                                                <div style={{ flex: 1 }}>
-                                                                    <Group gap={4}>
-                                                                        <Text size="sm" fw={500}>{state.label}</Text>
-                                                                        {needsApproval && (
-                                                                            <Badge size="xs" color="orange" variant="light">
-                                                                                Approval
-                                                                            </Badge>
-                                                                        )}
-                                                                    </Group>
-                                                                    {state.is_terminal && (
-                                                                        <Text size="xs" c="dimmed">Terminal state</Text>
-                                                                    )}
-                                                                    {!hasPermission && (
-                                                                        <Text size="xs" c="red">Requires {getRoleName(requiredLevel)}</Text>
-                                                                    )}
-                                                                    {hasPermission && needsApproval && (
-                                                                        <Text size="xs" c="orange">Needs {getRoleName(requiredLevel)} approval</Text>
-                                                                    )}
-                                                                </div>
-                                                            </Group>
-                                                        </Card>
-                                                    </Tooltip>
+                                                        <div className={`p-2 rounded-lg ${hasPermission ? 'bg-slate-800' : 'bg-slate-900'}`}>
+                                                            {hasPermission ? stateIcons[state.value] : <Lock size={16} />}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="font-medium text-white truncate">{state.label}</p>
+                                                            {needsApproval && (
+                                                                <span className="text-xs text-amber-400">Needs Approval</span>
+                                                            )}
+                                                            {!hasPermission && (
+                                                                <span className="text-xs text-red-400">Locked</span>
+                                                            )}
+                                                        </div>
+                                                    </button>
                                                 );
                                             })}
-                                        </SimpleGrid>
-                                    ) : loadingTransitions ? null : (
-                                        <Alert icon={<IconInfoCircle size={16} />} color="gray">
-                                            No transitions available from current state. This may be a terminal state or the asset status needs to be set first.
-                                        </Alert>
+                                        </div>
+                                    ) : (
+                                        <p className="text-slate-400 text-sm flex items-center gap-2 p-4 bg-slate-900 rounded-lg">
+                                            <Info size={16} />
+                                            No transitions available from current state.
+                                        </p>
                                     )}
-                                </Stack>
-                            </Paper>
+                                </div>
 
-                            {/* Lifecycle History Timeline */}
-                            <Paper withBorder p="md" radius="md" pos="relative">
-                                <LoadingOverlay visible={loadingHistory} />
-                                <Stack>
-                                    <Text size="lg" fw={600}>Lifecycle History</Text>
+                                {/* History Timeline */}
+                                <div className="p-6 rounded-xl bg-slate-900 border border-slate-800 relative min-h-[400px]">
+                                    <LoadingOverlay visible={loadingHistory} />
+                                    <h2 className="text-lg font-bold text-white mb-6">Lifecycle History</h2>
+
                                     {historyError && (
-                                        <Alert icon={<IconInfoCircle size={16} />} color="orange">
-                                            Error loading history: {String(historyError)}
-                                        </Alert>
+                                        <p className="text-red-400 mb-4">Error loading history</p>
                                     )}
+
                                     {history && history.length > 0 ? (
-                                        <Timeline active={0} bulletSize={24} lineWidth={2}>
-                                            {history.map((item: LifecycleHistory) => (
-                                                <Timeline.Item
+                                        <Timeline>
+                                            {history.map((item: LifecycleHistory, index) => (
+                                                <TimelineItem
                                                     key={item.id}
+                                                    isLast={index === history.length - 1}
+                                                    active={index === 0}
                                                     bullet={stateIcons[item.to_state]}
-                                                    color={stateColors[item.to_state] || 'gray'}
                                                     title={
-                                                        <Group gap="xs">
-                                                            <Text size="sm">{getStateLabel(item.from_state)}</Text>
-                                                            <IconArrowRight size={14} />
-                                                            <Text size="sm" fw={600}>{getStateLabel(item.to_state)}</Text>
-                                                        </Group>
+                                                        <div className="flex items-center gap-2">
+                                                            <span>{getStateLabel(item.from_state)}</span>
+                                                            <ArrowRight size={14} className="text-slate-500" />
+                                                            <span className="text-white font-bold">{getStateLabel(item.to_state)}</span>
+                                                        </div>
                                                     }
                                                 >
-                                                    {item.reason && <Text size="xs" c="dimmed">{item.reason}</Text>}
-                                                    <Text size="xs" c="dimmed">
-                                                        {new Date(item.created_at).toLocaleString()}
-                                                    </Text>
-                                                </Timeline.Item>
+                                                    <div className="flex flex-col gap-1">
+                                                        {item.reason && <p className="text-slate-300 italic">"{item.reason}"</p>}
+                                                        <p className="text-xs text-slate-500">{new Date(item.created_at).toLocaleString()}</p>
+                                                    </div>
+                                                </TimelineItem>
                                             ))}
                                         </Timeline>
-                                    ) : loadingHistory ? null : (
-                                        <Text c="dimmed" size="sm">No history records yet. Perform a transition to start tracking.</Text>
+                                    ) : !loadingHistory && (
+                                        <p className="text-slate-500 text-center py-8">No history records yet.</p>
                                     )}
-                                </Stack>
-                            </Paper>
-                        </SimpleGrid>
+                                </div>
+                            </div>
 
-                        {/* State Overview */}
-                        <Paper withBorder p="md" radius="md">
-                            <Text size="lg" fw={600} mb="md">All Lifecycle States</Text>
-                            <SimpleGrid cols={{ base: 2, sm: 3, md: 4, lg: 6 }}>
-                                {allStates?.map((state) => (
-                                    <Card
-                                        key={state.value}
-                                        withBorder
-                                        padding="xs"
-                                        radius="md"
-                                        bg={state.value === getCurrentState() ? `${stateColors[state.value]}.1` : undefined}
-                                    >
-                                        <Group gap="xs">
-                                            <ThemeIcon
-                                                color={stateColors[state.value] || 'gray'}
-                                                size="sm"
-                                                variant={state.value === getCurrentState() ? 'filled' : 'light'}
-                                            >
-                                                {stateIcons[state.value] || <IconPackage size={12} />}
-                                            </ThemeIcon>
-                                            <Text size="xs" fw={state.value === getCurrentState() ? 600 : 400}>
-                                                {state.label}
-                                            </Text>
-                                        </Group>
-                                    </Card>
-                                ))}
-                            </SimpleGrid>
-                        </Paper>
-                    </Stack>
-                </Tabs.Panel>
+                            {/* Legend - All States */}
+                            <div className="p-6 rounded-xl bg-slate-900 border border-slate-800">
+                                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider mb-4">Lifecycle State Legend</h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                                    {allStates?.map((state) => (
+                                        <div
+                                            key={state.value}
+                                            className={`
+                                                flex items-center gap-2 p-2 rounded-lg border text-xs
+                                                ${state.value === currentState
+                                                    ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-400'
+                                                    : 'border-slate-800 bg-slate-950 text-slate-400'
+                                                }
+                                            `}
+                                        >
+                                            {stateIcons[state.value]}
+                                            <span>{state.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </TabsContent>
 
-                <Tabs.Panel value="conversions" pt="md">
-                    <Stack gap="lg">
-                        <Group justify="space-between">
-                            <Text size="lg" fw={600}>Asset Conversions</Text>
-                            <Button leftSection={<IconRefresh size={16} />} onClick={openConversionModal}>
-                                Request Conversion
-                            </Button>
-                        </Group>
-                        <Paper withBorder p="md" radius="md">
-                            <ConversionHistory assetId={assetId!} />
-                        </Paper>
-                    </Stack>
-                </Tabs.Panel>
+                    <TabsContent value="conversions" className="p-6">
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-bold text-white">Asset Conversions</h2>
+                                <Button
+                                    leftIcon={<RefreshCw size={16} />}
+                                    onClick={() => setConversionModalOpen(true)}
+                                >
+                                    Request Conversion
+                                </Button>
+                            </div>
+                            <div className="p-6 rounded-xl bg-slate-900 border border-slate-800">
+                                <ConversionHistory assetId={assetId!} />
+                            </div>
+                        </div>
+                    </TabsContent>
+                </Card>
             </Tabs>
 
             {/* Transition Confirmation Modal */}
-            <Modal opened={opened} onClose={close} title="Confirm State Transition">
-                <Stack>
-                    <Group>
-                        <Badge color={stateColors[getCurrentState()] || 'gray'}>
-                            {getStateLabel(getCurrentState())}
+            <Modal isOpen={transitionModalOpen} onClose={() => setTransitionModalOpen(false)} title="Confirm State Transition">
+                <div className="space-y-4">
+                    <div className="flex items-center justify-center gap-4 py-4">
+                        <Badge variant={getBadgeVariant(currentState)}>
+                            {getStateLabel(currentState)}
                         </Badge>
-                        <IconArrowRight size={16} />
-                        <Badge color={stateColors[selectedState || ''] || 'gray'}>
+                        <ArrowRight size={20} className="text-slate-500" />
+                        <Badge variant={selectedState ? getBadgeVariant(selectedState) : 'default'}>
                             {selectedState ? getStateLabel(selectedState) : ''}
                         </Badge>
-                    </Group>
+                    </div>
 
                     <Textarea
                         label="Reason (optional)"
                         placeholder="Enter reason for this transition..."
                         value={reason}
-                        onChange={(e) => setReason(e.currentTarget.value)}
-                        minRows={3}
+                        onChange={(e) => setReason(e.target.value)}
                     />
 
-                    <Group justify="flex-end">
-                        <Button variant="default" onClick={close}>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setTransitionModalOpen(false)}>
                             Cancel
                         </Button>
                         <Button
                             onClick={handleTransition}
                             loading={transitionMutation.isPending}
-                            color={stateColors[selectedState || ''] || 'blue'}
                         >
                             Confirm Transition
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </Modal>
 
             <AssetConversionModal
-                opened={conversionModalOpened}
-                onClose={closeConversionModal}
+                opened={conversionModalOpen}
+                onClose={() => setConversionModalOpen(false)}
                 assetId={assetId!}
                 onSuccess={() => {
-                    // Refresh history via query invalidation if needed, or component does it?
-                    // ConversionHistory component fetches on mount, we might need to force refresh
-                    // But for MVP, simple success message is okay. History component might not auto-refresh unless key changes.
-                    // Actually, useQueryClient can invalidate here too if we want.
+                    queryClient.invalidateQueries({ queryKey: ['current-status', assetId] });
+                    // History should auto-refresh via its own efffect or query invalidation
                 }}
             />
-        </Stack>
+        </div>
     );
 }

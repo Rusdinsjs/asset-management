@@ -1,60 +1,72 @@
-import { useEffect } from 'react';
-import { useForm } from '@mantine/form';
-import {
-    NumberInput,
-    Select,
-    Button,
-    Group,
-    Stack,
-    Textarea,
-    LoadingOverlay,
-} from '@mantine/core';
-import { DateInput } from '@mantine/dates';
-import { notifications } from '@mantine/notifications';
+// WorkOrderForm - Pure Tailwind
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { workOrderApi } from '../api/work-order';
-// import type { CreateWorkOrderRequest } from '../api/work-order'; // TODO: Define create types in work-order.ts
 import { assetApi } from '../api/assets';
 import { api } from '../api/client';
+import {
+    Button,
+    Select,
+    Textarea,
+
+    NumberInput,
+    DateInput,
+    LoadingOverlay,
+    useToast
+} from '../components/ui';
 
 interface WorkOrderFormProps {
-    maintenanceId?: string | null; // If null, create mode
+    maintenanceId?: string | null;
     onClose: () => void;
     onSuccess: () => void;
 }
 
+interface FormState {
+    asset_id: string;
+    maintenance_type_id: string;
+    scheduled_date: Date | null;
+    description: string;
+    cost: number | '';
+    vendor_id: string;
+    status: string;
+    findings: string;
+    actions_taken: string;
+    odometer_reading: number | '';
+    location_id: string;
+}
+
+const initialFormState: FormState = {
+    asset_id: '',
+    maintenance_type_id: '',
+    scheduled_date: new Date(),
+    description: '',
+    cost: '',
+    vendor_id: '',
+    status: 'planned',
+    findings: '',
+    actions_taken: '',
+    odometer_reading: '',
+    location_id: '',
+};
+
 export function WorkOrderForm({ maintenanceId, onClose, onSuccess }: WorkOrderFormProps) {
     const queryClient = useQueryClient();
+    const { success, error: showError } = useToast();
     const isEdit = !!maintenanceId;
 
-    const form = useForm({
-        initialValues: {
-            asset_id: '',
-            maintenance_type_id: '', // TODO: Fetch types
-            scheduled_date: new Date(),
-            description: '',
-            cost: undefined as number | undefined,
-            vendor_id: '',
-            status: 'planned',
-            findings: '',
-            actions_taken: '',
-            odometer_reading: undefined as number | undefined,
-            location_id: '',
-        },
-        validate: {
-            asset_id: (value) => (value ? null : 'Asset is required'),
-            description: (value) => (value ? null : 'Description is required'),
-        },
-    });
+    const [form, setForm] = useState<FormState>(initialFormState);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
-    // Fetch Assets for Select
+    // Fetch Assets
     const { data: assetsData, isLoading: assetsLoading } = useQuery({
         queryKey: ['assets'],
         queryFn: async () => {
-            const res = await assetApi.list({ page: 1, per_page: 100 }); // TODO: proper search/infinite scroll
+            const res = await assetApi.list({ page: 1, per_page: 100 });
             return res.data;
         },
     });
+
+    const assetOptions = assetsData?.map(a => ({ value: a.id, label: a.name })) || [];
 
     // Fetch Locations
     const { data: locations = [] } = useQuery({
@@ -74,161 +86,160 @@ export function WorkOrderForm({ maintenanceId, onClose, onSuccess }: WorkOrderFo
 
     useEffect(() => {
         if (maintenanceData) {
-            const r = maintenanceData; // WorkOrder object
-            form.setValues({
+            const r = maintenanceData;
+            setForm({
                 asset_id: r.asset_id,
-                maintenance_type_id: r.wo_type, // Work Order uses string 'maintenance' etc, or mapped ID. Backend wo_type is String. Select expects string.
+                maintenance_type_id: r.wo_type || '', // Assuming wo_type exists
                 scheduled_date: r.scheduled_date ? new Date(r.scheduled_date) : new Date(),
                 description: r.problem_description || '',
-                cost: r.estimated_cost, // work order uses estimated cost initially
-                vendor_id: '', // Work Order in new schema might not have vendor_id directly on root or it's different. Check entity.
+                cost: r.estimated_cost ?? '',
+                vendor_id: '',
                 status: r.status,
-                findings: r.work_performed || '', // Mapping 'work_performed' to findings/actions roughly
+                findings: r.work_performed || '',
                 actions_taken: '',
-                odometer_reading: undefined, // specific to vehicle, might need custom handling
+                odometer_reading: '',
                 location_id: '',
             });
         }
     }, [maintenanceData]);
 
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!form.asset_id) newErrors.asset_id = 'Asset is required';
+        if (!form.description) newErrors.description = 'Description is required';
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const mutation = useMutation({
-        mutationFn: (values: typeof form.values) => {
+        mutationFn: async () => {
             const payload: any = {
-                asset_id: values.asset_id,
-                wo_type: values.maintenance_type_id, // Mapping back
-                priority: 'medium', // Default priority as form doesn't have it yet
-                problem_description: values.description,
-                scheduled_date: values.scheduled_date ? values.scheduled_date.toISOString().split('T')[0] : undefined,
-                // ... other fields mapping for CreateWorkOrderRequest
+                asset_id: form.asset_id,
+                wo_type: form.maintenance_type_id || 'maintenance', // Default if empty
+                priority: 'medium',
+                problem_description: form.description,
+                scheduled_date: form.scheduled_date ? form.scheduled_date.toISOString().split('T')[0] : undefined,
+                status: form.status,
+                // ... other mappings based on original form logic
             };
 
             if (isEdit) {
-                // return workOrderApi.update(maintenanceId!, payload); // Schema might differ
-                // Work Order update usually specific endpoints. For now, warn or try generic.
+                // return workOrderApi.update(maintenanceId!, payload);
                 throw new Error("Generic update not implemented for Work Order yet");
             } else {
                 return workOrderApi.create(payload);
             }
         },
         onSuccess: () => {
-            notifications.show({
-                title: 'Success',
-                message: `Work Order ${isEdit ? 'updated' : 'created'} successfully`,
-                color: 'green',
-            });
+            success(`Work Order ${isEdit ? 'updated' : 'created'} successfully`, 'Success');
             queryClient.invalidateQueries({ queryKey: ['work-orders'] });
             onSuccess();
         },
-        onError: (error: any) => {
-            notifications.show({
-                title: 'Error',
-                message: error.message || 'Failed to save Work Order',
-                color: 'red',
-            });
+        onError: (err: any) => {
+            showError(err.message || 'Failed to save Work Order', 'Error');
         },
     });
 
-    const assetOptions = assetsData?.map(a => ({ value: a.id, label: a.name })) || [];
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (validate()) {
+            mutation.mutate();
+        }
+    };
 
-    // Check if selected asset is a Vehicle to show Odometer field
-    // TODO: Verify if category_id maps to Vehicles correctly. Assuming 'Vehicles' has checked ID or logic.
-    // For now, always show Odometer if completed to allow update regardless of type if needed, or check category name if available.
-    // Since we don't have category object populated in select list (only list), we'd need to lookup.
-    // const selectedAsset = assetsData?.find(a => a.id === form.values.asset_id);
-    // const isVehicle = selectedAsset?.category?.name === 'Vehicles'; 
+    const handleChange = (key: keyof FormState, value: any) => {
+        setForm(prev => ({ ...prev, [key]: value }));
+        if (errors[key]) setErrors(prev => ({ ...prev, [key]: '' }));
+    };
+
+    const isLoading = mutation.isPending || maintenanceLoading || assetsLoading;
 
     return (
-        <Stack pos="relative">
-            <LoadingOverlay visible={mutation.isPending || maintenanceLoading || assetsLoading} />
+        <div className="relative">
+            <LoadingOverlay visible={isLoading} />
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <Select
+                    label="Asset"
+                    placeholder="Select asset"
+                    options={assetOptions}
+                    value={form.asset_id}
+                    onChange={(val) => handleChange('asset_id', val)}
+                    disabled={isEdit}
+                    error={errors.asset_id}
+                />
 
-            <form onSubmit={form.onSubmit((values) => mutation.mutate(values))}>
-                <Stack>
-                    <Select
-                        label="Asset"
-                        placeholder="Select asset"
-                        data={assetOptions}
-                        searchable
-                        {...form.getInputProps('asset_id')}
-                        disabled={isEdit}
-                    />
+                <DateInput
+                    label="Scheduled Date"
+                    value={form.scheduled_date}
+                    onChange={(date) => handleChange('scheduled_date', date)}
+                />
 
-                    <DateInput
-                        label="Scheduled Date"
-                        placeholder="Select date"
-                        valueFormat="YYYY-MM-DD"
-                        {...form.getInputProps('scheduled_date')}
-                    />
+                <Textarea
+                    label="Description"
+                    placeholder="Work to be done"
+                    value={form.description}
+                    onChange={(e) => handleChange('description', e.target.value)}
+                    error={errors.description}
+                />
 
-                    {/* TODO: Maintenance Type Select */}
+                <Select
+                    label="Location"
+                    placeholder="Select location (if different)"
+                    options={locations}
+                    value={form.location_id}
+                    onChange={(val) => handleChange('location_id', val)}
+                />
 
-                    <Textarea
-                        label="Description"
-                        placeholder="Work to be done"
-                        minRows={3}
-                        {...form.getInputProps('description')}
-                    />
+                <Select
+                    label="Status"
+                    options={[
+                        { value: 'planned', label: 'Planned' },
+                        { value: 'in_progress', label: 'In Progress' },
+                        { value: 'completed', label: 'Completed' },
+                        { value: 'cancelled', label: 'Cancelled' },
+                    ]}
+                    value={form.status}
+                    onChange={(val) => handleChange('status', val)}
+                />
 
-                    <Select
-                        label="Location"
-                        placeholder="Select location (if different from asset location)"
-                        data={locations}
-                        searchable
-                        clearable
-                        {...form.getInputProps('location_id')}
-                    />
-
-                    <Select
-                        label="Status"
-                        data={[
-                            { value: 'planned', label: 'Planned' },
-                            { value: 'in_progress', label: 'In Progress' },
-                            { value: 'completed', label: 'Completed' },
-                            { value: 'cancelled', label: 'Cancelled' },
-                        ]}
-                        {...form.getInputProps('status')}
-                    />
-
-                    {/* Fields visible only when status is In Progress or Completed (or Edit mode generally) */}
-                    {(isEdit || form.values.status !== 'planned') && (
-                        <>
-                            <Textarea
-                                label="Findings"
-                                placeholder="What was found?"
-                                minRows={2}
-                                {...form.getInputProps('findings')}
-                            />
-                            <Textarea
-                                label="Actions Taken"
-                                placeholder="What was done?"
-                                minRows={2}
-                                {...form.getInputProps('actions_taken')}
-                            />
-                            <NumberInput
-                                label="Cost"
-                                placeholder="0.00"
-                                prefix="$"
-                                decimalScale={2}
-                                {...form.getInputProps('cost')}
-                            />
-                        </>
-                    )}
-
-                    {/* Odometer only if Completed */}
-                    {form.values.status === 'completed' && (
-                        <NumberInput
-                            label="New Odometer Reading"
-                            placeholder="Current reading"
-                            description="Updates asset odometer"
-                            {...form.getInputProps('odometer_reading')}
+                {(isEdit || form.status !== 'planned') && (
+                    <>
+                        <Textarea
+                            label="Findings"
+                            placeholder="What was found?"
+                            value={form.findings}
+                            onChange={(e) => handleChange('findings', e.target.value)}
                         />
-                    )}
+                        <Textarea
+                            label="Actions Taken"
+                            placeholder="What was done?"
+                            value={form.actions_taken}
+                            onChange={(e) => handleChange('actions_taken', e.target.value)}
+                        />
+                        <NumberInput
+                            label="Cost"
+                            placeholder="0.00"
+                            prefix="$"
+                            value={form.cost}
+                            onChange={(val) => handleChange('cost', val)}
+                        />
+                    </>
+                )}
 
-                    <Group justify="flex-end" mt="md">
-                        <Button variant="default" onClick={onClose}>Cancel</Button>
-                        <Button type="submit" loading={mutation.isPending}>Save</Button>
-                    </Group>
-                </Stack>
+                {form.status === 'completed' && (
+                    <NumberInput
+                        label="New Odometer Reading"
+                        placeholder="Current reading"
+                        value={form.odometer_reading}
+                        onChange={(val) => handleChange('odometer_reading', val)}
+                    />
+                )}
+
+                <div className="flex justify-end gap-3 pt-4">
+                    <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+                    <Button type="submit" loading={mutation.isPending}>Save</Button>
+                </div>
             </form>
-        </Stack>
+        </div>
     );
 }

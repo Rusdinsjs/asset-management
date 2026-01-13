@@ -1,47 +1,30 @@
+// WorkOrderDetails Page - Pure Tailwind
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, Info, CheckSquare, Wrench, Plus, Trash2, DollarSign, Play, Check, AlertCircle } from 'lucide-react';
+import { workOrderApi } from '../api/work-order';
 import {
-    Container,
-    Title,
-    Paper,
-    Text,
-    Grid,
-    Badge,
-    Group,
-    Tabs,
-    Table,
     Button,
+    Card,
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd, TableEmpty,
+    Badge,
     ActionIcon,
     Modal,
-    TextInput,
+    Input,
     NumberInput,
-    Stack,
+    Tabs, TabsList, TabsTrigger, TabsContent,
     LoadingOverlay,
-    Card,
-    ThemeIcon,
-    Alert,
-} from '@mantine/core';
-import {
-    IconArrowLeft,
-    IconChecklist,
-    IconTools,
-    IconInfoCircle,
-    IconPlus,
-    IconTrash,
-    IconCurrencyDollar,
-    IconPlayerPlay,
-    IconCheck,
-} from '@tabler/icons-react';
-import { workOrderApi } from '../api/work-order';
-import { notifications } from '@mantine/notifications';
+    useToast,
+} from '../components/ui';
 
 export function WorkOrderDetails() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { success } = useToast();
 
-    const [activeTab, setActiveTab] = useState<string | null>('overview');
+
 
     // Modals
     const [taskModalOpen, setTaskModalOpen] = useState(false);
@@ -79,7 +62,7 @@ export function WorkOrderDetails() {
             queryClient.invalidateQueries({ queryKey: ['work-order-tasks', id] });
             setTaskModalOpen(false);
             setNewTask({ task_number: (tasks?.length || 0) + 2, description: '' });
-            notifications.show({ title: 'Success', message: 'Task added', color: 'green' });
+            success('Task added', 'Success');
         },
     });
 
@@ -87,7 +70,7 @@ export function WorkOrderDetails() {
         mutationFn: (taskId: string) => workOrderApi.removeTask(id!, taskId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['work-order-tasks', id] });
-            notifications.show({ title: 'Success', message: 'Task removed', color: 'green' });
+            success('Task removed', 'Success');
         },
     });
 
@@ -95,10 +78,10 @@ export function WorkOrderDetails() {
         mutationFn: (data: typeof newPart) => workOrderApi.addPart(id!, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['work-order-parts', id] });
-            queryClient.invalidateQueries({ queryKey: ['work-order', id] }); // Update total cost
+            queryClient.invalidateQueries({ queryKey: ['work-order', id] });
             setPartModalOpen(false);
             setNewPart({ part_name: '', quantity: 1, unit_cost: 0 });
-            notifications.show({ title: 'Success', message: 'Part added', color: 'green' });
+            success('Part added', 'Success');
         },
     });
 
@@ -107,7 +90,7 @@ export function WorkOrderDetails() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['work-order-parts', id] });
             queryClient.invalidateQueries({ queryKey: ['work-order', id] });
-            notifications.show({ title: 'Success', message: 'Part removed', color: 'green' });
+            success('Part removed', 'Success');
         },
     });
 
@@ -115,7 +98,7 @@ export function WorkOrderDetails() {
         mutationFn: () => workOrderApi.start(id!),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['work-order', id] });
-            notifications.show({ title: 'Started', message: 'Work Order started', color: 'blue' });
+            success('Work Order started', 'Started');
         },
     });
 
@@ -124,227 +107,279 @@ export function WorkOrderDetails() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['work-order', id] });
             setCompleteModalOpen(false);
-            notifications.show({ title: 'Completed', message: 'Work Order completed', color: 'green' });
+            success('Work Order completed', 'Completed');
         },
     });
 
-    if (woLoading) return <LoadingOverlay visible />;
-    if (!wo) return <Text>Work Order not found</Text>;
+    if (woLoading) return <div className="flex justify-center py-12"><LoadingOverlay visible /></div>;
+    if (!wo) return <p className="text-slate-400 text-center py-12">Work Order not found</p>;
 
-    const statusColors: Record<string, string> = {
-        pending: 'gray',
-        assigned: 'blue',
-        in_progress: 'orange',
-        completed: 'green',
-        cancelled: 'red',
+    const statusBadge: Record<string, 'default' | 'info' | 'warning' | 'success' | 'danger'> = {
+        pending: 'default',
+        assigned: 'info',
+        in_progress: 'warning',
+        completed: 'success',
+        cancelled: 'danger',
     };
 
+    const partsCost = Number(wo.parts_cost || 0);
+    const laborCost = Number(wo.labor_cost || 0);
+    const totalCost = partsCost + laborCost;
+
     return (
-        <Container size="xl">
-            <Button variant="subtle" leftSection={<IconArrowLeft size={16} />} onClick={() => navigate('/work-orders')} mb="md">
+        <div className="space-y-6">
+            {/* Back Button */}
+            <Button variant="ghost" leftIcon={<ArrowLeft size={16} />} onClick={() => navigate('/work-orders')}>
                 Back to List
             </Button>
 
-            <Group justify="space-between" mb="lg">
+            {/* Header */}
+            <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                    <Group mb={5}>
-                        <Title>{wo.wo_number}</Title>
-                        <Badge size="lg" color={statusColors[wo.status]}>{wo.status}</Badge>
-                        <Badge variant="outline">{wo.priority}</Badge>
-                    </Group>
-                    <Text c="dimmed">{wo.wo_type}</Text>
+                    <div className="flex items-center gap-3 mb-1">
+                        <h1 className="text-2xl font-bold text-white">{wo.wo_number}</h1>
+                        <Badge variant={statusBadge[wo.status]}>{wo.status.toUpperCase()}</Badge>
+                        <Badge variant="default">{wo.priority}</Badge>
+                    </div>
+                    <p className="text-slate-400">{wo.wo_type}</p>
                 </div>
-                <Group>
+                <div className="flex gap-2">
                     {wo.status === 'assigned' && (
-                        <Button leftSection={<IconPlayerPlay size={16} />} onClick={() => startMutation.mutate()} loading={startMutation.isPending}>
+                        <Button leftIcon={<Play size={16} />} onClick={() => startMutation.mutate()} loading={startMutation.isPending}>
                             Start Work
                         </Button>
                     )}
                     {wo.status === 'in_progress' && (
-                        <Button color="green" leftSection={<IconCheck size={16} />} onClick={() => setCompleteModalOpen(true)}>
+                        <Button variant="primary" leftIcon={<Check size={16} />} onClick={() => setCompleteModalOpen(true)}>
                             Complete
                         </Button>
                     )}
-                </Group>
-            </Group>
+                </div>
+            </div>
 
-            {/* Cost Summary Card */}
-            <Grid mb="lg">
-                <Grid.Col span={4}>
-                    <Card withBorder padding="sm">
-                        <Group>
-                            <ThemeIcon size="lg" variant="light" color="blue"><IconCurrencyDollar /></ThemeIcon>
-                            <div>
-                                <Text size="xs" c="dimmed">Parts Cost</Text>
-                                <Text fw={700}>Rp {Number(wo.parts_cost || 0).toLocaleString('id-ID')}</Text>
+            {/* Cost Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card padding="md">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                            <DollarSign size={20} className="text-blue-400" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-400">Parts Cost</p>
+                            <p className="text-lg font-bold text-white">Rp {partsCost.toLocaleString('id-ID')}</p>
+                        </div>
+                    </div>
+                </Card>
+                <Card padding="md">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                            <DollarSign size={20} className="text-amber-400" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-400">Labor Cost</p>
+                            <p className="text-lg font-bold text-white">Rp {laborCost.toLocaleString('id-ID')}</p>
+                        </div>
+                    </div>
+                </Card>
+                <Card padding="md" className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-cyan-500/30 flex items-center justify-center">
+                            <DollarSign size={20} className="text-cyan-400" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-slate-400">Total Cost</p>
+                            <p className="text-xl font-bold text-white">Rp {totalCost.toLocaleString('id-ID')}</p>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+
+            {/* Tabs */}
+            <Card padding="none">
+                <Tabs defaultValue="overview">
+                    <TabsList className="px-4 pt-4">
+                        <TabsTrigger value="overview" icon={<Info size={14} />}>Overview</TabsTrigger>
+                        <TabsTrigger value="tasks" icon={<CheckSquare size={14} />}>Tasks ({tasks?.length || 0})</TabsTrigger>
+                        <TabsTrigger value="parts" icon={<Wrench size={14} />}>Parts ({parts?.length || 0})</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="overview" className="p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-300">Problem Description</p>
+                                    <p className="text-slate-400">{wo.problem_description || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-slate-300">Safety Requirements</p>
+                                    <p className="text-slate-400">{Array.isArray(wo.safety_requirements) ? wo.safety_requirements.join(', ') : '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-slate-300">Dates</p>
+                                    <p className="text-sm text-slate-400">Scheduled: {wo.scheduled_date || '-'}</p>
+                                    <p className="text-sm text-slate-400">Actual Start: {wo.actual_start_date ? new Date(wo.actual_start_date).toLocaleString() : '-'}</p>
+                                    <p className="text-sm text-slate-400">Completed: {wo.actual_end_date ? new Date(wo.actual_end_date).toLocaleString() : '-'}</p>
+                                </div>
                             </div>
-                        </Group>
-                    </Card>
-                </Grid.Col>
-                <Grid.Col span={4}>
-                    <Card withBorder padding="sm">
-                        <Group>
-                            <ThemeIcon size="lg" variant="light" color="orange"><IconCurrencyDollar /></ThemeIcon>
-                            <div>
-                                <Text size="xs" c="dimmed">Labor Cost</Text>
-                                <Text fw={700}>Rp {Number(wo.labor_cost || 0).toLocaleString('id-ID')}</Text>
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-300">Work Performed</p>
+                                    <p className="text-slate-400">{wo.work_performed || '-'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-slate-300">Assigned Technician</p>
+                                    <p className="text-slate-400">{wo.assigned_technician || 'Unassigned'}</p>
+                                </div>
                             </div>
-                        </Group>
-                    </Card>
-                </Grid.Col>
-                <Grid.Col span={4}>
-                    <Card withBorder padding="sm" bg="blue.0">
-                        <Group>
-                            <ThemeIcon size="lg" variant="filled" color="blue"><IconCurrencyDollar /></ThemeIcon>
-                            <div>
-                                <Text size="xs" c="dimmed">Total Cost</Text>
-                                <Text fw={700} size="lg">
-                                    Rp {(Number(wo.parts_cost || 0) + Number(wo.labor_cost || 0)).toLocaleString('id-ID')}
-                                </Text>
-                            </div>
-                        </Group>
-                    </Card>
-                </Grid.Col>
-            </Grid>
+                        </div>
+                    </TabsContent>
 
-            <Paper withBorder>
-                <Tabs value={activeTab} onChange={setActiveTab}>
-                    <Tabs.List>
-                        <Tabs.Tab value="overview" leftSection={<IconInfoCircle size={14} />}>Overview</Tabs.Tab>
-                        <Tabs.Tab value="tasks" leftSection={<IconChecklist size={14} />}>Tasks ({tasks?.length || 0})</Tabs.Tab>
-                        <Tabs.Tab value="parts" leftSection={<IconTools size={14} />}>Parts ({parts?.length || 0})</Tabs.Tab>
-                    </Tabs.List>
-
-                    <Tabs.Panel value="overview" p="md">
-                        <Grid>
-                            <Grid.Col span={6}>
-                                <Stack>
-                                    <div><Text fw={500}>Problem Description</Text><Text>{wo.problem_description || '-'}</Text></div>
-                                    <div><Text fw={500}>Safety Requirements</Text><Text>{Array.isArray(wo.safety_requirements) ? wo.safety_requirements.join(', ') : '-'}</Text></div>
-                                    <div><Text fw={500}>Dates</Text>
-                                        <Text size="sm">Scheduled: {wo.scheduled_date || '-'}</Text>
-                                        <Text size="sm">Actual Start: {wo.actual_start_date ? new Date(wo.actual_start_date).toLocaleString() : '-'}</Text>
-                                        <Text size="sm">Completed: {wo.actual_end_date ? new Date(wo.actual_end_date).toLocaleString() : '-'}</Text>
-                                    </div>
-                                </Stack>
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                                <Stack>
-                                    <div><Text fw={500}>Work Performed</Text><Text>{wo.work_performed || '-'}</Text></div>
-                                    <div><Text fw={500}>Assigned Technician</Text><Text>{wo.assigned_technician || 'Unassigned'}</Text></div>
-                                </Stack>
-                            </Grid.Col>
-                        </Grid>
-                    </Tabs.Panel>
-
-                    <Tabs.Panel value="tasks" p="md">
-                        <Group justify="flex-end" mb="md">
-                            <Button size="xs" leftSection={<IconPlus size={14} />} onClick={() => setTaskModalOpen(true)}>Add Task</Button>
-                        </Group>
-                        <Table striped>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>#</Table.Th>
-                                    <Table.Th>Description</Table.Th>
-                                    <Table.Th>Status</Table.Th>
-                                    <Table.Th style={{ width: 80 }}></Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {tasksLoading ? <Table.Tr><Table.Td colSpan={4}>Loading...</Table.Td></Table.Tr> : tasks?.length === 0 ? (
-                                    <Table.Tr><Table.Td colSpan={4} align="center">No tasks defined</Table.Td></Table.Tr>
-                                ) : (
-                                    tasks?.map(task => (
-                                        <Table.Tr key={task.id}>
-                                            <Table.Td>{task.task_number}</Table.Td>
-                                            <Table.Td>{task.description}</Table.Td>
-                                            <Table.Td><Badge color={task.status === 'completed' ? 'green' : 'gray'}>{task.status}</Badge></Table.Td>
-                                            <Table.Td>
-                                                <ActionIcon color="red" variant="subtle" onClick={() => removeTaskMutation.mutate(task.id)}>
-                                                    <IconTrash size={16} />
-                                                </ActionIcon>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    ))
+                    <TabsContent value="tasks" className="p-4">
+                        <div className="flex justify-end mb-4">
+                            <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => setTaskModalOpen(true)}>Add Task</Button>
+                        </div>
+                        <LoadingOverlay visible={tasksLoading} />
+                        <Table>
+                            <TableHead>
+                                <TableRow>
+                                    <TableTh>#</TableTh>
+                                    <TableTh>Description</TableTh>
+                                    <TableTh>Status</TableTh>
+                                    <TableTh align="center">Actions</TableTh>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {tasks?.length ? tasks.map(task => (
+                                    <TableRow key={task.id}>
+                                        <TableTd>{task.task_number}</TableTd>
+                                        <TableTd>{task.description}</TableTd>
+                                        <TableTd>
+                                            <Badge variant={task.status === 'completed' ? 'success' : 'default'}>
+                                                {task.status}
+                                            </Badge>
+                                        </TableTd>
+                                        <TableTd align="center">
+                                            <ActionIcon variant="danger" onClick={() => removeTaskMutation.mutate(task.id)}>
+                                                <Trash2 size={16} />
+                                            </ActionIcon>
+                                        </TableTd>
+                                    </TableRow>
+                                )) : (
+                                    <TableEmpty colSpan={4} message="No tasks defined" />
                                 )}
-                            </Table.Tbody>
+                            </TableBody>
                         </Table>
-                    </Tabs.Panel>
+                    </TabsContent>
 
-                    <Tabs.Panel value="parts" p="md">
-                        <Group justify="flex-end" mb="md">
-                            <Button size="xs" leftSection={<IconPlus size={14} />} onClick={() => setPartModalOpen(true)}>Add Part</Button>
-                        </Group>
-                        <Table striped>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>Part Name</Table.Th>
-                                    <Table.Th>Qty</Table.Th>
-                                    <Table.Th>Unit Cost</Table.Th>
-                                    <Table.Th>Total</Table.Th>
-                                    <Table.Th style={{ width: 80 }}></Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {partsLoading ? <Table.Tr><Table.Td colSpan={5}>Loading...</Table.Td></Table.Tr> : parts?.length === 0 ? (
-                                    <Table.Tr><Table.Td colSpan={5} align="center">No parts used</Table.Td></Table.Tr>
-                                ) : (
-                                    parts?.map(part => (
-                                        <Table.Tr key={part.id}>
-                                            <Table.Td>{part.part_name}</Table.Td>
-                                            <Table.Td>{Number(part.quantity)}</Table.Td>
-                                            <Table.Td>Rp {Number(part.unit_cost).toLocaleString('id-ID')}</Table.Td>
-                                            <Table.Td fw={700}>Rp {Number(part.total_cost).toLocaleString('id-ID')}</Table.Td>
-                                            <Table.Td>
-                                                <ActionIcon color="red" variant="subtle" onClick={() => removePartMutation.mutate(part.id)}>
-                                                    <IconTrash size={16} />
-                                                </ActionIcon>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    ))
+                    <TabsContent value="parts" className="p-4">
+                        <div className="flex justify-end mb-4">
+                            <Button size="sm" leftIcon={<Plus size={14} />} onClick={() => setPartModalOpen(true)}>Add Part</Button>
+                        </div>
+                        <LoadingOverlay visible={partsLoading} />
+                        <Table>
+                            <TableHead>
+                                <TableRow>
+                                    <TableTh>Part Name</TableTh>
+                                    <TableTh>Qty</TableTh>
+                                    <TableTh>Unit Cost</TableTh>
+                                    <TableTh>Total</TableTh>
+                                    <TableTh align="center">Actions</TableTh>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {parts?.length ? parts.map(part => (
+                                    <TableRow key={part.id}>
+                                        <TableTd>{part.part_name}</TableTd>
+                                        <TableTd>{Number(part.quantity)}</TableTd>
+                                        <TableTd>Rp {Number(part.unit_cost).toLocaleString('id-ID')}</TableTd>
+                                        <TableTd className="font-bold">Rp {Number(part.total_cost).toLocaleString('id-ID')}</TableTd>
+                                        <TableTd align="center">
+                                            <ActionIcon variant="danger" onClick={() => removePartMutation.mutate(part.id)}>
+                                                <Trash2 size={16} />
+                                            </ActionIcon>
+                                        </TableTd>
+                                    </TableRow>
+                                )) : (
+                                    <TableEmpty colSpan={5} message="No parts used" />
                                 )}
-                            </Table.Tbody>
+                            </TableBody>
                         </Table>
-                    </Tabs.Panel>
+                    </TabsContent>
                 </Tabs>
-            </Paper>
+            </Card>
 
-            {/* Modals */}
-            <Modal opened={taskModalOpen} onClose={() => setTaskModalOpen(false)} title="Add Task">
-                <Stack>
-                    <NumberInput label="Task Number" value={newTask.task_number} onChange={(v) => setNewTask({ ...newTask, task_number: Number(v) })} />
-                    <TextInput label="Description" value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} />
-                    <Group justify="flex-end">
+            {/* Add Task Modal */}
+            <Modal isOpen={taskModalOpen} onClose={() => setTaskModalOpen(false)} title="Add Task">
+                <div className="space-y-4">
+                    <NumberInput
+                        label="Task Number"
+                        value={newTask.task_number}
+                        onChange={(v) => setNewTask({ ...newTask, task_number: v || 1 })}
+                    />
+                    <Input
+                        label="Description"
+                        value={newTask.description}
+                        onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                    />
+                    <div className="flex justify-end">
                         <Button onClick={() => addTaskMutation.mutate(newTask)} loading={addTaskMutation.isPending}>Add</Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </Modal>
 
-            <Modal opened={partModalOpen} onClose={() => setPartModalOpen(false)} title="Add Spare Part">
-                <Stack>
-                    <TextInput label="Part Name" value={newPart.part_name} onChange={(e) => setNewPart({ ...newPart, part_name: e.target.value })} />
-                    <NumberInput label="Quantity" value={newPart.quantity} onChange={(v) => setNewPart({ ...newPart, quantity: Number(v) })} />
-                    <NumberInput label="Unit Cost" value={newPart.unit_cost} onChange={(v) => setNewPart({ ...newPart, unit_cost: Number(v) })}
-                        leftSection={<span style={{ fontSize: 12 }}>Rp</span>} thousandSeparator="." />
-                    <Group justify="flex-end">
+            {/* Add Part Modal */}
+            <Modal isOpen={partModalOpen} onClose={() => setPartModalOpen(false)} title="Add Spare Part">
+                <div className="space-y-4">
+                    <Input
+                        label="Part Name"
+                        value={newPart.part_name}
+                        onChange={(e) => setNewPart({ ...newPart, part_name: e.target.value })}
+                    />
+                    <NumberInput
+                        label="Quantity"
+                        value={newPart.quantity}
+                        onChange={(v) => setNewPart({ ...newPart, quantity: v || 1 })}
+                    />
+                    <NumberInput
+                        label="Unit Cost"
+                        prefix="Rp "
+                        value={newPart.unit_cost}
+                        onChange={(v) => setNewPart({ ...newPart, unit_cost: v || 0 })}
+                    />
+                    <div className="flex justify-end">
                         <Button onClick={() => addPartMutation.mutate(newPart)} loading={addPartMutation.isPending}>Add</Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </Modal>
 
-            <Modal opened={completeModalOpen} onClose={() => setCompleteModalOpen(false)} title="Complete Work Order">
-                <Stack>
-                    <TextInput label="Work Performed" value={completeData.work_performed} onChange={(e) => setCompleteData({ ...completeData, work_performed: e.target.value })} />
-                    <NumberInput label="Actual Labor Cost" description="Parts cost is automated" value={completeData.actual_cost} onChange={(v) => setCompleteData({ ...completeData, actual_cost: Number(v) })}
-                        leftSection={<span style={{ fontSize: 12 }}>Rp</span>} thousandSeparator="." />
-                    <Alert color="blue" icon={<IconInfoCircle size={16} />}>
-                        Completing this WO will change asset status to DEPLOYED.
-                    </Alert>
-                    <Group justify="flex-end">
-                        <Button color="green" onClick={() => completeMutation.mutate(completeData)} loading={completeMutation.isPending}>Complete</Button>
-                    </Group>
-                </Stack>
+            {/* Complete Modal */}
+            <Modal isOpen={completeModalOpen} onClose={() => setCompleteModalOpen(false)} title="Complete Work Order">
+                <div className="space-y-4">
+                    <Input
+                        label="Work Performed"
+                        value={completeData.work_performed}
+                        onChange={(e) => setCompleteData({ ...completeData, work_performed: e.target.value })}
+                    />
+                    <NumberInput
+                        label="Actual Labor Cost"
+                        prefix="Rp "
+                        value={completeData.actual_cost}
+                        onChange={(v) => setCompleteData({ ...completeData, actual_cost: v || 0 })}
+                        hint="Parts cost is calculated automatically"
+                    />
+                    <div className="flex items-start gap-3 p-4 bg-cyan-500/10 border border-cyan-500/30 rounded-xl">
+                        <AlertCircle size={20} className="text-cyan-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-slate-300">
+                            Completing this WO will change asset status to DEPLOYED.
+                        </p>
+                    </div>
+                    <div className="flex justify-end">
+                        <Button variant="primary" onClick={() => completeMutation.mutate(completeData)} loading={completeMutation.isPending}>
+                            Complete
+                        </Button>
+                    </div>
+                </div>
             </Modal>
-        </Container>
+        </div>
     );
 }

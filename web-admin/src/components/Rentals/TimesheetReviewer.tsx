@@ -1,18 +1,18 @@
-import { useState } from 'react';
+// TimesheetReviewer - Pure Tailwind
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    Table, Paper, Badge, Group, ActionIcon, Button, Text,
-    LoadingOverlay, Stack, Grid, Image, Title,
-    Textarea, Divider, Center
-} from '@mantine/core';
-import { IconCheck, IconX, IconEye, IconPhoto } from '@tabler/icons-react';
+import { Check, X, Eye, Image as ImageIcon } from 'lucide-react';
 import { timesheetApi, type TimesheetDetail } from '../../api/timesheet';
-import { notifications } from '@mantine/notifications';
-import { useForm } from '@mantine/form';
+import {
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd,
+    Card, Badge, Button, ActionIcon, LoadingOverlay, Textarea, useToast
+} from '../ui';
 
 export function TimesheetReviewer() {
     const queryClient = useQueryClient();
+    const { success, error: showError } = useToast();
     const [selectedTs, setSelectedTs] = useState<TimesheetDetail | null>(null);
+    const [notes, setNotes] = useState('');
 
     const { data: pendingTs, isLoading } = useQuery({
         queryKey: ['timesheets', 'pending'],
@@ -24,192 +24,187 @@ export function TimesheetReviewer() {
             timesheetApi.verify(id, { status, notes }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['timesheets'] });
-            notifications.show({ title: 'Success', message: 'Timesheet verified', color: 'green' });
+            success('Timesheet verified', 'Success');
             setSelectedTs(null);
+            setNotes('');
         },
         onError: (err: any) => {
-            notifications.show({ title: 'Error', message: err.message || 'Verification failed', color: 'red' });
+            showError(err.message || 'Verification failed', 'Error');
         }
     });
 
-    const form = useForm({
-        initialValues: {
-            notes: '',
+    // Update notes when selection changes
+    useEffect(() => {
+        if (selectedTs) {
+            setNotes(selectedTs.verifier_notes || '');
         }
-    });
+    }, [selectedTs]);
 
     const handleVerify = (status: 'approved' | 'rejected') => {
         if (!selectedTs) return;
         verifyMutation.mutate({
             id: selectedTs.id,
             status,
-            notes: form.values.notes
+            notes
         });
     };
 
     return (
-        <Stack gap="md">
-            <Group justify="space-between">
-                <Title order={4}>Timesheet Review Mode (Evidence-Based)</Title>
-                <Badge size="lg" color="orange" variant="filled">
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h4 className="text-lg font-semibold text-white">Timesheet Review Mode (Evidence-Based)</h4>
+                <Badge variant="warning">
                     {pendingTs?.length || 0} Pending Items
                 </Badge>
-            </Group>
+            </div>
 
-            <Grid gutter="md">
-                <Grid.Col span={selectedTs ? 5 : 12}>
-                    <Paper p="md" shadow="sm" withBorder pos="relative">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className={`transition-all duration-300 ${selectedTs ? 'md:col-span-5' : 'md:col-span-12'}`}>
+                    <Card padding="none" className="h-full overflow-hidden relative">
                         <LoadingOverlay visible={isLoading} />
-                        <Table verticalSpacing="sm" highlightOnHover>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>Date</Table.Th>
-                                    <Table.Th>Asset / Rental</Table.Th>
-                                    <Table.Th>Hours (Op/St)</Table.Th>
-                                    <Table.Th>Evidence</Table.Th>
-                                    <Table.Th>Action</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {pendingTs?.map((ts) => (
-                                    <Table.Tr
-                                        key={ts.id}
-                                        style={{ cursor: 'pointer', backgroundColor: selectedTs?.id === ts.id ? 'var(--mantine-color-blue-light)' : undefined }}
-                                        onClick={() => {
-                                            setSelectedTs(ts);
-                                            form.setValues({ notes: ts.verifier_notes || '' });
-                                        }}
-                                    >
-                                        <Table.Td>
-                                            <Text size="sm" fw={500}>{ts.work_date}</Text>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Stack gap={0}>
-                                                <Text size="sm">{ts.asset_name}</Text>
-                                                <Text size="xs" c="dimmed">{ts.rental_number}</Text>
-                                            </Stack>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Text size="sm">{ts.operating_hours} / {ts.standby_hours}</Text>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group gap={4}>
-                                                <IconPhoto size={16} color={ts.photos?.length ? 'blue' : 'gray'} />
-                                                <Text size="xs">{ts.photos?.length || 0}</Text>
-                                            </Group>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <ActionIcon variant="subtle">
-                                                <IconEye size={16} />
-                                            </ActionIcon>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
-                                {!pendingTs?.length && !isLoading && (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={5} align="center">All caught up! No pending timesheets.</Table.Td>
-                                    </Table.Tr>
-                                )}
-                            </Table.Tbody>
-                        </Table>
-                    </Paper>
-                </Grid.Col>
+                        <div className="overflow-auto max-h-[600px]">
+                            <Table>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableTh>Date</TableTh>
+                                        <TableTh>Asset / Rental</TableTh>
+                                        <TableTh>Hours (Op/St)</TableTh>
+                                        <TableTh>Evidence</TableTh>
+                                        <TableTh>Action</TableTh>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {pendingTs?.map((ts) => (
+                                        <TableRow
+                                            key={ts.id}
+                                            className={`cursor-pointer transition-colors ${selectedTs?.id === ts.id ? 'bg-blue-500/20 hover:bg-blue-500/30' : 'hover:bg-slate-800'}`}
+                                            onClick={() => setSelectedTs(ts)}
+                                        >
+                                            <TableTd className="font-medium">{ts.work_date}</TableTd>
+                                            <TableTd>
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm">{ts.asset_name}</span>
+                                                    <span className="text-xs text-slate-500">{ts.rental_number}</span>
+                                                </div>
+                                            </TableTd>
+                                            <TableTd>{ts.operating_hours} / {ts.standby_hours}</TableTd>
+                                            <TableTd>
+                                                <div className="flex items-center gap-1">
+                                                    <ImageIcon size={16} className={ts.photos?.length ? 'text-blue-400' : 'text-slate-600'} />
+                                                    <span className="text-xs">{ts.photos?.length || 0}</span>
+                                                </div>
+                                            </TableTd>
+                                            <TableTd>
+                                                <ActionIcon onClick={() => setSelectedTs(ts)}>
+                                                    <Eye size={16} />
+                                                </ActionIcon>
+                                            </TableTd>
+                                        </TableRow>
+                                    ))}
+                                    {!pendingTs?.length && !isLoading && (
+                                        <TableRow>
+                                            <TableTd colSpan={5} className="text-center py-8 text-slate-500">
+                                                All caught up! No pending timesheets.
+                                            </TableTd>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </Card>
+                </div>
 
                 {selectedTs && (
-                    <Grid.Col span={7}>
-                        <Paper p="md" shadow="sm" withBorder>
-                            <Stack>
-                                <Group justify="space-between">
-                                    <Title order={5}>Detail Evidence: {selectedTs.work_date}</Title>
-                                    <ActionIcon variant="subtle" onClick={() => setSelectedTs(null)}>
-                                        <IconX size={16} />
+                    <div className="md:col-span-7 animate-in slide-in-from-right duration-300 fade-in">
+                        <Card padding="md" className="h-full">
+                            <div className="flex flex-col gap-4">
+                                <div className="flex items-center justify-between pb-2 border-b border-slate-700">
+                                    <h5 className="font-semibold text-white">Detail Evidence: {selectedTs.work_date}</h5>
+                                    <ActionIcon onClick={() => setSelectedTs(null)}>
+                                        <X size={16} />
                                     </ActionIcon>
-                                </Group>
-                                <Divider />
+                                </div>
 
-                                <Grid>
-                                    <Grid.Col span={6}>
-                                        <Stack gap="xs">
-                                            <Text size="xs" c="dimmed">Hour Meter / KM</Text>
-                                            <Group grow>
-                                                <Paper p="xs" withBorder>
-                                                    <Text size="xs" c="dimmed">Start</Text>
-                                                    <Text fw={500}>{selectedTs.hm_km_start || '-'}</Text>
-                                                </Paper>
-                                                <Paper p="xs" withBorder>
-                                                    <Text size="xs" c="dimmed">End</Text>
-                                                    <Text fw={500}>{selectedTs.hm_km_end || '-'}</Text>
-                                                </Paper>
-                                                <Paper p="xs" withBorder bg="blue.0">
-                                                    <Text size="xs" c="dimmed">Usage</Text>
-                                                    <Text fw={700} color="blue">{selectedTs.hm_km_usage || '-'}</Text>
-                                                </Paper>
-                                            </Group>
-                                        </Stack>
-                                    </Grid.Col>
-                                    <Grid.Col span={6}>
-                                        <Stack gap="xs">
-                                            <Text size="xs" c="dimmed">Work Location & Description</Text>
-                                            <Text size="sm"><b>Loc:</b> {selectedTs.work_location || '-'}</Text>
-                                            <Text size="sm">{selectedTs.work_description || 'No description'}</Text>
-                                        </Stack>
-                                    </Grid.Col>
-                                </Grid>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">Hour Meter / KM</span>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="p-2 border border-slate-700 rounded bg-slate-800/50">
+                                                <span className="text-xs text-slate-500 block">Start</span>
+                                                <span className="font-medium text-white">{selectedTs.hm_km_start || '-'}</span>
+                                            </div>
+                                            <div className="p-2 border border-slate-700 rounded bg-slate-800/50">
+                                                <span className="text-xs text-slate-500 block">End</span>
+                                                <span className="font-medium text-white">{selectedTs.hm_km_end || '-'}</span>
+                                            </div>
+                                            <div className="p-2 border border-blue-900/50 rounded bg-blue-500/10">
+                                                <span className="text-xs text-blue-300 block">Usage</span>
+                                                <span className="font-bold text-blue-400">{selectedTs.hm_km_usage || '-'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">Location & Description</span>
+                                        <div className="text-sm text-slate-300">
+                                            <div><span className="text-slate-500">Loc:</span> {selectedTs.work_location || '-'}</div>
+                                            <div className="mt-1">{selectedTs.work_description || 'No description'}</div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                <Text size="xs" c="dimmed" mt="sm">Photo Evidence (From Field)</Text>
-                                <Group wrap="wrap" gap="xs">
-                                    {selectedTs.photos && selectedTs.photos.length > 0 ? (
-                                        selectedTs.photos.map((url, idx) => (
-                                            <Image
-                                                key={idx}
-                                                src={url}
-                                                w={150}
-                                                h={150}
-                                                fallbackSrc="https://placehold.co/150x150?text=No+Photo"
-                                                radius="sm"
-                                                style={{ cursor: 'pointer' }}
-                                                onClick={() => window.open(url, '_blank')}
-                                            />
-                                        ))
-                                    ) : (
-                                        <Center h={100} w="100%" bg="gray.0" style={{ borderRadius: 8, border: '1px dashed var(--mantine-color-gray-3)' }}>
-                                            <Text c="dimmed">No photo documentation uploaded</Text>
-                                        </Center>
-                                    )}
-                                </Group>
+                                <div className="space-y-2">
+                                    <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">Photo Evidence</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedTs.photos && selectedTs.photos.length > 0 ? (
+                                            selectedTs.photos.map((url, idx) => (
+                                                <img
+                                                    key={idx}
+                                                    src={url}
+                                                    alt={`Evidence ${idx + 1}`}
+                                                    className="w-32 h-32 object-cover rounded border border-slate-700 hover:border-blue-500 cursor-pointer transition-colors"
+                                                    onClick={() => window.open(url, '_blank')}
+                                                />
+                                            ))
+                                        ) : (
+                                            <div className="w-full h-24 bg-slate-800/50 rounded border border-dashed border-slate-700 flex items-center justify-center text-slate-500 text-sm">
+                                                No photo documentation uploaded
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
 
-                                <Divider mt="md" />
+                                <div className="border-t border-slate-700 my-2"></div>
 
                                 <Textarea
                                     label="Verification Notes"
                                     placeholder="Add notes for the field checker..."
-                                    {...form.getInputProps('notes')}
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
                                 />
 
-                                <Group grow mt="md">
+                                <div className="grid grid-cols-2 gap-4 mt-2">
                                     <Button
-                                        color="red"
-                                        variant="outline"
-                                        leftSection={<IconX size={16} />}
+                                        variant="danger"
+                                        leftIcon={<X size={16} />}
                                         onClick={() => handleVerify('rejected')}
                                         loading={verifyMutation.isPending}
                                     >
                                         Reject / Revision
                                     </Button>
                                     <Button
-                                        color="green"
-                                        leftSection={<IconCheck size={16} />}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        leftIcon={<Check size={16} />}
                                         onClick={() => handleVerify('approved')}
                                         loading={verifyMutation.isPending}
                                     >
                                         Verify & Approve
                                     </Button>
-                                </Group>
-                            </Stack>
-                        </Paper>
-                    </Grid.Col>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
                 )}
-            </Grid>
-        </Stack>
+            </div>
+        </div>
     );
 }

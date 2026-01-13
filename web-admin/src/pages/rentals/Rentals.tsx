@@ -1,5 +1,12 @@
-import { Tabs, Title, Stack } from '@mantine/core';
-import { IconTruck, IconClock, IconReceipt, IconUsers, IconCheckbox, IconTags } from '@tabler/icons-react';
+// Rentals Page - Pure Tailwind
+import { Truck, Clock, Receipt, Users, CheckSquare, Tags } from 'lucide-react';
+import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+    TabsContent,
+    Card
+} from '../../components/ui';
 import { RentalList } from '../../components/Rentals/RentalList';
 import { TimesheetList } from '../../components/Rentals/TimesheetList';
 import { TimesheetReviewer } from '../../components/Rentals/TimesheetReviewer';
@@ -9,43 +16,49 @@ import { ClientList } from '../../components/Rentals/ClientList';
 
 export function Rentals() {
     return (
-        <Stack h="100%">
-            <Title order={2} mb="md">Rental Management</Title>
+        <div className="h-full flex flex-col space-y-6">
+            <h1 className="text-2xl font-bold text-white">Rental Management</h1>
 
-            <Tabs defaultValue="active" variant="outline" radius="md">
-                <Tabs.List>
-                    <Tabs.Tab value="active" leftSection={<IconTruck size={16} />}>Active Rentals</Tabs.Tab>
-                    <Tabs.Tab value="timesheets" leftSection={<IconClock size={16} />}>Timesheets</Tabs.Tab>
-                    <Tabs.Tab value="reviewer" leftSection={<IconCheckbox size={16} />} color="orange">Reviewer</Tabs.Tab>
-                    <Tabs.Tab value="pricelist" leftSection={<IconTags size={16} />}>Price List</Tabs.Tab>
-                    <Tabs.Tab value="billing" leftSection={<IconReceipt size={16} />}>Billing</Tabs.Tab>
-                    <Tabs.Tab value="clients" leftSection={<IconUsers size={16} />}>Clients</Tabs.Tab>
-                </Tabs.List>
+            <Card padding="none" className="flex-1 flex flex-col overflow-hidden">
+                <Tabs defaultValue="active" className="h-full flex flex-col">
+                    <div className="px-4 pt-4 border-b border-slate-800 shrink-0">
+                        <TabsList>
+                            <TabsTrigger value="active" icon={<Truck size={16} />}>Active Rentals</TabsTrigger>
+                            <TabsTrigger value="timesheets" icon={<Clock size={16} />}>Timesheets</TabsTrigger>
+                            <TabsTrigger value="reviewer" icon={<CheckSquare size={16} />}>Reviewer</TabsTrigger>
+                            <TabsTrigger value="pricelist" icon={<Tags size={16} />}>Price List</TabsTrigger>
+                            <TabsTrigger value="billing" icon={<Receipt size={16} />}>Billing</TabsTrigger>
+                            <TabsTrigger value="clients" icon={<Users size={16} />}>Clients</TabsTrigger>
+                        </TabsList>
+                    </div>
 
-                <Tabs.Panel value="active" pt="xs">
-                    <RentalList />
-                </Tabs.Panel>
+                    <div className="flex-1 overflow-hidden relative bg-slate-900/50">
+                        <TabsContent value="active" className="h-full overflow-y-auto p-6">
+                            <RentalList />
+                        </TabsContent>
 
-                <Tabs.Panel value="timesheets" pt="xs">
-                    <TimesheetList />
-                </Tabs.Panel>
+                        <TabsContent value="timesheets" className="h-full overflow-y-auto p-6">
+                            <TimesheetList />
+                        </TabsContent>
 
-                <Tabs.Panel value="reviewer" pt="xs">
-                    <TimesheetReviewer />
-                </Tabs.Panel>
+                        <TabsContent value="reviewer" className="h-full overflow-y-auto p-6">
+                            <TimesheetReviewer />
+                        </TabsContent>
 
-                <Tabs.Panel value="pricelist" pt="xs">
-                    <PriceList />
-                </Tabs.Panel>
+                        <TabsContent value="pricelist" className="h-full overflow-y-auto p-6">
+                            <PriceList />
+                        </TabsContent>
 
-                <Tabs.Panel value="billing" pt="xs">
-                    <BillingList />
-                </Tabs.Panel>
+                        <TabsContent value="billing" className="h-full overflow-y-auto p-6">
+                            <BillingList />
+                        </TabsContent>
 
-                <Tabs.Panel value="clients" pt="xs">
-                    <ClientList />
-                </Tabs.Panel>
-            </Tabs>
-        </Stack>
+                        <TabsContent value="clients" className="h-full overflow-y-auto p-6">
+                            <ClientList />
+                        </TabsContent>
+                    </div>
+                </Tabs>
+            </Card>
+        </div>
     );
 }

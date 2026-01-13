@@ -1,17 +1,20 @@
+// Reports Page - Pure Tailwind
 import React, { useState } from 'react';
-import { Title, Card, Button, Group, Text, Grid } from '@mantine/core';
-import { DatePickerInput } from '@mantine/dates';
-import { IconDownload, IconFileSpreadsheet } from '@tabler/icons-react';
+import { FileSpreadsheet, Download } from 'lucide-react';
 import { reportsApi } from '../api/reports';
-import { notifications } from '@mantine/notifications';
+import {
+    Button,
+    Card,
+    DateInput,
+    useToast,
+} from '../components/ui';
 
 const Reports: React.FC = () => {
-    const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
-        null,
-        null,
-    ]);
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
     const [loadingAssets, setLoadingAssets] = useState(false);
     const [loadingMaintenance, setLoadingMaintenance] = useState(false);
+    const { success, error: showError } = useToast();
 
     const downloadFile = (data: Blob, filename: string) => {
         const url = window.URL.createObjectURL(new Blob([data]));
@@ -28,110 +31,105 @@ const Reports: React.FC = () => {
             setLoadingAssets(true);
             const data = await reportsApi.exportAssets();
             downloadFile(data, `asset_inventory_${new Date().toISOString().split('T')[0]}.csv`);
-            notifications.show({
-                title: 'Success',
-                message: 'Asset inventory exported successfully',
-                color: 'green',
-            });
+            success('Asset inventory exported successfully', 'Success');
         } catch (error) {
-            notifications.show({
-                title: 'Error',
-                message: 'Failed to export asset inventory',
-                color: 'red',
-            });
+            showError('Failed to export asset inventory', 'Error');
         } finally {
             setLoadingAssets(false);
         }
     };
 
     const handleExportMaintenance = async () => {
-        if (!dateRange[0] || !dateRange[1]) {
-            notifications.show({
-                title: 'Error',
-                message: 'Please select a date range',
-                color: 'red',
-            });
+        if (!startDate || !endDate) {
+            showError('Please select both start and end dates', 'Error');
             return;
         }
 
         try {
             setLoadingMaintenance(true);
-            const start = dateRange[0].toISOString().split('T')[0];
-            const end = dateRange[1].toISOString().split('T')[0];
+            const start = startDate.toISOString().split('T')[0];
+            const end = endDate.toISOString().split('T')[0];
             const data = await reportsApi.exportMaintenance(start, end);
             downloadFile(data, `maintenance_logs_${start}_to_${end}.csv`);
-            notifications.show({
-                title: 'Success',
-                message: 'Maintenance logs exported successfully',
-                color: 'green',
-            });
+            success('Maintenance logs exported successfully', 'Success');
         } catch (error) {
-            notifications.show({
-                title: 'Error',
-                message: 'Failed to export maintenance logs',
-                color: 'red',
-            });
+            showError('Failed to export maintenance logs', 'Error');
         } finally {
             setLoadingMaintenance(false);
         }
     };
 
     return (
-        <div style={{ padding: '20px' }}>
-            <Title order={2} mb="xl">
-                Reports & Exports
-            </Title>
+        <div className="space-y-6">
+            <h1 className="text-2xl font-bold text-white">Reports & Exports</h1>
 
-            <Grid>
-                <Grid.Col span={{ base: 12, md: 6 }}>
-                    <Card shadow="sm" padding="lg" radius="md" withBorder>
-                        <Group justify="space-between" mb="xs">
-                            <Text fw={500}>Asset Inventory</Text>
-                            <IconFileSpreadsheet size={24} color="gray" />
-                        </Group>
-                        <Text size="sm" c="dimmed" mb="md">
-                            Export the full list of assets including their current status, location, and financial details.
-                        </Text>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Asset Inventory Card */}
+                <Card padding="lg">
+                    <div className="flex items-start justify-between mb-4">
+                        <h3 className="text-lg font-medium text-white">Asset Inventory</h3>
+                        <div className="p-2 bg-slate-800 rounded-lg">
+                            <FileSpreadsheet size={24} className="text-slate-400" />
+                        </div>
+                    </div>
+
+                    <p className="text-sm text-slate-400 mb-6 min-h-[40px]">
+                        Export the full list of assets including their current status, location, and financial details.
+                    </p>
+
+                    <Button
+                        variant="primary"
+                        leftIcon={<Download size={14} />}
+                        onClick={handleExportAssets}
+                        loading={loadingAssets}
+                        className="w-full"
+                    >
+                        Export CSV
+                    </Button>
+                </Card>
+
+                {/* Maintenance Logs Card */}
+                <Card padding="lg">
+                    <div className="flex items-start justify-between mb-4">
+                        <h3 className="text-lg font-medium text-white">Maintenance Logs</h3>
+                        <div className="p-2 bg-slate-800 rounded-lg">
+                            <FileSpreadsheet size={24} className="text-slate-400" />
+                        </div>
+                    </div>
+
+                    <p className="text-sm text-slate-400 mb-6">
+                        Export maintenance history within a specific date range.
+                    </p>
+
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <DateInput
+                                label="Start Date"
+                                value={startDate}
+                                onChange={setStartDate}
+                                placeholder="Start Date"
+                            />
+                            <DateInput
+                                label="End Date"
+                                value={endDate}
+                                onChange={setEndDate}
+                                placeholder="End Date"
+                            />
+                        </div>
+
                         <Button
-                            leftSection={<IconDownload size={14} />}
-                            onClick={handleExportAssets}
-                            loading={loadingAssets}
-                        >
-                            Export CSV
-                        </Button>
-                    </Card>
-                </Grid.Col>
-
-                <Grid.Col span={{ base: 12, md: 6 }}>
-                    <Card shadow="sm" padding="lg" radius="md" withBorder>
-                        <Group justify="space-between" mb="xs">
-                            <Text fw={500}>Maintenance Logs</Text>
-                            <IconFileSpreadsheet size={24} color="gray" />
-                        </Group>
-                        <Text size="sm" c="dimmed" mb="md">
-                            Export maintenance history within a specific date range.
-                        </Text>
-
-                        <DatePickerInput
-                            type="range"
-                            label="Select Date Range"
-                            placeholder="Pick dates range"
-                            value={dateRange}
-                            onChange={(value) => setDateRange(value as [Date | null, Date | null])}
-                            mb="md"
-                        />
-
-                        <Button
-                            leftSection={<IconDownload size={14} />}
+                            variant="primary"
+                            leftIcon={<Download size={14} />}
                             onClick={handleExportMaintenance}
                             loading={loadingMaintenance}
-                            disabled={!dateRange[0] || !dateRange[1]}
+                            disabled={!startDate || !endDate}
+                            className="w-full"
                         >
                             Export CSV
                         </Button>
-                    </Card>
-                </Grid.Col>
-            </Grid>
+                    </div>
+                </Card>
+            </div>
         </div>
     );
 };

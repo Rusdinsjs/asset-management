@@ -1,19 +1,46 @@
+// PriceList - Pure Tailwind
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-    Table, Paper, Badge, Group, ActionIcon, Button, Text,
-    LoadingOverlay, Modal, Stack, Grid, Title,
-    TextInput, NumberInput, Select, Divider
-} from '@mantine/core';
-import { IconPlus, IconEdit, IconTrash } from '@tabler/icons-react';
+import { Plus, Edit, Trash } from 'lucide-react';
 import { rentalApi, type RentalRate } from '../../api/rental';
-import { notifications } from '@mantine/notifications';
-import { useForm } from '@mantine/form';
+import {
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd,
+    Button, Badge, ActionIcon, Modal, Input, NumberInput, Select,
+    LoadingOverlay, useToast, Card
+} from '../ui';
+
+interface PriceFormState {
+    name: string;
+    rate_basis: string;
+    rate_amount: number | '';
+    minimum_hours: number;
+    overtime_multiplier: number;
+    standby_multiplier: number;
+    breakdown_penalty_per_day: number;
+    hours_per_day: number;
+    days_per_month: number;
+    currency: string;
+}
+
+const initialFormState: PriceFormState = {
+    name: '',
+    rate_basis: 'hourly',
+    rate_amount: '',
+    minimum_hours: 200,
+    overtime_multiplier: 1.25,
+    standby_multiplier: 0.50,
+    breakdown_penalty_per_day: 0,
+    hours_per_day: 8,
+    days_per_month: 25,
+    currency: 'IDR'
+};
 
 export function PriceList() {
     const queryClient = useQueryClient();
+    const { success, error: showError } = useToast();
     const [opened, setOpened] = useState(false);
-    const [editingRate, setEditingRate] = useState<any>(null);
+    const [editingRate, setEditingRate] = useState<RentalRate | null>(null);
+    const [form, setForm] = useState<PriceFormState>(initialFormState);
 
     const { data: rates, isLoading } = useQuery({
         queryKey: ['rental-rates'],
@@ -24,48 +51,38 @@ export function PriceList() {
         mutationFn: (data: any) => rentalApi.createRentalRate(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['rental-rates'] });
-            notifications.show({ title: 'Success', message: 'Price item added', color: 'green' });
+            success('Price item added', 'Success');
             setOpened(false);
-        }
+        },
+        onError: (err: any) => showError(err.message, 'Error')
     });
 
     const updateMutation = useMutation({
         mutationFn: ({ id, data }: { id: string, data: any }) => rentalApi.updateRentalRate(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['rental-rates'] });
-            notifications.show({ title: 'Success', message: 'Price template updated', color: 'green' });
+            success('Price template updated', 'Success');
             setOpened(false);
             setEditingRate(null);
-        }
+        },
+        onError: (err: any) => showError(err.message, 'Error')
     });
 
     const deleteMutation = useMutation({
         mutationFn: (id: string) => rentalApi.deleteRentalRate(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['rental-rates'] });
-            notifications.show({ title: 'Success', message: 'Price template deleted', color: 'green' });
-        }
+            success('Price template deleted', 'Success');
+        },
+        onError: (err: any) => showError(err.message, 'Error')
     });
 
-    const form = useForm({
-        initialValues: {
-            name: '',
-            rate_basis: 'hourly',
-            rate_amount: 0,
-            minimum_hours: 200,
-            overtime_multiplier: 1.25,
-            standby_multiplier: 0.50,
-            breakdown_penalty_per_day: 0,
-            hours_per_day: 8,
-            days_per_month: 25,
-            currency: 'IDR'
-        }
-    });
-
-    const handleFormSubmit = (values: any) => {
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
         const payload = {
-            ...values,
-            rate_type: values.rate_basis
+            ...form,
+            rate_amount: Number(form.rate_amount),
+            rate_type: form.rate_basis
         };
 
         if (editingRate) {
@@ -77,9 +94,9 @@ export function PriceList() {
 
     const handleEdit = (rate: RentalRate) => {
         setEditingRate(rate);
-        form.setValues({
+        setForm({
             name: rate.name,
-            rate_basis: (rate.rate_basis as any) || 'hourly',
+            rate_basis: rate.rate_basis || 'hourly',
             rate_amount: Number(rate.rate_amount) || 0,
             minimum_hours: Number(rate.minimum_hours) || 200,
             overtime_multiplier: Number(rate.overtime_multiplier) || 1.25,
@@ -98,170 +115,172 @@ export function PriceList() {
         }
     };
 
+    const updateField = (key: keyof PriceFormState, val: any) => {
+        setForm(prev => ({ ...prev, [key]: val }));
+    };
+
     return (
-        <Stack gap="md">
-            <Group justify="space-between">
-                <Title order={4}>Standard Price List (Templates)</Title>
-                <Button leftSection={<IconPlus size={16} />} onClick={() => {
+        <div className="space-y-4">
+            <div className="flex justify-between items-center">
+                <h4 className="text-lg font-bold text-white">Standard Price List (Templates)</h4>
+                <Button leftIcon={<Plus size={16} />} onClick={() => {
                     setEditingRate(null);
-                    form.reset();
+                    setForm(initialFormState);
                     setOpened(true);
                 }}>
                     Add New Template
                 </Button>
-            </Group>
+            </div>
 
-            <Paper p="md" shadow="sm" withBorder pos="relative">
-                <LoadingOverlay visible={isLoading} />
-                <Table verticalSpacing="sm" highlightOnHover>
-                    <Table.Thead>
-                        <Table.Tr>
-                            <Table.Th>Template Name</Table.Th>
-                            <Table.Th>Basis</Table.Th>
-                            <Table.Th>Rate (IDR)</Table.Th>
-                            <Table.Th>Min Hours</Table.Th>
-                            <Table.Th>Overtime</Table.Th>
-                            <Table.Th>Standby</Table.Th>
-                            <Table.Th>Action</Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                        {rates?.map((rate: RentalRate) => (
-                            <Table.Tr key={rate.id}>
-                                <Table.Td>
-                                    <Text fw={500}>{rate.name}</Text>
-                                </Table.Td>
-                                <Table.Td>
-                                    <Badge variant="outline">{rate.rate_basis}</Badge>
-                                </Table.Td>
-                                <Table.Td>{rate.rate_amount?.toLocaleString()}</Table.Td>
-                                <Table.Td>{rate.minimum_hours}h / mo</Table.Td>
-                                <Table.Td>{((rate.overtime_multiplier || 1) * 100).toFixed(0)}%</Table.Td>
-                                <Table.Td>{((rate.standby_multiplier || 0) * 100).toFixed(0)}%</Table.Td>
-                                <Table.Td>
-                                    <Group gap={4}>
-                                        <ActionIcon variant="subtle" color="blue" onClick={() => handleEdit(rate)}>
-                                            <IconEdit size={16} />
-                                        </ActionIcon>
-                                        <ActionIcon
-                                            variant="subtle"
-                                            color="red"
-                                            onClick={() => handleDelete(rate.id)}
-                                            loading={deleteMutation.isPending && deleteMutation.variables === rate.id}
-                                        >
-                                            <IconTrash size={16} />
-                                        </ActionIcon>
-                                    </Group>
-                                </Table.Td>
-                            </Table.Tr>
-                        ))}
-                        {!rates?.length && !isLoading && (
-                            <Table.Tr>
-                                <Table.Td colSpan={7} align="center">No price templates defined.</Table.Td>
-                            </Table.Tr>
-                        )}
-                    </Table.Tbody>
-                </Table>
-            </Paper>
+            <Card padding="none" className="overflow-hidden">
+                <div className="relative">
+                    <LoadingOverlay visible={isLoading} />
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableTh>Template Name</TableTh>
+                                <TableTh>Basis</TableTh>
+                                <TableTh>Rate (IDR)</TableTh>
+                                <TableTh>Min Hours</TableTh>
+                                <TableTh>Overtime</TableTh>
+                                <TableTh>Standby</TableTh>
+                                <TableTh>Action</TableTh>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {rates?.map((rate: RentalRate) => (
+                                <TableRow key={rate.id}>
+                                    <TableTd className="font-medium text-white">{rate.name}</TableTd>
+                                    <TableTd>
+                                        <Badge variant="outline">{rate.rate_basis}</Badge>
+                                    </TableTd>
+                                    <TableTd>{Number(rate.rate_amount).toLocaleString()}</TableTd>
+                                    <TableTd>{rate.minimum_hours}h / mo</TableTd>
+                                    <TableTd>{((rate.overtime_multiplier || 1) * 100).toFixed(0)}%</TableTd>
+                                    <TableTd>{((rate.standby_multiplier || 0) * 100).toFixed(0)}%</TableTd>
+                                    <TableTd>
+                                        <div className="flex gap-2">
+                                            <ActionIcon className="text-blue-400 hover:text-blue-300" onClick={() => handleEdit(rate)}>
+                                                <Edit size={16} />
+                                            </ActionIcon>
+                                            <ActionIcon
+                                                className="text-red-400 hover:text-red-300"
+                                                onClick={() => handleDelete(rate.id)}
+                                            >
+                                                <Trash size={16} />
+                                            </ActionIcon>
+                                        </div>
+                                    </TableTd>
+                                </TableRow>
+                            ))}
+                            {!rates?.length && !isLoading && (
+                                <TableRow>
+                                    <TableTd colSpan={7} className="text-center py-8 text-slate-500">
+                                        No price templates defined.
+                                    </TableTd>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </Card>
 
             <Modal
-                opened={opened}
+                isOpen={opened}
                 onClose={() => setOpened(false)}
                 title={editingRate ? "Edit Price Template" : "Create New Price Template"}
                 size="lg"
             >
-                <form onSubmit={form.onSubmit(handleFormSubmit)}>
-                    <Stack gap="md">
-                        <TextInput
-                            label="Template Name"
-                            placeholder="e.g. Excavator PC200 Standard (200h)"
-                            required
-                            {...form.getInputProps('name')}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <Input
+                        label="Template Name"
+                        placeholder="e.g. Excavator PC200 Standard (200h)"
+                        required
+                        value={form.name}
+                        onChange={e => updateField('name', e.target.value)}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <Select
+                            label="Rate Basis"
+                            options={[
+                                { value: 'hourly', label: 'Hourly' },
+                                { value: 'daily', label: 'Daily' },
+                                { value: 'monthly', label: 'Monthly' }
+                            ]}
+                            value={form.rate_basis}
+                            onChange={val => updateField('rate_basis', val)}
                         />
+                        <NumberInput
+                            label="Rate Amount"
+                            prefix="Rp "
+                            required
+                            value={form.rate_amount}
+                            onChange={val => updateField('rate_amount', val)}
+                        />
+                    </div>
 
-                        <Grid>
-                            <Grid.Col span={6}>
-                                <Select
-                                    label="Rate Basis"
-                                    data={[
-                                        { value: 'hourly', label: 'Hourly' },
-                                        { value: 'daily', label: 'Daily' },
-                                        { value: 'monthly', label: 'Monthly' }
-                                    ]}
-                                    {...form.getInputProps('rate_basis')}
-                                />
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                                <NumberInput
-                                    label="Rate Amount"
-                                    prefix="Rp "
-                                    thousandSeparator=","
-                                    required
-                                    {...form.getInputProps('rate_amount')}
-                                />
-                            </Grid.Col>
-                        </Grid>
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-slate-700"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs">
+                            <span className="px-2 bg-slate-900 text-slate-500">Contract Rules (Billing Automation)</span>
+                        </div>
+                    </div>
 
-                        <Divider label="Contract Rules (Billing Automation)" labelPosition="center" />
+                    <div className="grid grid-cols-3 gap-4">
+                        <NumberInput
+                            label="Min Hours/Month"
+                            hint="Guaranteed billing"
+                            value={form.minimum_hours}
+                            onChange={val => updateField('minimum_hours', val)}
+                        />
+                        <NumberInput
+                            label="Overtime Mult."
+                            hint="e.g. 1.25"
+                            step={0.05}
+                            value={form.overtime_multiplier}
+                            onChange={val => updateField('overtime_multiplier', val)}
+                        />
+                        <NumberInput
+                            label="Standby Mult."
+                            hint="e.g. 0.5"
+                            step={0.05}
+                            value={form.standby_multiplier}
+                            onChange={val => updateField('standby_multiplier', val)}
+                        />
+                    </div>
 
-                        <Grid>
-                            <Grid.Col span={4}>
-                                <NumberInput
-                                    label="Min Hours/Month"
-                                    description="Guaranteed billing"
-                                    {...form.getInputProps('minimum_hours')}
-                                />
-                            </Grid.Col>
-                            <Grid.Col span={4}>
-                                <NumberInput
-                                    label="Overtime Mult."
-                                    description="e.g. 1.25 for 125%"
-                                    step={0.05}
-                                    {...form.getInputProps('overtime_multiplier')}
-                                />
-                            </Grid.Col>
-                            <Grid.Col span={4}>
-                                <NumberInput
-                                    label="Standby Mult."
-                                    description="e.g. 0.5 for 50%"
-                                    step={0.05}
-                                    {...form.getInputProps('standby_multiplier')}
-                                />
-                            </Grid.Col>
-                        </Grid>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="md:col-span-2">
+                            <NumberInput
+                                label="Penalty / Day"
+                                prefix="Rp "
+                                value={form.breakdown_penalty_per_day}
+                                onChange={val => updateField('breakdown_penalty_per_day', val)}
+                            />
+                        </div>
+                        <NumberInput
+                            label="Hrs/Day"
+                            value={form.hours_per_day}
+                            onChange={val => updateField('hours_per_day', val)}
+                        />
+                        <NumberInput
+                            label="Days/Mo"
+                            value={form.days_per_month}
+                            onChange={val => updateField('days_per_month', val)}
+                        />
+                    </div>
 
-                        <Grid>
-                            <Grid.Col span={6}>
-                                <NumberInput
-                                    label="Breakdown Penalty / Day"
-                                    prefix="Rp "
-                                    thousandSeparator=","
-                                    {...form.getInputProps('breakdown_penalty_per_day')}
-                                />
-                            </Grid.Col>
-                            <Grid.Col span={3}>
-                                <NumberInput
-                                    label="Hrs/Day"
-                                    {...form.getInputProps('hours_per_day')}
-                                />
-                            </Grid.Col>
-                            <Grid.Col span={3}>
-                                <NumberInput
-                                    label="Days/Mo"
-                                    {...form.getInputProps('days_per_month')}
-                                />
-                            </Grid.Col>
-                        </Grid>
-
-                        <Group justify="flex-end" mt="md">
-                            <Button variant="outline" onClick={() => setOpened(false)}>Cancel</Button>
-                            <Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
-                                {editingRate ? "Update Template" : "Save Template"}
-                            </Button>
-                        </Group>
-                    </Stack>
+                    <div className="flex justify-end gap-2 pt-4 border-t border-slate-800">
+                        <Button variant="ghost" onClick={() => setOpened(false)}>Cancel</Button>
+                        <Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
+                            {editingRate ? "Update Template" : "Save Template"}
+                        </Button>
+                    </div>
                 </form>
             </Modal>
-        </Stack>
+        </div>
     );
 }

@@ -1,10 +1,12 @@
-import { Paper, Group, Text, ThemeIcon } from '@mantine/core';
+// StatCard - Pure Tailwind
+import { type LucideIcon } from 'lucide-react';
+import { Card } from '../ui';
 
 interface StatCardProps {
     label: string;
     value: string | number;
-    icon: any;
-    color: string;
+    icon: LucideIcon;
+    color: string; // Tailwind color class e.g. "text-blue-500" or hex if handled
     description?: string;
     trend?: {
         value: number;
@@ -15,32 +17,32 @@ interface StatCardProps {
 
 export function StatCard({ label, value, icon: Icon, color, description, trend }: StatCardProps) {
     return (
-        <Paper withBorder p="md" radius="md">
-            <Group justify="space-between" mb="xs">
-                <Text size="xs" c="dimmed" fw={700} tt="uppercase">
+        <Card padding="md" className="h-full">
+            <div className="flex justify-between items-start mb-2">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     {label}
-                </Text>
-                <ThemeIcon variant="light" color={color} size="lg" radius="md">
-                    <Icon style={{ width: 20, height: 20 }} stroke={1.5} />
-                </ThemeIcon>
-            </Group>
+                </span>
+                <div className={`p-1.5 rounded-lg bg-opacity-20 ${color.replace('text-', 'bg-')}`}>
+                    <Icon size={20} className={color} strokeWidth={1.5} />
+                </div>
+            </div>
 
-            <Group align="flex-end" gap="xs">
-                <Text fw={700} fz="xl" lh={1}>
+            <div className="flex items-end gap-2 mt-2">
+                <span className="text-2xl font-bold text-white leading-none">
                     {value}
-                </Text>
+                </span>
                 {trend && (
-                    <Text c={trend.positive ? 'teal' : 'red'} fz="sm" fw={500} lh={1}>
-                        <span>{trend.value > 0 ? '+' : ''}{trend.value}%</span>
-                    </Text>
+                    <span className={`text-sm font-medium ${trend.positive ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {trend.value > 0 ? '+' : ''}{trend.value}%
+                    </span>
                 )}
-            </Group>
+            </div>
 
             {(description || trend) && (
-                <Text size="xs" c="dimmed" mt={7}>
+                <p className="text-xs text-slate-500 mt-2">
                     {trend ? trend.label : description}
-                </Text>
+                </p>
             )}
-        </Paper>
+        </Card>
     );
 }

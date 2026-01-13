@@ -1,19 +1,28 @@
+// ConversionRequests Page - Pure Tailwind
 import { useState, useEffect } from 'react';
-import { Title, Paper, Table, Badge, Button, Group, Text, Modal, Textarea, LoadingOverlay } from '@mantine/core';
-import { notifications } from '@mantine/notifications';
-import { useDisclosure } from '@mantine/hooks';
+import { Check, X, Play } from 'lucide-react';
 import { conversionApi, type AssetConversion } from '../api/conversion';
-import { IconCheck, IconX } from '@tabler/icons-react';
+import {
+    Button,
+    Card,
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd,
+    Badge,
+    Modal,
+    Textarea,
+    LoadingOverlay,
+    useToast,
+} from '../components/ui';
 
 export const ConversionRequests = () => {
     const [requests, setRequests] = useState<AssetConversion[]>([]);
     const [loading, setLoading] = useState(false);
-    // const [selectedRequest, setSelectedRequest] = useState<AssetConversion | null>(null); // Unused currently besides setting it
-    const [actionFunc, setActionFunc] = useState<() => Promise<void>>(() => Promise.resolve());
     const [actionLoading, setActionLoading] = useState(false);
-    const [opened, { open, close }] = useDisclosure(false);
+    const [modalOpen, setModalOpen] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [notes, setNotes] = useState('');
+    const [actionFunc, setActionFunc] = useState<() => Promise<void>>(() => Promise.resolve());
+
+    const { success, error: showError } = useToast();
 
     useEffect(() => {
         fetchRequests();
@@ -25,18 +34,13 @@ export const ConversionRequests = () => {
             const data = await conversionApi.getPendingRequests();
             setRequests(data);
         } catch (error) {
-            notifications.show({
-                title: 'Error',
-                message: 'Failed to fetch pending requests',
-                color: 'red',
-            });
+            showError('Failed to fetch pending requests', 'Error');
         } finally {
             setLoading(false);
         }
     };
 
     const handleAction = async (request: AssetConversion, action: 'approve' | 'reject' | 'execute') => {
-        // setSelectedRequest(request);
         setNotes('');
 
         if (action === 'approve') {
@@ -56,127 +60,158 @@ export const ConversionRequests = () => {
             });
         }
 
-        open();
+        setModalOpen(true);
     };
 
     const confirmAction = async () => {
         setActionLoading(true);
         try {
             await actionFunc();
-            notifications.show({
-                title: 'Success',
-                message: 'Action completed successfully',
-                color: 'green',
-            });
+            success('Action completed successfully', 'Success');
             fetchRequests();
-            close();
+            setModalOpen(false);
         } catch (error: any) {
-            notifications.show({
-                title: 'Error',
-                message: error.response?.data?.message || 'Action failed',
-                color: 'red',
-            });
+            showError(error.response?.data?.message || 'Action failed', 'Error');
         } finally {
             setActionLoading(false);
         }
     };
 
+    const getStatusBadge = (status: string): 'warning' | 'success' | 'danger' | 'info' | 'default' => {
+        switch (status) {
+            case 'pending': return 'warning';
+            case 'approved': return 'info';
+            case 'completed': return 'success';
+            case 'rejected': return 'danger';
+            default: return 'default';
+        }
+    };
+
     return (
-        <div style={{ padding: '20px' }}>
-            <Title mb="lg">Conversion Requests</Title>
-            <Paper p="md" radius="md" withBorder>
-                <div style={{ position: 'relative', minHeight: '200px' }}>
+        <div className="space-y-6">
+            <h1 className="text-2xl font-bold text-white">Conversion Requests</h1>
+
+            <Card padding="lg">
+                <div className="relative min-h-[200px]">
                     <LoadingOverlay visible={loading} />
+
                     {requests.length === 0 && !loading ? (
-                        <Text ta="center" c="dimmed" py="xl">No pending conversion requests.</Text>
+                        <div className="flex items-center justify-center py-12 text-slate-400">
+                            <p>No pending conversion requests.</p>
+                        </div>
                     ) : (
-                        <Table striped highlightOnHover>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>Date</Table.Th>
-                                    <Table.Th>Request #</Table.Th>
-                                    <Table.Th>Asset ID</Table.Th>
-                                    <Table.Th>Title</Table.Th>
-                                    <Table.Th>Requested By</Table.Th>
-                                    <Table.Th>Cost</Table.Th>
-                                    <Table.Th>Status</Table.Th>
-                                    <Table.Th>Actions</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
+                        <Table>
+                            <TableHead>
+                                <TableRow>
+                                    <TableTh>Date</TableTh>
+                                    <TableTh>Request #</TableTh>
+                                    <TableTh>Asset ID</TableTh>
+                                    <TableTh>Title</TableTh>
+                                    <TableTh>Requested By</TableTh>
+                                    <TableTh>Cost</TableTh>
+                                    <TableTh>Status</TableTh>
+                                    <TableTh align="center">Actions</TableTh>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
                                 {requests.map((item) => (
-                                    <Table.Tr key={item.id}>
-                                        <Table.Td>{new Date(item.created_at || '').toLocaleDateString()}</Table.Td>
-                                        <Table.Td>{item.request_number}</Table.Td>
-                                        <Table.Td>{item.asset_id.substring(0, 8)}...</Table.Td>
-                                        <Table.Td>{item.title}</Table.Td>
-                                        <Table.Td>{item.requested_by}</Table.Td>
-                                        <Table.Td>
-                                            {item.conversion_cost > 0 ?
-                                                new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.conversion_cost)
+                                    <TableRow key={item.id}>
+                                        <TableTd>{new Date(item.created_at || '').toLocaleDateString()}</TableTd>
+                                        <TableTd>
+                                            <span className="font-mono text-sm">{item.request_number}</span>
+                                        </TableTd>
+                                        <TableTd>
+                                            <span className="font-mono text-xs text-slate-400">
+                                                {item.asset_id.substring(0, 8)}...
+                                            </span>
+                                        </TableTd>
+                                        <TableTd>
+                                            <span className="font-medium text-white">{item.title}</span>
+                                        </TableTd>
+                                        <TableTd>{item.requested_by}</TableTd>
+                                        <TableTd>
+                                            {item.conversion_cost > 0
+                                                ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(item.conversion_cost)
                                                 : '-'}
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Badge color="yellow">{item.status}</Badge>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group gap="xs">
+                                        </TableTd>
+                                        <TableTd>
+                                            <Badge variant={getStatusBadge(item.status)}>
+                                                {item.status.toUpperCase()}
+                                            </Badge>
+                                        </TableTd>
+                                        <TableTd align="center">
+                                            <div className="flex items-center justify-center gap-1">
                                                 {item.status === 'pending' && (
                                                     <>
-                                                        <Button size="xs" color="green" onClick={() => handleAction(item, 'approve')}>
-                                                            <IconCheck size={16} />
+                                                        <Button
+                                                            size="sm"
+                                                            variant="primary"
+                                                            leftIcon={<Check size={14} />}
+                                                            onClick={() => handleAction(item, 'approve')}
+                                                        >
+                                                            Approve
                                                         </Button>
-                                                        <Button size="xs" color="red" onClick={() => handleAction(item, 'reject')}>
-                                                            <IconX size={16} />
+                                                        <Button
+                                                            size="sm"
+                                                            variant="danger"
+                                                            leftIcon={<X size={14} />}
+                                                            onClick={() => handleAction(item, 'reject')}
+                                                        >
+                                                            Reject
                                                         </Button>
                                                     </>
                                                 )}
                                                 {item.status === 'approved' && (
-                                                    <Button size="xs" color="blue" onClick={() => handleAction(item, 'execute')}>
+                                                    <Button
+                                                        size="sm"
+                                                        leftIcon={<Play size={14} />}
+                                                        onClick={() => handleAction(item, 'execute')}
+                                                    >
                                                         Execute
                                                     </Button>
                                                 )}
-                                            </Group>
-                                        </Table.Td>
-                                    </Table.Tr>
+                                            </div>
+                                        </TableTd>
+                                    </TableRow>
                                 ))}
-                            </Table.Tbody>
+                            </TableBody>
                         </Table>
                     )}
                 </div>
-            </Paper>
+            </Card>
 
-            <Modal opened={opened} onClose={close} title={modalTitle}>
-                {modalTitle.includes('Execute') && (
-                    <Textarea
-                        label="Execution Notes"
-                        placeholder="Details about the execution..."
-                        value={notes}
-                        onChange={(e) => setNotes(e.currentTarget.value)}
-                        mb="md"
-                    />
-                )}
-                {modalTitle.includes('Reject') && (
-                    <Textarea
-                        label="Rejection Reason (Internal Note)"
-                        placeholder="Why is it rejected?"
-                        // Note: Backend might rely on rejection_reason which is separate or same as notes for execution?
-                        // Just checking API... rejectRequest doesn't take body in my client wrapper?
-                        // Let's check conversion.ts. rejectRequest takes id. 
-                        // Backend might expect body or not.
-                        // Wait, I should update rejectRequest to take reason if needed.
-                        value={notes}
-                        onChange={(e) => setNotes(e.currentTarget.value)}
-                        mb="md"
-                        disabled // Disabled because API wrapper doesn't support sending reason yet.
-                    />
-                )}
-                {modalTitle.includes('Approve') && <Text mb="md">Are you sure you want to approve this request?</Text>}
+            {/* Action Modal */}
+            <Modal
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
+                title={modalTitle}
+            >
+                <div className="space-y-4">
+                    {modalTitle.includes('Execute') && (
+                        <Textarea
+                            label="Execution Notes"
+                            placeholder="Details about the execution..."
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                        />
+                    )}
+                    {modalTitle.includes('Reject') && (
+                        <Textarea
+                            label="Rejection Reason (Internal Note)"
+                            placeholder="Why is it rejected?"
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                        />
+                    )}
+                    {modalTitle.includes('Approve') && (
+                        <p className="text-sm text-slate-300">Are you sure you want to approve this request?</p>
+                    )}
 
-                <Group justify="flex-end">
-                    <Button variant="default" onClick={close}>Cancel</Button>
-                    <Button loading={actionLoading} onClick={confirmAction}>Confirm</Button>
-                </Group>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setModalOpen(false)}>Cancel</Button>
+                        <Button loading={actionLoading} onClick={confirmAction}>Confirm</Button>
+                    </div>
+                </div>
             </Modal>
         </div>
     );

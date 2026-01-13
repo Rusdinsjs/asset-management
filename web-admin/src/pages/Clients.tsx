@@ -1,39 +1,78 @@
+// Clients Page - Pure Tailwind
 import { useState } from 'react';
-import {
-    Title,
-    Paper,
-    Table,
-    Button,
-    Group,
-    TextInput,
-    ActionIcon,
-    Badge,
-    Modal,
-    Stack,
-    Text,
-    LoadingOverlay,
-} from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
-import { IconPlus, IconSearch, IconEdit, IconTrash } from '@tabler/icons-react';
+import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clientApi } from '../api/client-management';
 import type { Client } from '../api/client-management';
-import { notifications } from '@mantine/notifications';
-import { useForm } from '@mantine/form';
+import {
+    Button,
+    Card,
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd, TableEmpty,
+    Badge,
+    ActionIcon,
+    Modal,
+    Input,
+    LoadingOverlay,
+    useToast,
+} from '../components/ui';
 
 export const Clients = () => {
     const queryClient = useQueryClient();
+    const { success, error: showError } = useToast();
     const [search, setSearch] = useState('');
-    const [opened, { open, close }] = useDisclosure(false);
+    const [modalOpen, setModalOpen] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+
+    const [formData, setFormData] = useState({
+        name: '',
+        client_code: '',
+        company_name: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        contact_person: '',
+        tax_id: '',
+        is_active: true,
+        notes: '',
+    });
+
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const { data: clients, isLoading } = useQuery({
         queryKey: ['clients'],
         queryFn: () => clientApi.list().then(res => res.data),
     });
 
-    const form = useForm({
-        initialValues: {
+    const createMutation = useMutation({
+        mutationFn: (data: Partial<Client>) => clientApi.create(data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['clients'] });
+            success('Client created', 'Success');
+            setModalOpen(false);
+            resetForm();
+        },
+        onError: (err: any) => {
+            showError(err.message || 'Failed to create client', 'Error');
+        }
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: (data: Partial<Client>) => clientApi.update(selectedClient!.id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['clients'] });
+            success('Client updated', 'Success');
+            setModalOpen(false);
+            setSelectedClient(null);
+            resetForm();
+        },
+        onError: (err: any) => {
+            showError(err.message || 'Failed to update client', 'Error');
+        }
+    });
+
+    const resetForm = () => {
+        setFormData({
             name: '',
             client_code: '',
             company_name: '',
@@ -45,37 +84,13 @@ export const Clients = () => {
             tax_id: '',
             is_active: true,
             notes: '',
-        },
-        validate: {
-            name: (value) => (value.length < 2 ? 'Name must have at least 2 characters' : null),
-            client_code: (value) => (value.length < 2 ? 'Code must have at least 2 characters' : null),
-        },
-    });
-
-    const createMutation = useMutation({
-        mutationFn: (data: Partial<Client>) => clientApi.create(data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['clients'] });
-            notifications.show({ title: 'Success', message: 'Client created', color: 'green' });
-            close();
-            form.reset();
-        },
-    });
-
-    const updateMutation = useMutation({
-        mutationFn: (data: Partial<Client>) => clientApi.update(selectedClient!.id, data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['clients'] });
-            notifications.show({ title: 'Success', message: 'Client updated', color: 'green' });
-            close();
-            setSelectedClient(null);
-            form.reset();
-        },
-    });
+        });
+        setErrors({});
+    };
 
     const handleEdit = (client: Client) => {
         setSelectedClient(client);
-        form.setValues({
+        setFormData({
             name: client.name,
             client_code: client.client_code,
             company_name: client.company_name || '',
@@ -88,14 +103,31 @@ export const Clients = () => {
             is_active: client.is_active ?? true,
             notes: client.notes || '',
         });
-        open();
+        setModalOpen(true);
     };
 
-    const handleSubmit = (values: typeof form.values) => {
+    const openCreateModal = () => {
+        setSelectedClient(null);
+        resetForm();
+        setModalOpen(true);
+    };
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (formData.name.length < 2) newErrors.name = 'Name must have at least 2 characters';
+        if (formData.client_code.length < 2) newErrors.client_code = 'Code must have at least 2 characters';
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!validate()) return;
+
         if (selectedClient) {
-            updateMutation.mutate(values);
+            updateMutation.mutate(formData);
         } else {
-            createMutation.mutate(values);
+            createMutation.mutate(formData);
         }
     };
 
@@ -103,107 +135,163 @@ export const Clients = () => {
         c.name.toLowerCase().includes(search.toLowerCase()) ||
         c.client_code.toLowerCase().includes(search.toLowerCase()) ||
         c.company_name?.toLowerCase().includes(search.toLowerCase())
-    );
+    ) || [];
 
     return (
-        <Stack>
-            <Group justify="space-between">
-                <Title order={2}>Client Management</Title>
-                <Button leftSection={<IconPlus size={16} />} onClick={() => { setSelectedClient(null); form.reset(); open(); }}>
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold text-white">Client Management</h1>
+                <Button leftIcon={<Plus size={16} />} onClick={openCreateModal}>
                     Add Client
                 </Button>
-            </Group>
+            </div>
 
-            <Paper p="md" withBorder>
-                <TextInput
-                    placeholder="Search by name, code or company..."
-                    leftSection={<IconSearch size={16} />}
-                    value={search}
-                    onChange={(e) => setSearch(e.currentTarget.value)}
-                    mb="md"
-                />
+            <Card padding="lg">
+                {/* Search */}
+                <div className="mb-4">
+                    <div className="relative max-w-md">
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                        <input
+                            type="text"
+                            placeholder="Search by name, code or company..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 bg-slate-950/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 outline-none transition-all"
+                        />
+                    </div>
+                </div>
 
-                <div style={{ position: 'relative' }}>
+                {/* Table */}
+                <div className="relative">
                     <LoadingOverlay visible={isLoading} />
-                    <Table verticalSpacing="sm">
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Code</Table.Th>
-                                <Table.Th>Name / Company</Table.Th>
-                                <Table.Th>Contact</Table.Th>
-                                <Table.Th>Status</Table.Th>
-                                <Table.Th>Actions</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {filteredClients?.map((client) => (
-                                <Table.Tr key={client.id}>
-                                    <Table.Td>
-                                        <Badge variant="outline">{client.client_code}</Badge>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Stack gap={0}>
-                                            <Text fw={500}>{client.name}</Text>
-                                            <Text size="xs" c="dimmed">{client.company_name}</Text>
-                                        </Stack>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Stack gap={0}>
-                                            <Text size="sm">{client.email}</Text>
-                                            <Text size="xs" c="dimmed">{client.phone}</Text>
-                                        </Stack>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Badge color={client.is_active ? 'green' : 'gray'}>
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableTh>Code</TableTh>
+                                <TableTh>Name / Company</TableTh>
+                                <TableTh>Contact</TableTh>
+                                <TableTh>Status</TableTh>
+                                <TableTh align="center">Actions</TableTh>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {filteredClients.length > 0 ? filteredClients.map((client) => (
+                                <TableRow key={client.id}>
+                                    <TableTd>
+                                        <Badge variant="default">{client.client_code}</Badge>
+                                    </TableTd>
+                                    <TableTd>
+                                        <div>
+                                            <p className="font-medium text-white">{client.name}</p>
+                                            <p className="text-xs text-slate-500">{client.company_name}</p>
+                                        </div>
+                                    </TableTd>
+                                    <TableTd>
+                                        <div>
+                                            <p className="text-sm text-slate-300">{client.email}</p>
+                                            <p className="text-xs text-slate-500">{client.phone}</p>
+                                        </div>
+                                    </TableTd>
+                                    <TableTd>
+                                        <Badge variant={client.is_active ? 'success' : 'default'}>
                                             {client.is_active ? 'Active' : 'Inactive'}
                                         </Badge>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Group gap={4}>
-                                            <ActionIcon variant="subtle" onClick={() => handleEdit(client)}>
-                                                <IconEdit size={16} />
+                                    </TableTd>
+                                    <TableTd align="center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            <ActionIcon onClick={() => handleEdit(client)} title="Edit">
+                                                <Edit size={16} />
                                             </ActionIcon>
-                                            <ActionIcon variant="subtle" color="red">
-                                                <IconTrash size={16} />
+                                            <ActionIcon variant="danger" title="Delete">
+                                                <Trash2 size={16} />
                                             </ActionIcon>
-                                        </Group>
-                                    </Table.Td>
-                                </Table.Tr>
-                            ))}
-                        </Table.Tbody>
+                                        </div>
+                                    </TableTd>
+                                </TableRow>
+                            )) : (
+                                <TableEmpty colSpan={5} message="No clients found" />
+                            )}
+                        </TableBody>
                     </Table>
                 </div>
-            </Paper>
+            </Card>
 
+            {/* Create/Edit Modal */}
             <Modal
-                opened={opened}
-                onClose={close}
+                isOpen={modalOpen}
+                onClose={() => setModalOpen(false)}
                 title={selectedClient ? 'Edit Client' : 'Add New Client'}
                 size="lg"
             >
-                <form onSubmit={form.onSubmit(handleSubmit)}>
-                    <Stack>
-                        <Group grow>
-                            <TextInput label="Client Name" required {...form.getInputProps('name')} />
-                            <TextInput label="Client Code" required {...form.getInputProps('client_code')} />
-                        </Group>
-                        <TextInput label="Company Name" {...form.getInputProps('company_name')} />
-                        <Group grow>
-                            <TextInput label="Email" {...form.getInputProps('email')} />
-                            <TextInput label="Phone" {...form.getInputProps('phone')} />
-                        </Group>
-                        <TextInput label="Contact Person" {...form.getInputProps('contact_person')} />
-                        <TextInput label="Tax ID (NPWP)" {...form.getInputProps('tax_id')} />
-                        <TextInput label="Address" {...form.getInputProps('address')} />
-                        <TextInput label="City" {...form.getInputProps('city')} />
-                        <TextInput label="Notes" {...form.getInputProps('notes')} />
-
-                        <Button type="submit" loading={createMutation.isPending || updateMutation.isPending}>
-                            {selectedClient ? 'Update Client' : 'Create Client'}
-                        </Button>
-                    </Stack>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="Client Name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            error={errors.name}
+                            required
+                        />
+                        <Input
+                            label="Client Code"
+                            value={formData.client_code}
+                            onChange={(e) => setFormData({ ...formData, client_code: e.target.value })}
+                            error={errors.client_code}
+                            required
+                        />
+                    </div>
+                    <Input
+                        label="Company Name"
+                        value={formData.company_name}
+                        onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="Email"
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        />
+                        <Input
+                            label="Phone"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        />
+                    </div>
+                    <Input
+                        label="Contact Person"
+                        value={formData.contact_person}
+                        onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                    />
+                    <Input
+                        label="Tax ID (NPWP)"
+                        value={formData.tax_id}
+                        onChange={(e) => setFormData({ ...formData, tax_id: e.target.value })}
+                    />
+                    <Input
+                        label="Address"
+                        value={formData.address}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    />
+                    <Input
+                        label="City"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    />
+                    <Input
+                        label="Notes"
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    />
+                    <Button
+                        type="submit"
+                        fullWidth
+                        loading={createMutation.isPending || updateMutation.isPending}
+                    >
+                        {selectedClient ? 'Update Client' : 'Create Client'}
+                    </Button>
                 </form>
             </Modal>
-        </Stack>
+        </div>
     );
 };

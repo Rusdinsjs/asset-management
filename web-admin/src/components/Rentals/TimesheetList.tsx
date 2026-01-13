@@ -1,17 +1,23 @@
+// TimesheetList Component - Pure Tailwind
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Table, Paper, Select, Group, ActionIcon, LoadingOverlay } from '@mantine/core';
-import { IconCheck, IconX, IconEye } from '@tabler/icons-react';
-import { StatusBadge } from '../common/StatusBadge';
+import { Eye, Check, X } from 'lucide-react';
 import { timesheetApi } from '../../api/timesheet';
 import { rentalApi } from '../../api/rental';
+import {
+    Table, TableHead, TableBody, TableRow, TableTh, TableTd, TableEmpty,
+    Select,
+    LoadingOverlay,
+    ActionIcon,
+    StatusBadge
+} from '../ui';
 
 interface TimesheetListProps {
     rentalId?: string;
 }
 
 export function TimesheetList({ rentalId }: TimesheetListProps) {
-    const [selectedRentalInternal, setSelectedRentalInternal] = useState<string | null>(null);
+    const [selectedRentalInternal, setSelectedRentalInternal] = useState<string>('');
     const activeRentalId = rentalId || selectedRentalInternal;
 
     // Fetch Active Rentals for Dropdown (only if no prop provided)
@@ -31,76 +37,75 @@ export function TimesheetList({ rentalId }: TimesheetListProps) {
     });
 
     return (
-        <Paper p="md" shadow="sm" withBorder pos="relative">
-            <LoadingOverlay visible={isLoading} />
+        <div className="space-y-4">
+            <div className="relative min-h-[100px]">
+                <LoadingOverlay visible={isLoading} />
 
-            {!rentalId && (
-                <Group mb="md">
-                    <Select
-                        placeholder="Select Rental Asset"
-                        data={rentalOptions}
-                        value={selectedRentalInternal}
-                        onChange={setSelectedRentalInternal}
-                        searchable
-                        w={300}
-                    />
-                </Group>
-            )}
+                {!rentalId && (
+                    <div className="mb-6 max-w-sm">
+                        <Select
+                            placeholder="Select Rental Asset"
+                            options={rentalOptions}
+                            value={selectedRentalInternal}
+                            onChange={(val) => setSelectedRentalInternal(val)}
+                        />
+                    </div>
+                )}
 
-            {activeRentalId && (
-                <Table verticalSpacing="sm">
-                    <Table.Thead>
-                        <Table.Tr>
-                            <Table.Th>Date</Table.Th>
-                            <Table.Th>Operating Hours</Table.Th>
-                            <Table.Th>Standby</Table.Th>
-                            <Table.Th>Status</Table.Th>
-                            <Table.Th>Actions</Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                        {timesheets?.map((ts) => (
-                            <Table.Tr key={ts.id}>
-                                <Table.Td>{ts.work_date}</Table.Td>
-                                <Table.Td>{ts.operating_hours}</Table.Td>
-                                <Table.Td>{ts.standby_hours}</Table.Td>
-                                <Table.Td>
-                                    <StatusBadge status={ts.status} />
-                                </Table.Td>
-                                <Table.Td>
-                                    <Group gap="xs">
-                                        <ActionIcon variant="subtle" title="View Details">
-                                            <IconEye size={16} />
-                                        </ActionIcon>
-                                        {ts.status === 'submitted' && (
-                                            <>
-                                                <ActionIcon color="teal" variant="light" title="Verify">
-                                                    <IconCheck size={16} />
+                {activeRentalId ? (
+                    <Table>
+                        <TableHead>
+                            <TableRow>
+                                <TableTh>Date</TableTh>
+                                <TableTh>Operating Hours</TableTh>
+                                <TableTh>Standby</TableTh>
+                                <TableTh>Status</TableTh>
+                                <TableTh className="text-right">Actions</TableTh>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {timesheets && timesheets.length > 0 ? (
+                                timesheets.map((ts) => (
+                                    <TableRow key={ts.id}>
+                                        <TableTd>{ts.work_date}</TableTd>
+                                        <TableTd>{ts.operating_hours}</TableTd>
+                                        <TableTd>{ts.standby_hours}</TableTd>
+                                        <TableTd>
+                                            <StatusBadge status={ts.status} />
+                                        </TableTd>
+                                        <TableTd className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <ActionIcon title="View Details">
+                                                    <Eye size={16} />
                                                 </ActionIcon>
-                                                <ActionIcon color="red" variant="light" title="Reject">
-                                                    <IconX size={16} />
-                                                </ActionIcon>
-                                            </>
-                                        )}
-                                        {ts.status === 'verified' && (
-                                            <ActionIcon color="blue" variant="filled" title="Supervisor Approve" onClick={() => {
-                                                // TODO: Implement actual approval modal/call
-                                            }}>
-                                                <IconCheck size={16} />
-                                            </ActionIcon>
-                                        )}
-                                    </Group>
-                                </Table.Td>
-                            </Table.Tr>
-                        ))}
-                        {!timesheets?.length && (
-                            <Table.Tr>
-                                <Table.Td colSpan={5} align="center">No timesheets found</Table.Td>
-                            </Table.Tr>
-                        )}
-                    </Table.Tbody>
-                </Table>
-            )}
-        </Paper>
+                                                {ts.status === 'submitted' && (
+                                                    <>
+                                                        <ActionIcon variant="success" title="Verify">
+                                                            <Check size={16} />
+                                                        </ActionIcon>
+                                                        <ActionIcon variant="danger" title="Reject">
+                                                            <X size={16} />
+                                                        </ActionIcon>
+                                                    </>
+                                                )}
+                                                {ts.status === 'verified' && (
+                                                    <ActionIcon className="bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" title="Supervisor Approve">
+                                                        <Check size={16} />
+                                                    </ActionIcon>
+                                                )}
+                                            </div>
+                                        </TableTd>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                !isLoading && <TableEmpty colSpan={5} message="No timesheets found" />
+                            )}
+                        </TableBody>
+                    </Table>
+                ) : (
+                    <p className="text-center text-slate-500 py-8">Select a rental to view timesheets</p>
+                )}
+            </div>
+        </div>
     );
 }
