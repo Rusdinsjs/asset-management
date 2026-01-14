@@ -171,6 +171,17 @@ pub fn create_router(state: AppState) -> Router {
                 .delete(delete_employee),
         )
         .route("/api/employees/:id/user", post(create_employee_user))
+        // Departments
+        .route(
+            "/api/departments",
+            get(list_departments).post(create_department),
+        )
+        .route(
+            "/api/departments/:id",
+            get(get_department)
+                .put(update_department)
+                .delete(delete_department),
+        )
         // I'll rewrite this block more cleanly
         // RBAC
         .route("/api/rbac/roles", get(list_roles))

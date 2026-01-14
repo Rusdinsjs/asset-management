@@ -56,3 +56,5 @@ pub use user_handler::*;
 pub use work_order_handler::*;
 pub mod location_handler;
 pub use location_handler::*;
+pub mod department_handler;
+pub use department_handler::*;

@@ -44,3 +44,19 @@ note: to see what the problems were, use the option `--future-incompat-report`, 
 [2m2026-01-13T22:34:22.571828Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: fe4365bf-bda0-4ade-8b6a-9d5d5a330147
 [2m2026-01-13T22:35:43.520760Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 116155c0-8e7f-4051-905b-060d5d885429
 [2m2026-01-13T22:35:48.627269Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 82aeace5-e846-4ed4-8aa9-bc462ad05840
+[2m2026-01-13T22:43:38.439425Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: fe4365bf-bda0-4ade-8b6a-9d5d5a330147
+[2m2026-01-13T22:43:38.753441Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 772ce291-e0bc-4d1c-b60f-f20cc8634664
+[2m2026-01-13T22:43:38.756292Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 772ce291-e0bc-4d1c-b60f-f20cc8634664
+[2m2026-01-13T22:43:38.765477Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 59f726f2-3afe-441a-b17c-f841cf96e1c6
+[2m2026-01-14T00:00:00.241485Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Running scheduled job: Check Overdue Loans
+[2m2026-01-14T00:00:00.241637Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Overdue loans check completed
+[2m2026-01-14T00:27:04.956813Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 59f726f2-3afe-441a-b17c-f841cf96e1c6
+[2m2026-01-14T00:27:07.967754Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 929d2775-e3c3-405c-a548-86c664c9f3ef
+[2m2026-01-14T00:27:14.304121Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 7a1b4a5b-ee01-47fe-b64e-2e1c8d7822fc
+[2m2026-01-14T00:27:14.382083Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 7a1b4a5b-ee01-47fe-b64e-2e1c8d7822fc
+[2m2026-01-14T00:27:14.385880Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 77c64a87-46ee-40fc-971d-00df21187f49
+[2m2026-01-14T00:28:14.136536Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 929d2775-e3c3-405c-a548-86c664c9f3ef
+[2m2026-01-14T00:28:14.136917Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 77c64a87-46ee-40fc-971d-00df21187f49
+[2m2026-01-14T00:28:14.479784Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 66aa60a9-0d31-4344-b37f-abf65d111c43
+[2m2026-01-14T00:28:14.482642Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 66aa60a9-0d31-4344-b37f-abf65d111c43
+[2m2026-01-14T00:28:14.491937Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: c745329c-7b85-4919-9fa9-4d52f0871839

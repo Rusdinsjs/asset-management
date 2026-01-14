@@ -25,6 +25,7 @@ const ClientsView = lazy(() => import('./Clients').then(m => ({ default: m.Clien
 const LoansView = lazy(() => import('./Loans').then(m => ({ default: m.Loans })));
 const LocationsView = lazy(() => import('./Locations').then(m => ({ default: m.Locations })));
 const EmployeesView = lazy(() => import('./Employees').then(m => ({ default: m.Employees })));
+const DepartmentsView = lazy(() => import('./Departments').then(m => ({ default: m.Departments })));
 
 // Define the available tabs
 type TabId =
@@ -42,6 +43,7 @@ type TabId =
     | 'reports'
     | 'users'
     | 'audit'
+    | 'departments'
     | 'profile';
 
 interface NavItem {
@@ -89,6 +91,7 @@ const navItems: NavEntry[] = [
             { id: 'employees', icon: Users, label: 'Pegawai' },
             { id: 'locations', icon: MapPin, label: 'Lokasi' },
             { id: 'categories', icon: FolderTree, label: 'Kategori' },
+            { id: 'departments', icon: Building2, label: 'Departemen' },
         ]
     },
     { id: 'approvals', icon: ClipboardCheck, label: 'Approval Center', showBadge: true },
@@ -297,6 +300,7 @@ export function AdminDashboard() {
             case 'reports': return <ReportsView />;
             case 'users': return <UsersView />;
             case 'audit': return <AuditModeView />;
+            case 'departments': return <DepartmentsView />;
             case 'profile': return <ProfileView />;
             default: return <DashboardView />;
         }

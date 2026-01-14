@@ -1,7 +1,9 @@
 // AssetForm - Pure Tailwind Version
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Save, Car, Building2, DollarSign, FileText, Info, Plus, Trash2 } from 'lucide-react';
 import type { Asset, CreateAssetRequest } from '../../api/assets';
+import { departmentApi } from '../../api/departments';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
     Button,
@@ -30,6 +32,34 @@ interface AssetFormProps {
     onCancel: () => void;
     isLoading?: boolean;
 }
+
+const ATTRIBUTE_TEMPLATES: Record<string, string[]> = {
+    // Heavy Equipment
+    'CRUSHER': ['Capacity (Ton/Hr)', 'Power (KW)', 'Input Size (mm)', 'Output Size (mm)', 'CSS Range'],
+    'EXCAVATOR': ['Bucket Capacity (m3)', 'Operating Weight (kg)', 'Engine Power (HP)', 'Max Digging Depth'],
+    'LOADER': ['Bucket Capacity (m3)', 'Payload (kg)', 'Engine Power (HP)', 'Dumping Clearance'],
+    'DOZER': ['Blade Capacity (m3)', 'Operating Weight (kg)', 'Engine Power (HP)', 'Blade Type'],
+    'GRADER': ['Blade Width', 'Operating Weight', 'Engine Power'],
+    'COMPACTOR': ['Drum Width', 'Operating Weight', 'Vibration Frequency'],
+
+    // Plant & Machinery
+    'CONVEYOR': ['Belt Width (mm)', 'Length (m)', 'Speed (m/s)', 'Capacity (TPH)'],
+    'SCREEN': ['Deck Size', 'Number of Decks', 'Capacity (TPH)', 'Power (KW)'],
+    'GENSET': ['KVA Prime', 'KVA Standby', 'Fuel Consumption (L/h)', 'Phase', 'Voltage'],
+    'PUMP': ['Flow Rate (m3/h)', 'Head (m)', 'Power (KW)', 'Inlet/Outlet Size'],
+    'COMPRESSOR': ['Capacity (CFM)', 'Pressure (Bar)', 'Power (KW)'],
+
+    // Electrical
+    'MOTOR': ['Power (KW)', 'RPM', 'Voltage', 'Frame Size', 'IP Rating'],
+    'TRAFO': ['Capacity (KVA)', 'Primary Voltage', 'Secondary Voltage', 'Vector Group'],
+
+    // IT & General
+    'LAPTOP': ['Processor', 'RAM', 'Storage', 'Screen Size', 'OS'],
+    'PC': ['Processor', 'RAM', 'Storage', 'Monitor Size', 'OS'],
+    'UPS': ['Capacity (VA)', 'Backup Time', 'Battery Type'],
+    'SERVER': ['Processor', 'RAM', 'Storage (RAID)', 'Form Factor', 'OS'],
+    'AC': ['Capacity (PK/BTU)', 'Refrigerant', 'Power (Watt)', 'Type'],
+};
 
 export function AssetFormTailwind({ initialValues, categories, locations, onSubmit, onCancel, isLoading }: AssetFormProps) {
     const { user } = useAuthStore();
@@ -95,6 +125,12 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
         }
     };
 
+    const { data: departmentData } = useQuery({
+        queryKey: ['departments'],
+        queryFn: departmentApi.list,
+        staleTime: 1000 * 60 * 5 // 5 mins
+    });
+
     const categoryOptions = useMemo(() => {
         return categories.map(c => ({
             value: c.id,
@@ -108,6 +144,13 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
             label: l.name,
         }));
     }, [locations]);
+
+    const departmentOptions = useMemo(() => {
+        return departmentData?.map(d => ({
+            value: d.id,
+            label: d.name,
+        })) || [];
+    }, [departmentData]);
 
     const selectedCategory = categories.find(c => c.id === formData.category_id);
 
@@ -123,6 +166,34 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
         const code = selectedCategory.code || '';
         return code.includes('BANGUNAN') || code.includes('TANAH') || code.includes('INFRA');
     }, [selectedCategory]);
+
+    // Template Pre-fill Logic
+    useEffect(() => {
+        if (!selectedCategory || isVehicle || isBuilding) return;
+
+        // Only apply template if specs are not 'dirty' (have values entered)
+        // We allow overwriting if it's just keys without values (previous template)
+        const isDirty = customSpecs.some(s => s.value.trim() !== '');
+        if (isDirty) return;
+
+        const name = selectedCategory.name.toUpperCase();
+        const code = selectedCategory.code.toUpperCase();
+
+        let template: string[] | null = null;
+        for (const [key, fields] of Object.entries(ATTRIBUTE_TEMPLATES)) {
+            if (name.includes(key) || code.includes(key)) {
+                template = fields;
+                break;
+            }
+        }
+
+        if (template) {
+            setCustomSpecs(template.map(k => ({ key: k, value: '' })));
+        } else if (customSpecs.length === 0) {
+            // Default empty if no template matches and list is empty
+            setCustomSpecs([{ key: '', value: '' }]);
+        }
+    }, [selectedCategory?.id, isVehicle, isBuilding]);
 
     // Custom Spec Handlers
     const addSpec = () => {
@@ -289,12 +360,14 @@ export function AssetFormTailwind({ initialValues, categories, locations, onSubm
                             value={formData.model}
                             onChange={(e) => updateField('model', e.target.value)}
                         />
-                        <Input
+                        <Select
                             label="Department"
                             value={formData.department_id}
-                            onChange={(e) => updateField('department_id', e.target.value)}
+                            onChange={(val) => updateField('department_id', val)}
+                            options={departmentOptions}
+                            placeholder="Select department..."
+                            onCreate={() => window.open('/departments', '_blank')}
                             disabled={!!user?.department && user.role !== 'super_admin'}
-                            hint={!!user?.department && user.role !== 'super_admin' ? "Automatically assigned based on your profile" : undefined}
                         />
                         <Input
                             label="Serial Number"
