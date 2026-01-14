@@ -172,6 +172,7 @@ pub fn create_router(state: AppState) -> Router {
         )
         .route("/api/employees/:id/user", post(create_employee_user))
         // Departments
+        .route("/api/departments/tree", get(list_departments_tree))
         .route(
             "/api/departments",
             get(list_departments).post(create_department),

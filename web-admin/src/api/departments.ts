@@ -10,6 +10,10 @@ export interface Department {
     updated_at?: string;
 }
 
+export interface DepartmentTreeNode extends Department {
+    children: DepartmentTreeNode[];
+}
+
 export interface CreateDepartmentRequest {
     code: string;
     name: string;
@@ -22,6 +26,10 @@ export interface UpdateDepartmentRequest extends Partial<CreateDepartmentRequest
 export const departmentApi = {
     list: async () => {
         const response = await api.get<Department[]>('/departments');
+        return response.data;
+    },
+    tree: async () => {
+        const response = await api.get<DepartmentTreeNode[]>('/departments/tree');
         return response.data;
     },
     get: async (id: string) => {
@@ -40,3 +48,4 @@ export const departmentApi = {
         await api.delete(`/departments/${id}`);
     }
 };
+

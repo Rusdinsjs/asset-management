@@ -10,7 +10,7 @@ use serde_json::json;
 use sqlx::FromRow;
 use uuid::Uuid;
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Department {
     pub id: Uuid,
     pub code: String,
@@ -60,6 +60,43 @@ pub async fn list_departments(
             .map_err(internal_error)?;
 
     Ok(Json(departments))
+}
+
+/// Department tree node with children
+#[derive(Debug, Serialize)]
+pub struct DepartmentTreeNode {
+    #[serde(flatten)]
+    pub department: Department,
+    pub children: Vec<DepartmentTreeNode>,
+}
+
+/// Build tree from flat list of departments
+fn build_department_tree(
+    departments: Vec<Department>,
+    parent_id: Option<Uuid>,
+) -> Vec<DepartmentTreeNode> {
+    departments
+        .iter()
+        .filter(|d| d.parent_id == parent_id)
+        .map(|d| DepartmentTreeNode {
+            department: d.clone(),
+            children: build_department_tree(departments.clone(), Some(d.id)),
+        })
+        .collect()
+}
+
+/// List departments as tree structure
+pub async fn list_departments_tree(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<DepartmentTreeNode>>, (StatusCode, Json<serde_json::Value>)> {
+    let departments =
+        sqlx::query_as::<_, Department>("SELECT * FROM departments ORDER BY name ASC")
+            .fetch_all(&state.pool)
+            .await
+            .map_err(internal_error)?;
+
+    let tree = build_department_tree(departments, None);
+    Ok(Json(tree))
 }
 
 /// Get single department
