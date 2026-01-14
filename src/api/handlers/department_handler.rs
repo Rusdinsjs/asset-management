@@ -1,12 +1,41 @@
 use crate::api::server::AppState;
-use crate::models::department::{CreateDepartmentRequest, Department, UpdateDepartmentRequest};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     Json,
 };
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sqlx::FromRow;
 use uuid::Uuid;
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct Department {
+    pub id: Uuid,
+    pub code: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub parent_id: Option<Uuid>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateDepartmentRequest {
+    pub code: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub parent_id: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateDepartmentRequest {
+    pub code: Option<String>,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub parent_id: Option<Uuid>,
+}
 
 // Helper to map errors
 fn internal_error<E>(err: E) -> (StatusCode, Json<serde_json::Value>)
@@ -40,7 +69,7 @@ pub async fn get_department(
 ) -> Result<Json<Department>, (StatusCode, Json<serde_json::Value>)> {
     let department = sqlx::query_as::<_, Department>("SELECT * FROM departments WHERE id = $1")
         .bind(id)
-        .fetch_optional(&state.pool) // Using optional to handle not found
+        .fetch_optional(&state.pool)
         .await
         .map_err(internal_error)?
         .ok_or((
@@ -92,12 +121,6 @@ pub async fn update_department(
             Json(json!({ "error": "Department not found" })),
         ))?;
 
-    // Build update query dynamically or just set fields using COALESCE if simple
-    // Simple approach: Use separate updates or dynamic builder.
-    // I'll use a fixed query assuming partials in struct, but SQL needs help.
-    // Actually, to handle partial updates cleanly in raw SQL is verbose.
-    // Instead I'll fetch, merge, update.
-
     let current = sqlx::query_as::<_, Department>("SELECT * FROM departments WHERE id = $1")
         .bind(id)
         .fetch_one(&state.pool)
@@ -106,10 +129,7 @@ pub async fn update_department(
 
     let code = payload.code.unwrap_or(current.code);
     let name = payload.name.unwrap_or(current.name);
-    let description = payload.description.or(current.description); // If payload is None, keep existing. if Some, replace.
-                                                                   // Logic: payload.description is Option<String>. If Some("foo") -> "foo". If None -> current.description.
-                                                                   // Wait, UpdateDepartmentRequest should have Option<Option<String>> to allow nulling?
-                                                                   // For now assuming we just update text.
+    let description = payload.description.or(current.description);
     let parent_id = payload.parent_id.or(current.parent_id);
 
     let updated = sqlx::query_as::<_, Department>(

@@ -60,3 +60,5 @@ note: to see what the problems were, use the option `--future-incompat-report`, 
 [2m2026-01-14T00:28:14.479784Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 66aa60a9-0d31-4344-b37f-abf65d111c43
 [2m2026-01-14T00:28:14.482642Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 66aa60a9-0d31-4344-b37f-abf65d111c43
 [2m2026-01-14T00:28:14.491937Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: c745329c-7b85-4919-9fa9-4d52f0871839
+[2m2026-01-14T01:00:00.031939Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Running scheduled job: Check Maintenance Due
+[2m2026-01-14T01:00:00.108896Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Maintenance check completed

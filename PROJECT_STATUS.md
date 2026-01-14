@@ -1,12 +1,32 @@
 # Project Status Overview
 
-**Last Updated:** 2026-01-13
+**Last Updated:** 2026-01-14
 
 This document provides a high-level overview of the Asset Management System's current implementation status across all modules.
 
 ---
 
 ## 📋 Changelog
+
+### 2026-01-14 (Form Intelligence & Master Data)
+
+- **Departments Module (Create/Manage):**
+  - **Database:** Implemented `departments` table and API endpoints (`/api/departments`) with raw SQL handlers.
+  - **Frontend:** Created "Departments Manager" page (`Master Data -> Departemen`).
+  - **Integration:** Integrated dynamic Department selection in Asset Forms with "Quick Add" capability.
+- **Form Enhancements:**
+  - **Smart Attribute Templates:** Implemented auto-fill logic for asset specifications based on category (e.g., selecting "Crusher" pre-fills "Capacity", "Power", etc.).
+  - **Enhanced Select Component:** Added internal `onCreate` triggers to Dropdowns for seamless workflow (add item without leaving form).
+
+### 2026-01-14 (Form Intelligence & Master Data)
+
+- **Departments Module (Create/Manage):**
+  - **Database:** Implemented `departments` table and API endpoints (`/api/departments`) with raw SQL handlers.
+  - **Frontend:** Created "Departments Manager" page (`Master Data -> Departemen`).
+  - **Integration:** Integrated dynamic Department selection in Asset Forms with "Quick Add" capability.
+- **Form Enhancements:**
+  - **Smart Attribute Templates:** Implemented auto-fill logic for asset specifications based on category (e.g., selecting "Crusher" pre-fills "Capacity", "Power", etc.).
+  - **Enhanced Select Component:** Added internal `onCreate` triggers to Dropdowns for seamless workflow (add item without leaving form).
 
 ### 2026-01-13 (Frontend Architecture Overhaul)
 
@@ -36,9 +56,9 @@ This document provides a high-level overview of the Asset Management System's cu
 - **Features:** CRUD, QR Codes, Lifecycle tracking.
 - **Frontend:** Pure Tailwind Data Grid with filtering and Actions.
 
-### 2. Category Management
-- **Features:** Recursive Category Tree.
-- **Frontend:** Tailwind-based Tree View component.
+### 2. Master Data Engine (Categories, Locations, Departments)
+- **Features:** Recursive Trees (Categories/Locations), Organizational Departments.
+- **Frontend:** Tree Views, DataTables, and Form Integrations.
 
 ### 3. Authentication & RBAC
 - **Features:** JWT Auth + 4-Level Permission System (Admin, Manager, Supervisor, Operator).
