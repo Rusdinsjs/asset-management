@@ -1,4 +1,9 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.50s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.77s
 warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
 note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 2`
      Running `target\debug\asset-management.exe`
+
+thread 'main' (42324) panicked at src\main.rs:74:10:
+Failed to bind to address: Os { code: 10048, kind: AddrInUse, message: "Only one usage of each socket address (protocol/network address/port) is normally permitted." }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+error: process didn't exit successfully: `target\debug\asset-management.exe` (exit code: 101)

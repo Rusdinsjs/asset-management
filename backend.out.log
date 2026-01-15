@@ -1,7 +1,7 @@
-[2m2026-01-15T00:44:06.734022Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
-[2m2026-01-15T00:44:06.735173Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
-[2m2026-01-15T00:44:08.799037Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
-[2m2026-01-15T00:44:08.799267Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Running database migrations...
-[2m2026-01-15T00:44:08.809702Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Migrations applied successfully.
-[2m2026-01-15T00:44:08.812920Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
-[2m2026-01-15T00:44:08.820586Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080
+[2m2026-01-15T07:30:02.421629Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
+[2m2026-01-15T07:30:02.422185Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
+[2m2026-01-15T07:30:04.491997Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
+[2m2026-01-15T07:30:04.492225Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Running database migrations...
+[2m2026-01-15T07:30:04.512372Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Migrations applied successfully.
+[2m2026-01-15T07:30:04.516459Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
+[2m2026-01-15T07:30:04.524387Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080
