@@ -1,6 +1,6 @@
 // Reports Page - Pure Tailwind
 import React, { useState } from 'react';
-import { FileSpreadsheet, Download } from 'lucide-react';
+import { FileSpreadsheet, Download, TrendingUp, Calculator } from 'lucide-react';
 import { reportsApi } from '../api/reports';
 import {
     Button,
@@ -14,6 +14,8 @@ const Reports: React.FC = () => {
     const [endDate, setEndDate] = useState<Date | null>(null);
     const [loadingAssets, setLoadingAssets] = useState(false);
     const [loadingMaintenance, setLoadingMaintenance] = useState(false);
+    const [loadingRevenue, setLoadingRevenue] = useState(false);
+    const [loadingDepreciation, setLoadingDepreciation] = useState(false);
     const { success, error: showError } = useToast();
 
     const downloadFile = (data: Blob, filename: string) => {
@@ -59,6 +61,39 @@ const Reports: React.FC = () => {
         }
     };
 
+    const handleExportRevenue = async () => {
+        if (!startDate || !endDate) {
+            showError('Please select both start and end dates', 'Error');
+            return;
+        }
+
+        try {
+            setLoadingRevenue(true);
+            const start = startDate.toISOString().split('T')[0];
+            const end = endDate.toISOString().split('T')[0];
+            const data = await reportsApi.exportRentalRevenue(start, end);
+            downloadFile(data, `rental_revenue_${start}_to_${end}.csv`);
+            success('Rental revenue report exported successfully', 'Success');
+        } catch (error) {
+            showError('Failed to export rental revenue', 'Error');
+        } finally {
+            setLoadingRevenue(false);
+        }
+    };
+
+    const handleExportDepreciation = async () => {
+        try {
+            setLoadingDepreciation(true);
+            const data = await reportsApi.exportDepreciation();
+            downloadFile(data, `asset_depreciation_${new Date().toISOString().split('T')[0]}.csv`);
+            success('Asset depreciation report exported successfully', 'Success');
+        } catch (error) {
+            showError('Failed to export asset depreciation', 'Error');
+        } finally {
+            setLoadingDepreciation(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-bold text-white">Reports & Exports</h1>
@@ -82,6 +117,30 @@ const Reports: React.FC = () => {
                         leftIcon={<Download size={14} />}
                         onClick={handleExportAssets}
                         loading={loadingAssets}
+                        className="w-full"
+                    >
+                        Export CSV
+                    </Button>
+                </Card>
+
+                {/* Asset Depreciation Card */}
+                <Card padding="lg">
+                    <div className="flex items-start justify-between mb-4">
+                        <h3 className="text-lg font-medium text-white">Asset Depreciation</h3>
+                        <div className="p-2 bg-slate-800 rounded-lg">
+                            <Calculator size={24} className="text-slate-400" />
+                        </div>
+                    </div>
+
+                    <p className="text-sm text-slate-400 mb-6 min-h-[40px]">
+                        Export calculated book value and depreciation for all assets with financial data.
+                    </p>
+
+                    <Button
+                        variant="primary"
+                        leftIcon={<Download size={14} />}
+                        onClick={handleExportDepreciation}
+                        loading={loadingDepreciation}
                         className="w-full"
                     >
                         Export CSV
@@ -122,6 +181,48 @@ const Reports: React.FC = () => {
                             leftIcon={<Download size={14} />}
                             onClick={handleExportMaintenance}
                             loading={loadingMaintenance}
+                            disabled={!startDate || !endDate}
+                            className="w-full"
+                        >
+                            Export CSV
+                        </Button>
+                    </div>
+                </Card>
+
+                {/* Rental Revenue Card */}
+                <Card padding="lg">
+                    <div className="flex items-start justify-between mb-4">
+                        <h3 className="text-lg font-medium text-white">Rental Revenue</h3>
+                        <div className="p-2 bg-slate-800 rounded-lg">
+                            <TrendingUp size={24} className="text-slate-400" />
+                        </div>
+                    </div>
+
+                    <p className="text-sm text-slate-400 mb-6">
+                        Export rental revenue data from approved billing periods within a date range.
+                    </p>
+
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <DateInput
+                                label="Start Date"
+                                value={startDate}
+                                onChange={setStartDate}
+                                placeholder="Start Date"
+                            />
+                            <DateInput
+                                label="End Date"
+                                value={endDate}
+                                onChange={setEndDate}
+                                placeholder="End Date"
+                            />
+                        </div>
+
+                        <Button
+                            variant="primary"
+                            leftIcon={<Download size={14} />}
+                            onClick={handleExportRevenue}
+                            loading={loadingRevenue}
                             disabled={!startDate || !endDate}
                             className="w-full"
                         >

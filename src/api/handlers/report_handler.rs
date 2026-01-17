@@ -9,9 +9,9 @@ use crate::api::server::AppState;
 use crate::shared::errors::AppError;
 
 #[derive(Deserialize)]
-pub struct MaintenanceReportParams {
-    start_date: NaiveDate,
-    end_date: NaiveDate,
+pub struct ReportDateRangeParams {
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
 }
 
 pub async fn export_assets(State(state): State<AppState>) -> Result<Response, AppError> {
@@ -32,7 +32,7 @@ pub async fn export_assets(State(state): State<AppState>) -> Result<Response, Ap
 
 pub async fn export_maintenance(
     State(state): State<AppState>,
-    Query(params): Query<MaintenanceReportParams>,
+    Query(params): Query<ReportDateRangeParams>,
 ) -> Result<Response, AppError> {
     let csv_content = state
         .report_service
@@ -45,6 +45,47 @@ pub async fn export_maintenance(
             (
                 "Content-Disposition",
                 "attachment; filename=\"maintenance_logs.csv\"",
+            ),
+        ],
+        csv_content,
+    )
+        .into_response())
+}
+
+pub async fn export_rental_revenue(
+    State(state): State<AppState>,
+    Query(params): Query<ReportDateRangeParams>,
+) -> Result<Response, AppError> {
+    let csv_content = state
+        .report_service
+        .generate_rental_revenue_csv(params.start_date, params.end_date)
+        .await?;
+
+    Ok((
+        [
+            ("Content-Type", "text/csv"),
+            (
+                "Content-Disposition",
+                "attachment; filename=\"rental_revenue.csv\"",
+            ),
+        ],
+        csv_content,
+    )
+        .into_response())
+}
+
+pub async fn export_depreciation(State(state): State<AppState>) -> Result<Response, AppError> {
+    let csv_content = state
+        .report_service
+        .generate_asset_depreciation_csv()
+        .await?;
+
+    Ok((
+        [
+            ("Content-Type", "text/csv"),
+            (
+                "Content-Disposition",
+                "attachment; filename=\"asset_depreciation.csv\"",
             ),
         ],
         csv_content,

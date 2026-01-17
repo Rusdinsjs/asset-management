@@ -1,7 +1,12 @@
-[2m2026-01-15T07:30:02.421629Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
-[2m2026-01-15T07:30:02.422185Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
-[2m2026-01-15T07:30:04.491997Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
-[2m2026-01-15T07:30:04.492225Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Running database migrations...
-[2m2026-01-15T07:30:04.512372Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Migrations applied successfully.
-[2m2026-01-15T07:30:04.516459Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
-[2m2026-01-15T07:30:04.524387Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080
+[2m2026-01-17T01:30:09.201449Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Starting Asset Management Backend v0.1.0
+[2m2026-01-17T01:30:09.201832Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Environment: development
+[2m2026-01-17T01:30:11.258560Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Database connected successfully
+[2m2026-01-17T01:30:11.261334Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Running database migrations...
+[2m2026-01-17T01:30:11.269088Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Migrations applied successfully.
+[2m2026-01-17T01:30:11.270431Z[0m [32m INFO[0m [2masset_management::application::services::scheduler_service[0m[2m:[0m Scheduler started
+[2m2026-01-17T01:30:11.274663Z[0m [32m INFO[0m [2masset_management[0m[2m:[0m Server listening on http://0.0.0.0:8080
+[2m2026-01-17T01:32:39.249639Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: 8307d08f-1606-4f16-8694-e8501b9dd93f
+[2m2026-01-17T01:33:26.929111Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: 8307d08f-1606-4f16-8694-e8501b9dd93f
+[2m2026-01-17T01:33:27.308996Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: a73e8160-2548-4971-b129-3f3a7fede56a
+[2m2026-01-17T01:33:40.844411Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m WebSocket disconnected: a73e8160-2548-4971-b129-3f3a7fede56a
+[2m2026-01-17T01:33:41.221097Z[0m [32m INFO[0m [2masset_management::api::handlers::notification_ws[0m[2m:[0m New WebSocket connection: af568883-11a6-4259-8d53-7bd4231ec173

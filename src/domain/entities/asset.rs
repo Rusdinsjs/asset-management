@@ -129,6 +129,78 @@ impl Asset {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Duration;
+    use rust_decimal_macros::dec;
+
+    #[test]
+    fn test_asset_new() {
+        let category_id = Uuid::new_v4();
+        let asset = Asset::new(
+            "TEST-001".to_string(),
+            "Test Asset".to_string(),
+            category_id,
+        );
+
+        assert_eq!(asset.asset_code, "TEST-001");
+        assert_eq!(asset.name, "Test Asset");
+        assert_eq!(asset.category_id, category_id);
+        assert_eq!(asset.status, "planning");
+    }
+
+    #[test]
+    fn test_asset_availability() {
+        let mut asset = Asset::new("T1".to_string(), "T1".to_string(), Uuid::new_v4());
+
+        asset.status = "available".to_string();
+        assert!(asset.is_available());
+
+        asset.status = "in_inventory".to_string();
+        assert!(asset.is_available());
+
+        asset.status = "rented_out".to_string();
+        assert!(!asset.is_available());
+    }
+
+    #[test]
+    fn test_can_assign() {
+        let mut asset = Asset::new("T1".to_string(), "T1".to_string(), Uuid::new_v4());
+
+        asset.status = "available".to_string();
+        assert!(asset.can_assign());
+
+        asset.status = "disposed".to_string();
+        assert!(!asset.can_assign());
+
+        asset.status = "lost_stolen".to_string();
+        assert!(!asset.can_assign());
+    }
+
+    #[test]
+    fn test_depreciation_calculation() {
+        let mut asset = Asset::new("T1".to_string(), "T1".to_string(), Uuid::new_v4());
+
+        // Setup financial data
+        asset.purchase_price = Some(dec!(1200.00));
+        asset.useful_life_months = Some(12);
+        asset.residual_value = Some(dec!(0.00));
+
+        // Case 1: Purchased 6 months ago (should be 600)
+        asset.purchase_date = Some(Utc::now().date_naive() - Duration::days(180));
+        let value = asset.calculate_book_value().unwrap();
+        // 180 days / 30 = 6 months. (1200 - 0) / 12 * 6 = 600.
+        // Note: num_days() / 30 is a bit rough but it's what the impl does.
+        assert_eq!(value, dec!(600.00));
+
+        // Case 2: Purchased 13 months ago (should be residual 0)
+        asset.purchase_date = Some(Utc::now().date_naive() - Duration::days(400));
+        let value = asset.calculate_book_value().unwrap();
+        assert_eq!(value, dec!(0.00));
+    }
+}
+
 /// Asset for list view (simplified)
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct AssetSummary {

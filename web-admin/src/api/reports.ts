@@ -15,4 +15,19 @@ export const reportsApi = {
         });
         return response.data;
     },
+
+    exportRentalRevenue: async (startDate: string, endDate: string) => {
+        const response = await api.get('/reports/rental-revenue', {
+            params: { start_date: startDate, end_date: endDate },
+            responseType: 'blob',
+        });
+        return response.data;
+    },
+
+    exportDepreciation: async () => {
+        const response = await api.get('/reports/depreciation', {
+            responseType: 'blob',
+        });
+        return response.data;
+    },
 };

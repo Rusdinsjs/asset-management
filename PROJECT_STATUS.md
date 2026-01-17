@@ -18,7 +18,7 @@ This document provides a high-level overview of the Asset Management System's cu
   - **Smart Attribute Templates:** Implemented auto-fill logic for asset specifications based on category (e.g., selecting "Crusher" pre-fills "Capacity", "Power", etc.).
   - **Enhanced Select Component:** Added internal `onCreate` triggers to Dropdowns for seamless workflow (add item without leaving form).
 
-### 2026-01-14 (Form Intelligence & Master Data)
+### 2026-01-14 (Departments & Form Enhancements)
 
 - **Departments Module (Create/Manage):**
   - **Database:** Implemented `departments` table and API endpoints (`/api/departments`) with raw SQL handlers.
@@ -53,18 +53,22 @@ This document provides a high-level overview of the Asset Management System's cu
 ## 🟢 Core Modules (Stable/Complete)
 
 ### 1. Asset Management (`src/api/handlers/asset_handler.rs`)
+
 - **Features:** CRUD, QR Codes, Lifecycle tracking.
 - **Frontend:** Pure Tailwind Data Grid with filtering and Actions.
 
 ### 2. Master Data Engine (Categories, Locations, Departments)
+
 - **Features:** Recursive Trees (Categories/Locations), Organizational Departments.
 - **Frontend:** Tree Views, DataTables, and Form Integrations.
 
 ### 3. Authentication & RBAC
+
 - **Features:** JWT Auth + 4-Level Permission System (Admin, Manager, Supervisor, Operator).
 - **Frontend:** Secure Layouts and Route Guards.
 
 ### 4. Lifecycle Management
+
 - **Features:** State machine transitions (Planning → Disposed).
 - **Frontend:** Drag-and-drop Kanban or Status-based workflow.
 
@@ -73,16 +77,19 @@ This document provides a high-level overview of the Asset Management System's cu
 ## 🟡 Advanced Modules (Feature Complete / Polishing)
 
 ### 5. Work Order System
+
 - **Status:** **Feature Complete**
 - **Details:** Preventive maintenance, repair tickets, cost tracking (Labor + Parts).
 - **UI:** Tabbed interfaces for Tasks and Parts management.
 
 ### 6. Loans Module (Internal Lending)
+
 - **Status:** **Frontend Complete / Backend Integrated**
 - **Features:** Employee Checkout/Checkin flow with condition logging.
 - **UI:** Unified dashboard for Active, Overdue, and Pending requests.
 
 ### 7. Rental & Client Management
+
 - **Status:** **High Fidelity UI**
 - **Features:**
   - **Client & Rates:** Template-based pricing.

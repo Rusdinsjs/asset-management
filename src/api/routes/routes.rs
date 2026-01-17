@@ -220,6 +220,14 @@ pub fn create_router(state: AppState) -> Router {
             "/api/reports/maintenance",
             get(report_handler::export_maintenance),
         )
+        .route(
+            "/api/reports/rental-revenue",
+            get(report_handler::export_rental_revenue),
+        )
+        .route(
+            "/api/reports/depreciation",
+            get(report_handler::export_depreciation),
+        )
         .route("/api/dashboard", get(get_dashboard_stats))
         .route("/api/dashboard/activity", get(get_recent_activities))
         .route("/api/dashboard/depreciation", get(get_depreciation_summary))
